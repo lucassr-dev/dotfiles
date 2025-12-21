@@ -22,6 +22,9 @@ SELECTED_OMP_THEME=""
 # Prévia de temas (best-effort)
 # ═══════════════════════════════════════════════════════════
 
+THEME_PREVIEW_MAX_WIDTH=1280
+THEME_PREVIEW_MAX_HEIGHT=530
+
 theme_preview_cache_dir() {
   local base="${XDG_CACHE_HOME:-$HOME/.cache}"
   echo "$base/dotfiles/theme-previews"
@@ -50,15 +53,17 @@ theme_preview_renderer() {
 theme_preview_resize_image() {
   local src="$1"
   local dest="$2"
+  local width="$THEME_PREVIEW_MAX_WIDTH"
+  local height="$THEME_PREVIEW_MAX_HEIGHT"
 
   if [[ -f "$dest" ]] && [[ "$dest" -nt "$src" ]]; then
     return 0
   fi
 
   if has_cmd magick; then
-    magick "$src" -strip -trim +repage -resize 900x300\> "$dest" 2>/dev/null && return 0
+    magick "$src" -strip -trim +repage -resize "${width}x${height}>" "$dest" 2>/dev/null && return 0
   elif has_cmd convert; then
-    convert "$src" -strip -trim +repage -resize 900x300\> "$dest" 2>/dev/null && return 0
+    convert "$src" -strip -trim +repage -resize "${width}x${height}>" "$dest" 2>/dev/null && return 0
   fi
 
   return 1
@@ -103,7 +108,9 @@ show_theme_preview() {
     local renderer
     renderer="$(theme_preview_renderer || true)"
     local render_path="$image_path"
-    local resized_path="${image_path%.*}-preview.${image_path##*.}"
+    local width="$THEME_PREVIEW_MAX_WIDTH"
+    local height="$THEME_PREVIEW_MAX_HEIGHT"
+    local resized_path="${image_path%.*}-preview-${width}x${height}.${image_path##*.}"
     if theme_preview_resize_image "$image_path" "$resized_path"; then
       render_path="$resized_path"
     fi
@@ -485,6 +492,7 @@ ask_starship_preset() {
     msg ""
 
     local choice=""
+    local clear_preview_before_render=0
     menu_select_single "Selecione o preset do Starship" "Digite sua escolha" choice \
       "Catppuccin Powerline - Cores pastel + powerline + 4 sabores" \
       "Tokyo Night - Esquema escuro elegante" \
@@ -517,7 +525,8 @@ ask_starship_preset() {
           4) SELECTED_CATPPUCCIN_FLAVOR="catppuccin_macchiato" ;;
         esac
 
-        msg "  ✅ Sabor selecionado: ${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_}"
+        msg "  ✅ Selecionado: ${SELECTED_STARSHIP_PRESET} (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
+        clear_preview_before_render=1
         ;;
       2)
         SELECTED_STARSHIP_PRESET="tokyo-night"
@@ -541,21 +550,32 @@ ask_starship_preset() {
         ;;
     esac
 
+    if [[ $clear_preview_before_render -eq 1 ]]; then
+      if declare -F clear_screen >/dev/null; then
+        clear_screen
+      else
+        clear
+      fi
+    fi
     preview_starship_preset "$SELECTED_STARSHIP_PRESET"
     if [[ "$SELECTED_STARSHIP_PRESET" == "catppuccin-powerline" ]]; then
-      msg "  🎨 Prévia inclui 4 sabores: Mocha, Latte, Frappe, Macchiato."
+      msg "  🗺️  Legenda da imagem (2x2):"
+      msg "  • Topo-esquerda: Latte"
+      msg "  • Topo-direita: Frappe"
+      msg "  • Baixo-esquerda: Macchiato"
+      msg "  • Baixo-direita: Mocha"
       if [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]]; then
-        msg "  ✅ Sabor selecionado: ${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_}"
+        local flavor_pos=""
+        case "$SELECTED_CATPPUCCIN_FLAVOR" in
+          catppuccin_latte) flavor_pos="topo-esquerda" ;;
+          catppuccin_frappe) flavor_pos="topo-direita" ;;
+          catppuccin_macchiato) flavor_pos="baixo-esquerda" ;;
+          catppuccin_mocha) flavor_pos="baixo-direita" ;;
+        esac
+        msg "  ✅ Selecionado: ${SELECTED_STARSHIP_PRESET} (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_}, ${flavor_pos})"
       fi
-      msg "  ℹ️  A imagem é um comparativo; o sabor aplicado será o selecionado."
       msg ""
     fi
-    if [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]]; then
-      print_selection_summary "✨ Preset Starship" "$SELECTED_STARSHIP_PRESET (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
-    else
-      print_selection_summary "✨ Preset Starship" "$SELECTED_STARSHIP_PRESET"
-    fi
-    msg ""
     local confirm=""
     while true; do
       read -r -p "👉 Pressione Enter para continuar ou B para voltar: " confirm
