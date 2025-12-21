@@ -26,6 +26,7 @@ INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_FISH="${INSTALL_FISH:-1}"
 INSTALL_BASE_DEPS=1  # Dependências base (pode ser desativado pelo usuário)
 INSTALL_VSCODE_EXTENSIONS=0
+BASE_DEPS_INSTALLED=0
 PRIVATE_DIR="${DOTFILES_PRIVATE_DIR:-}"
 PRIVATE_SHARED=""
 
@@ -476,8 +477,12 @@ ask_vscode_extensions() {
   fi
 
   show_section_header "🧩 VS Code - Extensões"
-  msg "Extensões encontradas em: shared/vscode/extensions.txt"
-  msg "Você pode editar esse arquivo antes da instalação."
+  msg "Este script pode aplicar automaticamente suas configurações do VS Code:"
+  msg "  • Settings: shared/vscode/settings.json"
+  msg "  • Extensões: shared/vscode/extensions.txt"
+  msg ""
+  msg "Se quiser usar suas próprias configs, edite esses arquivos antes de continuar."
+  msg "Dica: você pode abrir e ajustar agora, e depois voltar para esta tela."
   msg ""
 
   if ask_yes_no "Deseja instalar as extensões do VS Code?"; then
@@ -1485,6 +1490,15 @@ ensure_atuin() {
 
 
 install_prerequisites() {
+  if [[ "${INSTALL_BASE_DEPS:-1}" -ne 1 ]]; then
+    msg "  ⏭️  Dependências base desativadas (INSTALL_BASE_DEPS=0)"
+    BASE_DEPS_INSTALLED=1
+    return 0
+  fi
+  if [[ "${BASE_DEPS_INSTALLED:-0}" -eq 1 ]]; then
+    return 0
+  fi
+  BASE_DEPS_INSTALLED=1
   case "$TARGET_OS" in
     linux|wsl2)
       install_linux_base_dependencies
@@ -2022,6 +2036,7 @@ main() {
   # Tela de dependências base (informativa - apenas Enter)
   ask_base_dependencies
   pause_before_next_section
+  install_prerequisites
 
   # Shells (obrigatório - Zsh/Fish/Ambos)
   clear

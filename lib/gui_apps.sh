@@ -133,9 +133,9 @@ ask_gui_apps() {
       msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       msg "  O Brewfile contém apps adicionais (Arc, iTerm2, Raycast, Rectangle, etc.)"
       if ask_yes_no "  Instalar apps do Brewfile?"; then
-        INSTALL_BREWFILE=true
+        export INSTALL_BREWFILE=true
       else
-        INSTALL_BREWFILE=false
+        export INSTALL_BREWFILE=false
       fi
     fi
 

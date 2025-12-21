@@ -298,32 +298,16 @@ ask_shells() {
 
   msg "Shells são interpretadores de comandos que você usa no terminal."
   msg ""
-  msg "📝 Descrição dos shells disponíveis:"
-  msg ""
-  msg "  • Zsh (Z Shell)"
-  msg "    - Shell poderoso e altamente customizável"
-  msg "    - Grande ecossistema de plugins (Oh My Zsh, Prezto)"
-  msg "    - Compatível com Bash na maioria dos casos"
-  msg "    - Themes: Oh My Zsh + Powerlevel10k, Starship, Oh My Posh"
-  msg "    - Ideal para: usuários que querem customização total"
-  msg ""
-  msg "  • Fish (Friendly Interactive Shell)"
-  msg "    - Sintaxe moderna e amigável (não POSIX)"
-  msg "    - Autosugestões e syntax highlighting nativos"
-  msg "    - Configuração via web interface (fish_config)"
-  msg "    - Themes: Starship, Oh My Posh, Fisher plugins"
-  msg "    - Ideal para: quem quer algo funcional 'out of the box'"
-  msg ""
   msg "💡 Você pode instalar ambos e alternar quando quiser com:"
   msg "   chsh -s \$(which zsh)  # ou \$(which fish)"
   msg ""
 
   local choice=""
   menu_select_single "Qual(is) shell(s) você deseja instalar?" "Digite sua escolha" choice \
-    "Zsh apenas" \
-    "Fish apenas" \
-    "Ambos (Zsh + Fish)" \
-    "Nenhum (manter shell atual)"
+    "Zsh - Shell poderoso e altamente customizável" \
+    "Fish - Sintaxe moderna e autosugestões nativas" \
+    "Ambos (Zsh + Fish) - Zsh para customização total + Fish out of the box" \
+    "Nenhum - manter shell atual"
 
   case "$choice" in
     1)
@@ -386,17 +370,20 @@ ask_base_dependencies() {
       msg "  • gnupg            - Criptografia e assinaturas digitais"
       msg "  • unzip/zip        - Compressão e descompressão de arquivos"
       msg "  • fontconfig       - Gerenciamento de fontes"
+      msg "  • imagemagick      - Redimensionar prévias de imagem"
       ;;
     macos)
       msg "  • git              - Sistema de controle de versão"
       msg "  • curl             - Ferramenta para transferência de dados"
       msg "  • wget             - Download de arquivos"
+      msg "  • imagemagick      - Redimensionar prévias de imagem"
       msg ""
       msg "  ℹ️  Instalação via Homebrew"
       ;;
     windows)
       msg "  • Git              - Sistema de controle de versão"
       msg "  • Windows Terminal - Terminal moderno da Microsoft"
+      msg "  • ImageMagick      - Redimensionar prévias de imagem"
       msg ""
       msg "  ℹ️  Instalação via winget"
       ;;
@@ -404,5 +391,6 @@ ask_base_dependencies() {
 
   msg ""
   msg "✅ Estas dependências são fundamentais para o funcionamento correto do instalador."
+  msg "ℹ️  Após continuar, a instalação das dependências será iniciada."
   msg ""
 }

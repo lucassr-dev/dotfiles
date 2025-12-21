@@ -72,6 +72,7 @@ install_windows_base_dependencies() {
   # Dependências essenciais
   winget_install "Git.Git" "Git" "critical"
   winget_install "Microsoft.WindowsTerminal" "Windows Terminal" "critical"
+  winget_install "ImageMagick.ImageMagick" "ImageMagick" "critical"
 }
 
 # ═══════════════════════════════════════════════════════════

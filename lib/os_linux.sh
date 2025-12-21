@@ -122,6 +122,7 @@ install_linux_base_dependencies() {
         unzip
         zip
         fontconfig
+        imagemagick
       )
       ;;
     dnf)
@@ -138,6 +139,7 @@ install_linux_base_dependencies() {
         unzip
         zip
         fontconfig
+        ImageMagick
       )
       ;;
     pacman)
@@ -152,6 +154,7 @@ install_linux_base_dependencies() {
         unzip
         zip
         fontconfig
+        imagemagick
       )
       ;;
     zypper)
@@ -168,6 +171,7 @@ install_linux_base_dependencies() {
         unzip
         zip
         fontconfig
+        ImageMagick
       )
       ;;
   esac

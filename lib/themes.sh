@@ -47,6 +47,23 @@ theme_preview_renderer() {
   return 1
 }
 
+theme_preview_resize_image() {
+  local src="$1"
+  local dest="$2"
+
+  if [[ -f "$dest" ]] && [[ "$dest" -nt "$src" ]]; then
+    return 0
+  fi
+
+  if has_cmd magick; then
+    magick "$src" -strip -trim +repage -resize 900x300\> "$dest" 2>/dev/null && return 0
+  elif has_cmd convert; then
+    convert "$src" -strip -trim +repage -resize 900x300\> "$dest" 2>/dev/null && return 0
+  fi
+
+  return 1
+}
+
 download_preview_image() {
   local out="$1"
   shift
@@ -85,11 +102,16 @@ show_theme_preview() {
   if [[ -f "$image_path" ]]; then
     local renderer
     renderer="$(theme_preview_renderer || true)"
+    local render_path="$image_path"
+    local resized_path="${image_path%.*}-preview.${image_path##*.}"
+    if theme_preview_resize_image "$image_path" "$resized_path"; then
+      render_path="$resized_path"
+    fi
     case "$renderer" in
-      kitty) kitty +kitten icat --transfer-mode=stream "$image_path" >/dev/null 2>&1 ;;
-      imgcat) imgcat "$image_path" >/dev/null 2>&1 ;;
-      sixel) img2sixel "$image_path" >/dev/null 2>&1 ;;
-      chafa) chafa -s 80x20 "$image_path" >/dev/null 2>&1 ;;
+      kitty) kitty +kitten icat --transfer-mode=stream --align=left "$render_path" 2>/dev/null ;;
+      imgcat) imgcat "$render_path" 2>/dev/null ;;
+      sixel) img2sixel "$render_path" 2>/dev/null ;;
+      chafa) chafa -s 80x20 "$render_path" 2>/dev/null ;;
       *) ;;
     esac
     if [[ -z "$renderer" ]]; then
@@ -154,6 +176,29 @@ preview_starship_preset() {
     "$img"
 }
 
+resolve_oh_my_posh_preview_url() {
+  local theme="$1"
+  local html url
+
+  html="$(curl -fsSL https://ohmyposh.dev/docs/themes 2>/dev/null | tr '\n' ' ')"
+  [[ -z "$html" ]] && return 1
+
+  url="$(printf '%s' "$html" | awk -v theme="$theme" '{
+    split($0, parts, "id=\"" theme "\"");
+    if (length(parts) < 2) exit;
+    if (match(parts[2], /src="[^"]+"/)) {
+      print substr(parts[2], RSTART + 5, RLENGTH - 6);
+      exit;
+    }
+  }')"
+
+  [[ -z "$url" ]] && return 1
+  if [[ "$url" == /* ]]; then
+    url="https://ohmyposh.dev${url}"
+  fi
+  printf '%s' "$url"
+}
+
 preview_oh_my_posh() {
   local theme="$1"
   local cache_dir
@@ -163,7 +208,17 @@ preview_oh_my_posh() {
   local url2="https://ohmyposh.dev/assets/themes/${theme}.png"
   local url3="https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/website/static/themes/${theme}.webp"
   local url4="https://ohmyposh.dev/assets/themes/${theme}.webp"
-  download_preview_image "$img" "$url1" "$url2" "$url3" "$url4" || img=""
+
+  if ! download_preview_image "$img" "$url1" "$url2" "$url3" "$url4"; then
+    local resolved_url=""
+    resolved_url="$(resolve_oh_my_posh_preview_url "$theme" || true)"
+    if [[ -n "$resolved_url" ]]; then
+      download_preview_image "$img" "$resolved_url" || img=""
+    else
+      img=""
+    fi
+  fi
+
   show_theme_preview "Oh My Posh ($theme)" \
     "Tema do Oh My Posh com preset pronto." \
     "https://ohmyposh.dev/docs/themes" \
@@ -196,54 +251,8 @@ ask_themes() {
       return 0
     fi
 
-    msg "📝 Temas disponíveis para os shells selecionados:"
+    msg "📝 Opções disponíveis:"
     msg ""
-
-    # Mostrar temas disponíveis baseado nos shells
-    if [[ $has_zsh -eq 1 ]]; then
-      msg "  🔷 Para Zsh:"
-      msg ""
-      msg "    1. Oh My Zsh + Powerlevel10k"
-      msg "       - Framework completo com centenas de plugins"
-      msg "       - Powerlevel10k: tema ultra-rápido e customizável"
-      msg "       - Wizard de configuração interativo"
-      msg "       - Ideal para: máximo de customização"
-      msg "       - Requer: Nerd Fonts"
-      msg ""
-      msg "    2. Starship"
-      msg "       - Prompt minimalista e super rápido"
-      msg "       - Configuração via TOML simples"
-      msg "       - Presets prontos (Catppuccin, Tokyo Night, etc)"
-      msg "       - Cross-shell (funciona em Zsh e Fish)"
-      msg "       - Ideal para: simplicidade e performance"
-      msg "       - Requer: Nerd Fonts"
-      msg ""
-      msg "    3. Oh My Posh"
-      msg "       - Prompt bonito e configurável"
-      msg "       - Centenas de temas prontos"
-      msg "       - Cross-shell e cross-platform"
-      msg "       - Ideal para: consistência entre Zsh/Fish/PowerShell"
-      msg "       - Requer: Nerd Fonts"
-      msg ""
-    fi
-
-    if [[ $has_fish -eq 1 ]]; then
-      msg "  🔶 Para Fish:"
-      msg ""
-      msg "    1. Starship"
-      msg "       - Prompt minimalista e super rápido"
-      msg "       - Mesmo tema em Zsh e Fish"
-      msg "       - Presets prontos"
-      msg "       - Ideal para: simplicidade"
-      msg "       - Requer: Nerd Fonts"
-      msg ""
-      msg "    2. Oh My Posh"
-      msg "       - Prompt configurável"
-      msg "       - Cross-shell"
-      msg "       - Ideal para: consistência"
-      msg "       - Requer: Nerd Fonts"
-      msg ""
-    fi
 
     msg "⚠️  IMPORTANTE:"
     msg ""
@@ -260,10 +269,12 @@ ask_themes() {
     # Opções de temas baseadas nos shells
     local theme_options=()
     local theme_compat=()
+    local theme_desc=()
 
     if [[ $has_zsh -eq 1 ]]; then
       theme_options+=("Oh My Zsh + Powerlevel10k")
       theme_compat+=("zsh")
+      theme_desc+=("Framework completo + prompt ultra-rápido")
     fi
 
     # Starship funciona em ambos
@@ -273,6 +284,7 @@ ask_themes() {
       [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
       theme_options+=("Starship")
       theme_compat+=("$compat")
+      theme_desc+=("Prompt minimalista com presets prontos")
     fi
 
     # Oh My Posh funciona em ambos
@@ -282,12 +294,13 @@ ask_themes() {
       [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
       theme_options+=("Oh My Posh")
       theme_compat+=("$compat")
+      theme_desc+=("Prompt configurável com centenas de temas")
     fi
 
     # Mostrar opções com compatibilidade
     local idx=1
     for i in "${!theme_options[@]}"; do
-      msg "  $idx) ${theme_options[$i]} (${theme_compat[$i]})"
+      msg "  $idx) ${theme_options[$i]} (${theme_compat[$i]}) - ${theme_desc[$i]}"
       idx=$((idx + 1))
     done
     msg ""
@@ -350,28 +363,27 @@ ask_themes() {
       print_selection_summary "🎨 Temas" "(nenhum)"
     fi
 
-    # Mostrar prévia de cada tema selecionado
-    for theme in "${selected_themes[@]}"; do
-      case "$theme" in
-        "Oh My Zsh + Powerlevel10k")
-          preview_powerlevel10k
-          ;;
-        "Starship")
-          show_theme_preview "Starship" \
-            "Prompt minimalista e super rápido. Você escolherá o preset depois." \
-            "https://starship.rs/presets/" \
-            ""
-          ;;
-        "Oh My Posh")
-          show_theme_preview "Oh My Posh" \
-            "Prompt bonito e configurável. Você escolherá o tema depois." \
-            "https://ohmyposh.dev/docs/themes" \
-            ""
-          ;;
-      esac
-    done
+    if [[ $INSTALL_STARSHIP -eq 1 || $INSTALL_OH_MY_POSH -eq 1 ]]; then
+      msg "  ℹ️  As prévias de Starship e Oh My Posh aparecem nas próximas etapas."
+      msg ""
+    fi
 
-    msg ""
+    if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
+      if declare -F clear_screen >/dev/null; then
+        clear_screen
+      else
+        clear
+      fi
+      show_section_header "🖼️  PRÉVIA DO TEMA"
+      print_selection_summary "🎨 Temas" "${selected_themes[@]}"
+      msg ""
+      preview_powerlevel10k
+      msg "  💡 Para personalizar o Powerlevel10k: execute 'p10k configure'"
+      msg ""
+      if declare -F pause_before_next_section >/dev/null; then
+        pause_before_next_section "Pressione Enter para continuar..."
+      fi
+    fi
     break
   done
 }
@@ -468,45 +480,18 @@ ask_starship_preset() {
 
     msg "Starship oferece presets prontos para usar."
     msg ""
-    msg "📝 Presets disponíveis:"
-    msg ""
-    msg "  1. Catppuccin Powerline (Recomendado)"
-    msg "     - Cores pastel suaves inspiradas em Catppuccin"
-    msg "     - Powerline segments bonitos"
-    msg "     - Ícones e Git status"
-    msg "     - Escolha entre 4 sabores: Mocha, Latte, Frappe, Macchiato"
-    msg ""
-    msg "  2. Tokyo Night"
-    msg "     - Esquema de cores escuro e elegante"
-    msg "     - Inspirado no tema Tokyo Night"
-    msg ""
-    msg "  3. Gruvbox Rainbow"
-    msg "     - Cores quentes do Gruvbox"
-    msg "     - Rainbow colorido"
-    msg ""
-    msg "  4. Pastel Powerline"
-    msg "     - Cores pastel suaves"
-    msg "     - Powerline style"
-    msg ""
-    msg "  5. Nerd Font Symbols"
-    msg "     - Minimalista com ícones Nerd Fonts"
-    msg "     - Apenas essencial (path, git, status)"
-    msg ""
-    msg "  6. Plain Text Symbols"
-    msg "     - Versão minimalista sem ícones Nerd Font"
-    msg ""
     msg "💡 Você pode mudar depois editando ~/.config/starship.toml"
     msg "   Mais presets em: https://starship.rs/presets/"
     msg ""
 
     local choice=""
     menu_select_single "Selecione o preset do Starship" "Digite sua escolha" choice \
-      "Catppuccin Powerline" \
-      "Tokyo Night" \
-      "Gruvbox Rainbow" \
-      "Pastel Powerline" \
-      "Nerd Font Symbols" \
-      "Plain Text Symbols"
+      "Catppuccin Powerline - Cores pastel + powerline + 4 sabores" \
+      "Tokyo Night - Esquema escuro elegante" \
+      "Gruvbox Rainbow - Cores quentes e rainbow" \
+      "Pastel Powerline - Cores pastel suaves" \
+      "Nerd Font Symbols - Minimalista com ícones Nerd Fonts" \
+      "Plain Text Symbols - Minimalista sem ícones Nerd Fonts"
 
     case "$choice" in
       1)
@@ -517,18 +502,13 @@ ask_starship_preset() {
         # Perguntar variante Catppuccin
         msg "🎨 Escolha o sabor (flavor) do Catppuccin:"
         msg ""
-        msg "  1. Mocha (escuro, tons quentes - Recomendado)"
-        msg "  2. Latte (claro, tons suaves)"
-        msg "  3. Frappe (escuro, tons frios)"
-        msg "  4. Macchiato (meio-escuro, balanceado)"
-        msg ""
 
         local flavor_choice=""
         menu_select_single "Selecione o sabor Catppuccin" "Digite sua escolha" flavor_choice \
-          "Mocha (escuro, quente)" \
-          "Latte (claro, suave)" \
-          "Frappe (escuro, frio)" \
-          "Macchiato (meio-escuro)"
+          "Mocha - Escuro, tons quentes (recomendado)" \
+          "Latte - Claro, tons suaves" \
+          "Frappe - Escuro, tons frios" \
+          "Macchiato - Meio-escuro, balanceado"
 
         case "$flavor_choice" in
           1) SELECTED_CATPPUCCIN_FLAVOR="catppuccin_mocha" ;;
@@ -562,13 +542,36 @@ ask_starship_preset() {
     esac
 
     preview_starship_preset "$SELECTED_STARSHIP_PRESET"
+    if [[ "$SELECTED_STARSHIP_PRESET" == "catppuccin-powerline" ]]; then
+      msg "  🎨 Prévia inclui 4 sabores: Mocha, Latte, Frappe, Macchiato."
+      if [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]]; then
+        msg "  ✅ Sabor selecionado: ${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_}"
+      fi
+      msg "  ℹ️  A imagem é um comparativo; o sabor aplicado será o selecionado."
+      msg ""
+    fi
     if [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]]; then
       print_selection_summary "✨ Preset Starship" "$SELECTED_STARSHIP_PRESET (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
     else
       print_selection_summary "✨ Preset Starship" "$SELECTED_STARSHIP_PRESET"
     fi
     msg ""
-    break
+    local confirm=""
+    while true; do
+      read -r -p "👉 Pressione Enter para continuar ou B para voltar: " confirm
+      case "$confirm" in
+        "") return 0 ;;
+        b|B)
+          if declare -F clear_screen >/dev/null; then
+            clear_screen
+          else
+            clear
+          fi
+          break
+          ;;
+        *) msg "  ⚠️ Opção inválida." ;;
+      esac
+    done
   done
 }
 
@@ -586,47 +589,20 @@ ask_oh_my_posh_theme() {
 
     msg "Oh My Posh tem centenas de temas prontos."
     msg ""
-    msg "📝 Temas populares:"
-    msg ""
-    msg "  1. Catppuccin (Recomendado)"
-    msg "     - Cores pastel suaves"
-    msg "     - Powerline segments"
-    msg ""
-    msg "  2. Tokyo Night"
-    msg "     - Esquema escuro elegante"
-    msg ""
-    msg "  3. Dracula"
-    msg "     - Cores vibrantes"
-    msg ""
-    msg "  4. Nord"
-    msg "     - Paleta fria"
-    msg ""
-    msg "  5. Paradox"
-    msg "     - Clássico e limpo"
-    msg ""
-    msg "  6. Pure"
-    msg "     - Minimalista"
-    msg ""
-    msg "  7. Atomic"
-    msg "     - Moderno e informativo"
-    msg ""
-    msg "  8. Default"
-    msg "     - Tema padrão do Oh My Posh"
-    msg ""
     msg "💡 Veja todos os temas em: https://ohmyposh.dev/docs/themes"
     msg "   Comando: oh-my-posh config export --format json"
     msg ""
 
     local choice=""
     menu_select_single "Selecione um tema do Oh My Posh" "Digite sua escolha" choice \
-      "Catppuccin" \
-      "Tokyo Night" \
-      "Dracula" \
-      "Nord" \
-      "Paradox" \
-      "Pure" \
-      "Atomic" \
-      "Default"
+      "Catppuccin - Cores pastel suaves" \
+      "Tokyo Night - Esquema escuro elegante" \
+      "Dracula - Cores vibrantes" \
+      "Nord - Paleta fria" \
+      "Paradox - Clássico e limpo" \
+      "Pure - Minimalista" \
+      "Atomic - Moderno e informativo" \
+      "Default - Tema padrão do Oh My Posh"
 
     case "$choice" in
       1)
@@ -666,7 +642,22 @@ ask_oh_my_posh_theme() {
     preview_oh_my_posh "$SELECTED_OMP_THEME"
     print_selection_summary "🎭 Tema Oh My Posh" "$SELECTED_OMP_THEME"
     msg ""
-    break
+    local confirm=""
+    while true; do
+      read -r -p "👉 Pressione Enter para continuar ou B para voltar: " confirm
+      case "$confirm" in
+        "") return 0 ;;
+        b|B)
+          if declare -F clear_screen >/dev/null; then
+            clear_screen
+          else
+            clear
+          fi
+          break
+          ;;
+        *) msg "  ⚠️ Opção inválida." ;;
+      esac
+    done
   done
 }
 

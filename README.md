@@ -1,25 +1,15 @@
-# Dotfiles Installer
+# Dotfiles Installer (privado)
 
-Script interativo para instalar e configurar ambiente de desenvolvimento em
-Linux, macOS, Windows e WSL2.
+Este repositório é a fonte da verdade das minhas configurações.
+Inclui dados sensíveis (SSH e contas Git), então deve permanecer privado.
 
 ## Instalação rápida
 
 ```bash
-git clone https://github.com/lucassr-dev/dotfiles.git ~/.dotfiles
-cd ~/.dotfiles
+git clone git@github.com:lucassr-dev/.config.git ~/.config
+cd ~/.config
 bash install.sh
 ```
-
-## O que o script faz
-
-- Instala shells (Zsh/Fish) e temas
-- Configura plugins e presets
-- Instala CLI Tools e IA Tools (opcional)
-- Instala terminais e apps GUI por categoria
-- Configura Git multi-conta (opcional)
-- Instala runtimes via mise (opcional)
-- Faz backup automático das configs atuais
 
 ## Comandos
 
@@ -30,27 +20,29 @@ bash install.sh sync     # exporta + instala
 bash install.sh help     # ajuda
 ```
 
-Observação: `export` e `sync` são úteis se você mantém um fork ou quer guardar
-suas configurações no próprio repositório. Se só quer instalar, use `install`.
+## Atualizar o repo público
 
-## Segurança
+```bash
+bash scripts/sync_public.sh
+```
 
-- Coloque suas chaves SSH em `~/.ssh` (não são versionadas)
-- As informações de Git multi-conta são configuradas no assistente e ficam
-  no seu sistema
+Opcional:
+
+```bash
+DOTFILES_PUBLIC_DIR="/caminho/para/dotfiles" bash scripts/sync_public.sh
+```
+
+Repo público: https://github.com/lucassr-dev/dotfiles
 
 ## Estrutura
 
 - `install.sh` (orquestrador)
 - `lib/` (módulos do instalador)
 - `data/` (catálogos de apps e runtimes)
-- `shared/` (configs compartilhadas)
+- `shared/` (configs compartilhadas, inclui `.ssh` e `.gitconfig-*`)
 - `linux/`, `macos/`, `windows/` (configs específicas por OS)
 
-## Dica
+## Observações
 
-Relatório detalhado após a instalação:
-
-```bash
-VERBOSE_REPORT=1 bash install.sh
-```
+- Backups em `~/.dotfiles-backup-*`
+- Relatório detalhado: `VERBOSE_REPORT=1 bash install.sh`

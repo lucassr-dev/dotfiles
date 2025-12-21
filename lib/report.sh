@@ -158,11 +158,6 @@ print_post_install_report() {
     msg "Backup: $BACKUP_DIR"
   fi
 
-  if ! is_truthy "$verbose_report"; then
-    msg ""
-    msg "Detalhes: VERBOSE_REPORT=1"
-  fi
-
   if is_truthy "$verbose_report"; then
     msg ""
     msg "Detalhado:"
@@ -194,9 +189,17 @@ print_post_install_report() {
   if has_cmd zsh && [[ "${SHELL##*/}" != "zsh" ]]; then
     msg "  2) Mude para Zsh: chsh -s \$(which zsh)"
   fi
-  if has_cmd git && [[ ${GIT_CONFIGURE:-0} -eq 0 ]]; then
-    msg "  3) Configure git: git config --global user.name \"Seu Nome\""
-    msg "  4) Configure git: git config --global user.email \"seu@email.com\""
+  if has_cmd git && [[ ${GIT_CONFIGURE:-0} -eq 0 ]] \
+    && [[ ! -f "$HOME/.gitconfig-personal" ]] \
+    && [[ ! -f "$HOME/.gitconfig-work" ]]; then
+    local git_name=""
+    local git_email=""
+    git_name="$(git config --global user.name 2>/dev/null || true)"
+    git_email="$(git config --global user.email 2>/dev/null || true)"
+    if [[ -z "$git_name" ]] && [[ -z "$git_email" ]]; then
+      msg "  3) Configure git: git config --global user.name \"Seu Nome\""
+      msg "  4) Configure git: git config --global user.email \"seu@email.com\""
+    fi
   fi
 
   msg ""

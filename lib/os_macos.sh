@@ -99,6 +99,7 @@ install_macos_base_dependencies() {
     git
     curl
     wget
+    imagemagick
   )
 
   for formula in "${base_formulae[@]}"; do
