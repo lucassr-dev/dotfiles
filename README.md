@@ -22,21 +22,21 @@ Sistema completo e moderno de gerenciamento de dotfiles para Linux, macOS, Windo
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/seu-repo.git ~/.dotfiles
+git clone https://github.com/lucassr-dev/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 ```
 
 ### 2. Execute o instalador
 
 ```bash
-bash config/install.sh
+bash install.sh
 ```
 
 Flags úteis (opcionais):
 
 ```bash
 # Relatório pós-instalação detalhado (listas completas)
-VERBOSE_REPORT=1 bash config/install.sh
+VERBOSE_REPORT=1 bash install.sh
 ```
 
 O script irá, de forma interativa:
@@ -64,16 +64,16 @@ exec $SHELL
 
 ```bash
 # Instalar configs (repositório → sistema) - Primeira vez
-bash config/install.sh
+bash install.sh
 
 # Exportar configs atuais (sistema → repositório) - Salvar mudanças
-bash config/install.sh export
+bash install.sh export
 
 # Sincronizar bidirecional (exporta + instala)
-bash config/install.sh sync
+bash install.sh sync
 
 # Mostrar ajuda
-bash config/install.sh help
+bash install.sh help
 ```
 
 ## ✨ Novidades 2025
@@ -376,17 +376,42 @@ No repo público, esses arquivos ficam como exemplos (`.gitconfig-*.example` e `
 
 ---
 
+## 🔁 Atualizar o repositório público (mantenedor)
+
+O repo privado é a fonte da verdade. Para atualizar o público, rode:
+
+```bash
+bash scripts/sync_public.sh
+```
+
+Por padrão, ele sincroniza para `../dotfiles`. Para usar outro caminho:
+
+```bash
+DOTFILES_PUBLIC_DIR="/caminho/para/dotfiles" bash scripts/sync_public.sh
+```
+
+Depois, no repo público:
+
+```bash
+git status
+git add .
+git commit -m "Atualiza do privado"
+git push
+```
+
+---
+
 ## 🔄 Workflow Recomendado
 
 ### Primeira Instalação (Máquina Nova)
 
 ```bash
 # 1. Clone o repo
-git clone https://github.com/seu-usuario/dotfiles.git ~/.dotfiles
+git clone https://github.com/lucassr-dev/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 
 # 2. Instale tudo (com seleção interativa de apps)
-bash config/install.sh
+bash install.sh
 
 # 3. Reinicie o terminal
 exec $SHELL
@@ -409,7 +434,7 @@ atuin register  # Ou: atuin login
 # Agora quer salvar no repositório:
 
 cd ~/.dotfiles
-bash config/install.sh export
+bash install.sh export
 
 # Verificar mudanças
 git status
@@ -426,13 +451,13 @@ git push
 ```bash
 # Na máquina A (desktop):
 cd ~/.dotfiles
-bash config/install.sh export
+bash install.sh export
 git add . && git commit -m "Desktop configs" && git push
 
 # Na máquina B (laptop):
 cd ~/.dotfiles
 git pull
-bash config/install.sh            # Aplicar
+bash install.sh            # Aplicar
 exec $SHELL
 ```
 
@@ -488,7 +513,7 @@ alias meucomando='echo "Olá!"'
 
 Depois:
 ```bash
-bash config/install.sh
+bash install.sh
 exec $SHELL
 ```
 
@@ -516,7 +541,7 @@ rust-lang.rust-analyzer
 
 Durante a instalação, você escolhe se quer instalar essas extensões. Para aplicar depois:
 ```bash
-bash config/install.sh
+bash install.sh
 ```
 
 ### Usar Atuin (Histórico Inteligente)
@@ -659,7 +684,7 @@ cask "raycast"          # Launcher
 Depois de editar:
 ```bash
 cd ~/.dotfiles
-bash config/install.sh
+bash install.sh
 ```
 
 Apps incluídos no Brewfile (macOS, instalação opcional):
@@ -933,7 +958,7 @@ git config --show-origin user.email
 
 # 3. Se necessário, force a reconfiguração
 cd ~/.dotfiles
-bash config/install.sh
+bash install.sh
 ```
 
 ---
@@ -949,7 +974,7 @@ bash config/install.sh
 
 **Ou** você pode editar diretamente (`~/.zshrc`) e depois exportar:
 ```bash
-bash config/install.sh export
+bash install.sh export
 ```
 
 ### O que acontece com minhas configs antigas?
@@ -988,7 +1013,7 @@ E executa `fc-cache` para atualizar o cache.
 ```bash
 cd ~/.dotfiles
 git pull
-bash config/install.sh            # Aplicar
+bash install.sh            # Aplicar
 exec $SHELL
 ```
 
@@ -998,13 +1023,13 @@ Certifique-se de que:
 1. VS Code está instalado
 2. Comando `code` está no PATH
 3. Você selecionou **VS Code Extensions: instalar** na revisão final
-4. Execute: `bash config/install.sh` novamente
+4. Execute: `bash install.sh` novamente
 
 ### Brewfile não funciona no macOS?
 
 Certifique-se de que:
 1. Homebrew está instalado: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
-2. Execute: `bash config/install.sh` novamente
+2. Execute: `bash install.sh` novamente
 3. Durante a instalação, escolha se quer instalar o Brewfile 🆕
 
 ### Posso desativar a seleção interativa de apps GUI?
@@ -1029,7 +1054,7 @@ Se você instalou Atuin, ele substitui o histórico padrão e oferece:
 ### Modo Install (Padrão)
 
 ```bash
-bash config/install.sh
+bash install.sh
 ```
 
 1. Detecta o sistema operacional (Linux, macOS, Windows, **WSL2** 🆕)
@@ -1049,7 +1074,7 @@ bash config/install.sh
 ### Modo Export
 
 ```bash
-bash config/install.sh export
+bash install.sh export
 ```
 
 1. Detecta o sistema operacional
@@ -1061,7 +1086,7 @@ bash config/install.sh export
 ### Modo Sync
 
 ```bash
-bash config/install.sh sync
+bash install.sh sync
 ```
 
 1. Executa export primeiro
@@ -1128,7 +1153,7 @@ Caso a instalação automática falhe:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Execute o instalador novamente
-bash config/install.sh
+bash install.sh
 ```
 
 ### Erro: "Fontes não aparecem no terminal"
@@ -1178,7 +1203,7 @@ Se você selecionou runtimes via mise, o script instala mise automaticamente via
 curl https://mise.run | sh
 
 # Execute o instalador novamente
-bash config/install.sh
+bash install.sh
 ```
 
 ### Erro: "uv não foi instalado"
@@ -1193,7 +1218,7 @@ uv generate-shell-completion fish > ~/.config/fish/completions/uv.fish  # Fish
 uv generate-shell-completion zsh > ~/.oh-my-zsh/completions/_uv        # Zsh
 
 # Execute o instalador novamente
-bash config/install.sh
+bash install.sh
 ```
 
 ### Erro: "Atuin não foi instalado" 🆕
@@ -1209,7 +1234,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
 eval "$(atuin init zsh)"
 
 # Execute o instalador novamente
-bash config/install.sh
+bash install.sh
 ```
 
 ### Validar starship.toml manualmente
@@ -1228,7 +1253,7 @@ STARSHIP_CONFIG="$HOME/.config/starship.toml" starship print-config
 
 # Se houver erros, corrija em: config/shared/starship.toml
 # Depois execute novamente
-bash config/install.sh
+bash install.sh
 ```
 
 ### Problema: "Instalação está demorando muito"
