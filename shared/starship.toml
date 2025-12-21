@@ -1,0 +1,343 @@
+# ═══════════════════════════════════════════════════════════
+# Format (Layout do Prompt)
+# ═══════════════════════════════════════════════════════════
+format = """
+[╭─](bold fg:149)$os$username$hostname$directory$git_branch$git_status$git_commit$git_state$fill$time
+[╰─](bold fg:149)$character"""
+
+# Prompt de continuação
+continuation_prompt = "[∙](bold fg:149) "
+
+# Adicionar quebra de linha antes do prompt
+add_newline = true
+
+# ═══════════════════════════════════════════════════════════
+# Character (Símbolo do Prompt)
+# ═══════════════════════════════════════════════════════════
+[character]
+success_symbol = "[➜](bold green)"
+error_symbol = "[✗](bold red)"
+vimcmd_symbol = "[←](bold green)"
+
+# ═══════════════════════════════════════════════════════════
+# Fill (Espaçamento dinâmico para alinhar à direita)
+# ═══════════════════════════════════════════════════════════
+[fill]
+symbol = " "
+
+# ═══════════════════════════════════════════════════════════
+# OS Icon
+# ═══════════════════════════════════════════════════════════
+[os]
+disabled = false
+format = "[$symbol](bold fg:255) "
+
+[os.symbols]
+Alpaquita = " "
+Alpine = " "
+AlmaLinux = " "
+Amazon = " "
+Android = " "
+Arch = " "
+Artix = " "
+CentOS = " "
+Debian = " "
+DragonFly = " "
+Emscripten = " "
+EndeavourOS = " "
+Fedora = " "
+FreeBSD = " "
+Garuda = "󰛓 "
+Gentoo = " "
+HardenedBSD = "󰞌 "
+Illumos = "󰈸 "
+Kali = " "
+Linux = " "
+Mabox = " "
+Macos = " "
+Manjaro = " "
+Mariner = " "
+MidnightBSD = " "
+Mint = " "
+NetBSD = " "
+NixOS = " "
+OpenBSD = "󰈺 "
+openSUSE = " "
+OracleLinux = "󰌷 "
+Pop = " "
+Raspbian = " "
+Redhat = " "
+RedHatEnterprise = " "
+RockyLinux = " "
+Redox = "󰀘 "
+Solus = "󰠳 "
+SUSE = " "
+Ubuntu = " "
+Unknown = " "
+Void = " "
+Windows = "󰍲 "
+
+# ═══════════════════════════════════════════════════════════
+# User & Host
+# ═══════════════════════════════════════════════════════════
+[username]
+show_always = false
+format = "[$user]($style)@"
+style_user = "bold fg:yellow"
+style_root = "bold fg:red"
+
+[hostname]
+ssh_only = true
+format = "[$hostname]($style) in "
+style = "bold fg:green"
+
+# ═══════════════════════════════════════════════════════════
+# Directory
+# ═══════════════════════════════════════════════════════════
+[directory]
+truncation_length = 4
+truncate_to_repo = true
+truncation_symbol = "…/"
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold fg:cyan"
+read_only = " 󰌾"
+read_only_style = "fg:red"
+
+[directory.substitutions]
+"Documents" = "󰈙 "
+"Downloads" = " "
+"Music" = " "
+"Pictures" = " "
+"Videos" = " "
+"Development" = " "
+"Projects" = " "
+".config" = " "
+
+# ═══════════════════════════════════════════════════════════
+# Git
+# ═══════════════════════════════════════════════════════════
+[git_branch]
+symbol = " "
+format = "on [$symbol$branch(:$remote_branch)]($style) "
+style = "bold fg:purple"
+truncation_length = 20
+truncation_symbol = "…"
+
+[git_status]
+format = "([$all_status$ahead_behind]($style) )"
+style = "bold fg:red"
+conflicted = "🏳 "
+ahead = "⇡${count} "
+behind = "⇣${count} "
+diverged = "⇕⇡${ahead_count}⇣${behind_count} "
+up_to_date = "[✓](bold green) "
+untracked = "🤷 "
+stashed = "📦 "
+modified = "📝 "
+staged = '[++\($count\)](green) '
+renamed = "👅 "
+deleted = "🗑 "
+
+[git_commit]
+commit_hash_length = 7
+format = "[\\($hash$tag\\)]($style) "
+style = "bold fg:green"
+tag_symbol = " 🏷  "
+tag_disabled = false
+
+[git_state]
+format = '\([$state( $progress_current/$progress_total)]($style)\) '
+style = "bold fg:yellow"
+
+# ═══════════════════════════════════════════════════════════
+# Languages & Tools
+# ═══════════════════════════════════════════════════════════
+
+[nodejs]
+symbol = " "
+format = "via [$symbol($version )]($style)"
+style = "bold fg:green"
+detect_extensions = ["js", "mjs", "cjs", "ts", "mts", "cts"]
+detect_files = ["package.json", ".node-version", ".nvmrc"]
+
+[python]
+symbol = " "
+format = "via [$symbol($version )(\\($virtualenv\\) )]($style)"
+style = "bold fg:yellow"
+pyenv_version_name = false
+detect_extensions = ["py"]
+detect_files = [".python-version", "Pipfile", "requirements.txt", "pyproject.toml"]
+
+[rust]
+symbol = " "
+format = "via [$symbol($version )]($style)"
+style = "bold fg:red"
+detect_extensions = ["rs"]
+detect_files = ["Cargo.toml"]
+
+[php]
+symbol = " "
+format = "via [$symbol($version )]($style)"
+style = "147 bold"
+detect_extensions = ["php"]
+detect_files = ["composer.json", ".php-version"]
+
+[golang]
+symbol = " "
+format = "via [$symbol($version )]($style)"
+style = "bold fg:cyan"
+detect_extensions = ["go"]
+detect_files = ["go.mod", "go.sum"]
+
+[java]
+symbol = " "
+format = "via [$symbol($version )]($style)"
+style = "bold fg:red"
+detect_extensions = ["java", "class", "jar", "gradle", "clj", "cljc"]
+
+[docker_context]
+symbol = " "
+format = "via [$symbol$context ]($style)"
+style = "bold fg:blue"
+only_with_files = true
+detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"]
+
+[terraform]
+symbol = "󱁢 "
+format = "via [$symbol$workspace ]($style)"
+style = "bold fg:105"
+detect_extensions = ["tf", "tfplan", "tfstate"]
+
+# ═══════════════════════════════════════════════════════════
+# Package Managers
+# ═══════════════════════════════════════════════════════════
+[package]
+symbol = "󰏗 "
+format = "[$symbol$version]($style) "
+style = "bold fg:208"
+display_private = false
+
+# ═══════════════════════════════════════════════════════════
+# Runtime/Environment Managers
+# ═══════════════════════════════════════════════════════════
+[env_var.MISE_ENV]
+symbol = "󰆧 "
+format = "[$symbol$env_value ]($style)"
+style = "bold fg:yellow"
+
+# ═══════════════════════════════════════════════════════════
+# Cloud Providers
+# ═══════════════════════════════════════════════════════════
+[aws]
+symbol = " "
+format = 'on [$symbol($profile )(\($region\) )]($style)'
+style = "bold fg:yellow"
+disabled = false
+
+[gcloud]
+symbol = "󱇶 "
+format = 'on [$symbol$account(@$domain)(\($region\))]($style) '
+style = "bold fg:blue"
+disabled = false
+
+# ═══════════════════════════════════════════════════════════
+# Battery
+# ═══════════════════════════════════════════════════════════
+[battery]
+full_symbol = " "
+charging_symbol = " "
+discharging_symbol = " "
+unknown_symbol = " "
+empty_symbol = " "
+
+[[battery.display]]
+threshold = 10
+style = "bold red"
+
+[[battery.display]]
+threshold = 30
+style = "bold yellow"
+
+# ═══════════════════════════════════════════════════════════
+# Memory Usage
+# ═══════════════════════════════════════════════════════════
+[memory_usage]
+disabled = true
+threshold = 75
+symbol = "󰍛 "
+format = "via $symbol[$ram( | $swap)]($style) "
+style = "bold dimmed white"
+
+# ═══════════════════════════════════════════════════════════
+# Command Duration
+# ═══════════════════════════════════════════════════════════
+[cmd_duration]
+min_time = 2000
+format = "took [$duration]($style) "
+style = "bold fg:yellow"
+show_milliseconds = false
+show_notifications = false
+
+# ═══════════════════════════════════════════════════════════
+# Jobs
+# ═══════════════════════════════════════════════════════════
+[jobs]
+symbol = " "
+number_threshold = 1
+symbol_threshold = 1
+format = "[$symbol$number]($style) "
+style = "bold fg:blue"
+
+# ═══════════════════════════════════════════════════════════
+# Status
+# ═══════════════════════════════════════════════════════════
+[status]
+disabled = false
+symbol = "✘ "
+format = '[\[$symbol$status( $signal_name)( $common_meaning)\]]($style) '
+style = "bold red"
+map_symbol = true
+
+# ═══════════════════════════════════════════════════════════
+# Time (displayed on the right side)
+# ═══════════════════════════════════════════════════════════
+[time]
+disabled = false
+format = "[$time]($style)"
+time_format = "%H:%M:%S"
+style = "bold fg:240"
+
+# ═══════════════════════════════════════════════════════════
+# Line Break
+# ═══════════════════════════════════════════════════════════
+[line_break]
+disabled = false
+
+# ═══════════════════════════════════════════════════════════
+# Shell
+# ═══════════════════════════════════════════════════════════
+[shell]
+disabled = true
+format = "[$indicator]($style) "
+fish_indicator = "🐠"
+bash_indicator = "bash"
+zsh_indicator = "zsh"
+powershell_indicator = "psh"
+style = "bold fg:white"
+
+# ═══════════════════════════════════════════════════════════
+# Sudo Context
+# ═══════════════════════════════════════════════════════════
+[sudo]
+disabled = false
+symbol = "🧙 "
+format = "[$symbol]($style)"
+style = "bold fg:red"
+
+# ═══════════════════════════════════════════════════════════
+# Container
+# ═══════════════════════════════════════════════════════════
+[container]
+symbol = "⬢ "
+format = "[$symbol \\[$name\\]]($style) "
+style = "bold fg:red dimmed"

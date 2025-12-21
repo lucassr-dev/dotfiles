@@ -1,0 +1,629 @@
+#!/usr/bin/env bash
+# Instaladores e configurações específicas do Linux
+# shellcheck disable=SC2034,SC2329,SC1091
+
+# ═══════════════════════════════════════════════════════════
+# Anti-duplicidade: rastrear apps já processados nesta execução
+# ═══════════════════════════════════════════════════════════
+
+declare -A APPS_PROCESSED
+
+mark_app_processed() {
+  local app="$1"
+  APPS_PROCESSED["$app"]=1
+}
+
+is_app_processed() {
+  local app="$1"
+  [[ "${APPS_PROCESSED[$app]:-0}" == "1" ]]
+}
+
+# ═══════════════════════════════════════════════════════════
+# Detecção de gerenciador de pacotes
+# ═══════════════════════════════════════════════════════════
+
+detect_linux_pkg_manager() {
+  [[ -n "$LINUX_PKG_MANAGER" ]] && return
+  for candidate in apt-get dnf pacman zypper; do
+    if has_cmd "$candidate"; then
+      LINUX_PKG_MANAGER="$candidate"
+      return
+    fi
+  done
+}
+
+linux_pkg_update_cache() {
+  [[ $LINUX_PKG_UPDATED -eq 1 ]] && return
+  case "$LINUX_PKG_MANAGER" in
+    apt-get)
+      if run_with_sudo apt-get update -qq >/dev/null 2>&1; then
+        LINUX_PKG_UPDATED=1
+      fi
+      ;;
+    dnf)
+      if run_with_sudo dnf makecache --refresh >/dev/null 2>&1; then
+        LINUX_PKG_UPDATED=1
+      fi
+      ;;
+    zypper)
+      if run_with_sudo zypper refresh >/dev/null 2>&1; then
+        LINUX_PKG_UPDATED=1
+      fi
+      ;;
+    *)
+      LINUX_PKG_UPDATED=1
+      ;;
+  esac
+}
+
+install_linux_packages() {
+  local level="$1"
+  shift
+  local packages=("$@")
+  [[ ${#packages[@]} -gt 0 ]] || return 0
+  detect_linux_pkg_manager
+  if [[ -z "$LINUX_PKG_MANAGER" ]]; then
+    record_failure "$level" "Nenhum gerenciador de pacotes suportado encontrado (apt, dnf, pacman, zypper). Instale manualmente: ${packages[*]}"
+    return 0
+  fi
+  linux_pkg_update_cache
+  case "$LINUX_PKG_MANAGER" in
+    apt-get)
+      if ! run_with_sudo apt-get install -qq -y "${packages[@]}" 2>&1 | grep -v "já é a versão mais nova\|is already the newest version\|Lendo\|Reading\|Construindo\|Building" | grep -v "^$"; then
+        record_failure "$level" "Falha ao instalar (apt) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("apt: ${packages[*]}")
+      fi
+      ;;
+    dnf)
+      if ! run_with_sudo dnf install -q -y "${packages[@]}" 2>&1 | grep -v "Already installed\|Nada para fazer\|Nothing to do"; then
+        record_failure "$level" "Falha ao instalar (dnf) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("dnf: ${packages[*]}")
+      fi
+      ;;
+    pacman)
+      if ! run_with_sudo pacman -Sy --noconfirm --needed --quiet "${packages[@]}" 2>&1; then
+        record_failure "$level" "Falha ao instalar (pacman) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("pacman: ${packages[*]}")
+      fi
+      ;;
+    zypper)
+      if ! run_with_sudo zypper install --quiet -y "${packages[@]}" 2>&1 | grep -v "already installed"; then
+        record_failure "$level" "Falha ao instalar (zypper) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("zypper: ${packages[*]}")
+      fi
+      ;;
+  esac
+}
+
+# ═══════════════════════════════════════════════════════════
+# Instalação de dependências base no Linux
+# ═══════════════════════════════════════════════════════════
+
+install_linux_base_dependencies() {
+  detect_linux_pkg_manager
+
+  local base_packages=()
+
+  case "$LINUX_PKG_MANAGER" in
+    apt-get)
+      base_packages=(
+        build-essential
+        pkg-config
+        ca-certificates
+        git
+        curl
+        wget
+        gnupg
+        lsb-release
+        unzip
+        zip
+        fontconfig
+      )
+      ;;
+    dnf)
+      base_packages=(
+        gcc
+        gcc-c++
+        make
+        pkg-config
+        ca-certificates
+        git
+        curl
+        wget
+        gnupg
+        unzip
+        zip
+        fontconfig
+      )
+      ;;
+    pacman)
+      base_packages=(
+        base-devel
+        pkg-config
+        ca-certificates
+        git
+        curl
+        wget
+        gnupg
+        unzip
+        zip
+        fontconfig
+      )
+      ;;
+    zypper)
+      base_packages=(
+        gcc
+        gcc-c++
+        make
+        pkg-config
+        ca-certificates-mozilla
+        git
+        curl
+        wget
+        gpg2
+        unzip
+        zip
+        fontconfig
+      )
+      ;;
+  esac
+
+  if [[ ${#base_packages[@]} -gt 0 ]]; then
+    msg "  📦 Instalando dependências base..."
+    install_linux_packages "critical" "${base_packages[@]}"
+  fi
+}
+
+# ═══════════════════════════════════════════════════════════
+# Instalação de apps selecionados no Linux
+# ═══════════════════════════════════════════════════════════
+
+install_linux_selected_apps() {
+  msg "▶ Instalando apps GUI selecionados (Linux)"
+
+  # Terminais
+  for terminal in "${SELECTED_TERMINALS[@]}"; do
+    case "$terminal" in
+      ghostty) ensure_ghostty_linux ;;
+      kitty) install_linux_packages optional kitty ;;
+      alacritty) install_linux_packages optional alacritty ;;
+      gnome-terminal) install_linux_packages optional gnome-terminal ;;
+    esac
+  done
+
+  # IDEs
+  for app in "${SELECTED_IDES[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      vscode) install_vscode ;;
+      zed) install_zed ;;
+      cursor) install_cursor ;;
+      neovim) install_neovim ;;
+      sublime-text) install_sublime_text ;;
+      *) warn "IDE sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Navegadores
+  for app in "${SELECTED_BROWSERS[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      firefox) install_linux_packages optional firefox ;;
+      chrome) install_chrome_linux ;;
+      brave) install_brave_linux ;;
+      zen) install_zen_linux ;;
+      arc) install_arc ;;
+      vivaldi) install_vivaldi ;;
+      edge) install_edge ;;
+      opera) install_opera ;;
+      librewolf) install_librewolf ;;
+      *) warn "Navegador sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Dev tools
+  for app in "${SELECTED_DEV_TOOLS[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      vscode) install_vscode ;;
+      docker) install_docker_linux ;;
+      postman|dbeaver|notion|obsidian) ;;
+      bruno) install_bruno ;;
+      insomnia) install_insomnia ;;
+      gitkraken) install_gitkraken ;;
+      mongodb-compass) install_mongodb_compass ;;
+      redis-insight) install_redis_insight ;;
+      *) warn "Dev tool sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Bancos
+  for app in "${SELECTED_DATABASES[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      postgresql) install_linux_packages optional postgresql ;;
+      redis) install_linux_packages optional redis ;;
+      mysql) install_linux_packages optional mysql-server ;;
+      mariadb) install_mariadb ;;
+      pgadmin) install_pgadmin_linux ;;
+      mongodb) install_mongodb_linux ;;
+      *) warn "Banco sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Produtividade
+  for app in "${SELECTED_PRODUCTIVITY[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      slack|notion|obsidian) ;;
+      logseq) install_logseq ;;
+      anki) install_anki ;;
+      joplin) install_joplin ;;
+      appflowy) install_appflowy ;;
+      *) warn "Produtividade sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Comunicação
+  for app in "${SELECTED_COMMUNICATION[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      discord) ;;
+      telegram) install_telegram ;;
+      whatsapp) install_whatsapp ;;
+      signal) install_signal ;;
+      teams) install_teams ;;
+      zoom) install_zoom ;;
+      thunderbird) install_thunderbird ;;
+      *) warn "Comunicação sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Mídia
+  for app in "${SELECTED_MEDIA[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      vlc) install_linux_packages optional vlc ;;
+      spotify) ;;
+      obs-studio) install_obs_studio ;;
+      gimp) install_gimp ;;
+      inkscape) install_inkscape ;;
+      blender) install_blender ;;
+      audacity) install_audacity ;;
+      kdenlive) install_kdenlive ;;
+      *) warn "Mídia sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Utilitários
+  for app in "${SELECTED_UTILITIES[@]}"; do
+    # Anti-duplicidade: pular se já foi processado nesta execução
+    if is_app_processed "$app"; then
+      continue
+    fi
+    mark_app_processed "$app"
+
+    case "$app" in
+      flameshot) install_flameshot ;;
+      screenkey) install_linux_packages optional screenkey ;;
+      bitwarden) install_bitwarden ;;
+      1password) install_1password ;;
+      keepassxc) install_keepassxc ;;
+      syncthing) install_syncthing ;;
+      *) warn "Utilitário sem instalador automático no Linux: $app" ;;
+    esac
+  done
+
+  # Instalar apps via Snap/Flatpak quando aplicável
+  if has_cmd snap; then
+    msg "▶ Instalando apps selecionados via Snap"
+    for app in "${SELECTED_PRODUCTIVITY[@]}"; do
+      case "$app" in
+        slack) ensure_snap_app slack "Slack" com.slack.Slack slack optional --classic ;;
+        obsidian) ensure_snap_app obsidian "Obsidian" md.obsidian.Obsidian obsidian optional --classic ;;
+        notion) ensure_snap_app notion-snap-reborn "Notion" "" notion optional ;;
+      esac
+    done
+    for app in "${SELECTED_COMMUNICATION[@]}"; do
+      case "$app" in
+        discord) ensure_snap_app discord "Discord" com.discordapp.Discord discord optional ;;
+      esac
+    done
+    for app in "${SELECTED_MEDIA[@]}"; do
+      case "$app" in
+        spotify) ensure_snap_app spotify "Spotify" com.spotify.Client spotify optional ;;
+      esac
+    done
+    for app in "${SELECTED_DEV_TOOLS[@]}"; do
+      case "$app" in
+        postman) ensure_snap_app postman "Postman" com.getpostman.Postman postman optional ;;
+        dbeaver) ensure_snap_app dbeaver-ce "DBeaver" io.dbeaver.DBeaverCommunity dbeaver optional ;;
+      esac
+    done
+  fi
+
+  if has_cmd flatpak; then
+    msg "▶ Instalando apps selecionados via Flatpak"
+    for app in "${SELECTED_PRODUCTIVITY[@]}"; do
+      case "$app" in
+        slack) ensure_flatpak_app com.slack.Slack "Slack" slack slack optional ;;
+        obsidian) ensure_flatpak_app md.obsidian.Obsidian "Obsidian" obsidian obsidian optional ;;
+      esac
+    done
+    for app in "${SELECTED_COMMUNICATION[@]}"; do
+      case "$app" in
+        discord) ensure_flatpak_app com.discordapp.Discord "Discord" discord discord optional ;;
+      esac
+    done
+    for app in "${SELECTED_MEDIA[@]}"; do
+      case "$app" in
+        spotify) ensure_flatpak_app com.spotify.Client "Spotify" spotify spotify optional ;;
+        vlc) ensure_flatpak_app org.videolan.VLC "VLC" "" vlc optional ;;
+      esac
+    done
+    for app in "${SELECTED_DEV_TOOLS[@]}"; do
+      case "$app" in
+        postman) ensure_flatpak_app com.getpostman.Postman "Postman" postman postman optional ;;
+        dbeaver) ensure_flatpak_app io.dbeaver.DBeaverCommunity "DBeaver" dbeaver-ce dbeaver optional ;;
+      esac
+    done
+  fi
+}
+# ═══════════════════════════════════════════════════════════
+# Instalação de apps específicos do Linux
+# ═══════════════════════════════════════════════════════════
+
+install_chrome_linux() {
+  detect_linux_pkg_manager
+  if has_cmd google-chrome || command -v google-chrome-stable >/dev/null 2>&1 || has_flatpak_ref "com.google.Chrome"; then
+    return 0
+  fi
+  if [[ "$LINUX_PKG_MANAGER" != "apt-get" ]]; then
+    record_failure "optional" "Google Chrome (Linux) suportado automaticamente apenas em distros apt; instale manualmente."
+    return 0
+  fi
+  local deb=""
+  deb="$(mktemp /tmp/google-chrome-XXXXXX.deb)"
+  msg "  📦 Baixando Google Chrome para Linux..."
+  if curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -o "$deb"; then
+    if run_with_sudo dpkg -i "$deb"; then
+      msg "  ✅ Google Chrome instalado"
+      INSTALLED_MISC+=("google-chrome: deb")
+      run_with_sudo apt-get install -f -y >/dev/null 2>&1 || true
+    else
+      record_failure "optional" "Falha ao instalar Google Chrome via dpkg"
+    fi
+  else
+    record_failure "optional" "Falha ao baixar Google Chrome"
+  fi
+  rm -f "$deb"
+}
+
+install_brave_linux() {
+  if has_cmd brave-browser; then
+    return 0
+  fi
+  if has_cmd flatpak; then
+    flatpak_install_or_update com.brave.Browser "Brave" optional
+    return 0
+  fi
+  if has_cmd snap; then
+    snap_install_or_refresh brave "Brave" optional
+    return 0
+  fi
+  record_failure "optional" "Brave não instalado: Flatpak/Snap indisponíveis nesta distro."
+}
+
+install_zen_linux() {
+  if has_cmd zen-browser; then
+    return 0
+  fi
+  if has_cmd flatpak; then
+    flatpak_install_or_update io.github.ranfdev.Zen "Zen Browser" optional
+    return 0
+  fi
+  record_failure "optional" "Zen Browser não instalado: Flatpak indisponível nesta distro."
+}
+
+install_pgadmin_linux() {
+  if has_cmd pgadmin4; then
+    return 0
+  fi
+  if has_cmd flatpak; then
+    flatpak_install_or_update org.pgadmin.pgadmin4 "pgAdmin" optional
+    return 0
+  fi
+  record_failure "optional" "pgAdmin não instalado: Flatpak indisponível nesta distro."
+}
+
+install_mongodb_linux() {
+  if has_cmd mongod || has_cmd mongodb-compass; then
+    return 0
+  fi
+  if has_cmd flatpak; then
+    flatpak_install_or_update com.mongodb.Compass "MongoDB Compass" optional
+    return 0
+  fi
+  install_linux_packages optional mongodb 2>/dev/null
+}
+
+install_vscode_linux() {
+  # Se já estiver instalado via Snap, apenas atualiza
+  if has_snap_pkg code; then
+    msg "  🔄 Atualizando VS Code via snap (stable)..."
+    if run_with_sudo snap refresh code --channel=stable >/dev/null 2>&1; then
+      INSTALLED_MISC+=("vscode: snap refresh (stable)")
+    else
+      record_failure "optional" "Falha ao atualizar VS Code via snap"
+    fi
+    return 0
+  fi
+
+  # Se já estiver instalado via Flatpak, apenas atualiza
+  if has_flatpak_ref "com.visualstudio.code"; then
+    msg "  🔄 Atualizando VS Code via flatpak..."
+    if flatpak update -y com.visualstudio.code >/dev/null 2>&1; then
+      INSTALLED_MISC+=("vscode: flatpak update")
+    else
+      record_failure "optional" "Falha ao atualizar VS Code via flatpak"
+    fi
+    return 0
+  fi
+
+  detect_linux_pkg_manager
+
+  # Preferir pacotes oficiais do site
+  if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
+    local deb=""
+    deb="$(mktemp /tmp/vscode-XXXXXX.deb)"
+    msg "  📦 Baixando VS Code (latest .deb)..."
+    if curl -fsSL "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64" -o "$deb"; then
+      if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
+        msg "  ✅ VS Code instalado via .deb"
+        INSTALLED_MISC+=("vscode: deb")
+        run_with_sudo apt-get install -f -y >/dev/null 2>&1 || true
+      else
+        warn "dpkg falhou; tentando snap como fallback"
+        snap_install_or_refresh code "VS Code" optional --classic
+      fi
+    else
+      warn "Download falhou; tentando snap como fallback"
+      snap_install_or_refresh code "VS Code" optional --classic
+    fi
+    rm -f "$deb"
+    return 0
+  fi
+
+  # Fallback para snap
+  snap_install_or_refresh code "VS Code" optional --classic
+}
+
+install_docker_linux() {
+  if has_cmd docker; then
+    return 0
+  fi
+  detect_linux_pkg_manager
+  if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
+    msg "  📦 Instalando Docker via apt..."
+    # Instalar dependências
+    install_linux_packages optional ca-certificates curl gnupg lsb-release
+    # Adicionar chave GPG e repositório Docker
+    if ! run_with_sudo mkdir -p /etc/apt/keyrings 2>/dev/null; then
+      record_failure "optional" "Falha ao criar diretório /etc/apt/keyrings"
+      return
+    fi
+    if curl -fsSL https://download.docker.com/linux/ubuntu/gpg | run_with_sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null; then
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | run_with_sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+      LINUX_PKG_UPDATED=0
+      install_linux_packages optional docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    else
+      record_failure "optional" "Falha ao adicionar chave GPG do Docker"
+    fi
+  else
+    install_linux_packages optional docker
+  fi
+}
+
+install_php_build_deps_linux() {
+  detect_linux_pkg_manager
+  local php_deps=()
+  case "$LINUX_PKG_MANAGER" in
+    apt-get)
+      php_deps=(
+        autoconf bison build-essential curl libcurl4-openssl-dev
+        libonig-dev libreadline-dev libsqlite3-dev libssl-dev
+        libxml2-dev libzip-dev pkg-config re2c zlib1g-dev
+      )
+      ;;
+    dnf)
+      php_deps=(
+        autoconf bison gcc gcc-c++ libcurl-devel oniguruma-devel
+        readline-devel sqlite-devel openssl-devel libxml2-devel
+        libzip-devel pkgconfig re2c zlib-devel
+      )
+      ;;
+    pacman)
+      php_deps=(
+        autoconf bison curl oniguruma readline sqlite openssl
+        libxml2 libzip pkgconf re2c zlib
+      )
+      ;;
+    zypper)
+      php_deps=(
+        autoconf bison gcc gcc-c++ libcurl-devel oniguruma-devel
+        readline-devel sqlite3-devel libopenssl-devel libxml2-devel
+        libzip-devel pkg-config re2c zlib-devel
+      )
+      ;;
+  esac
+
+  if [[ ${#php_deps[@]} -gt 0 ]]; then
+    msg "  📦 Instalando dependências de build do PHP..."
+    install_linux_packages optional "${php_deps[@]}"
+  fi
+}
+
+ensure_ghostty_linux() {
+  if has_cmd ghostty; then
+    return 0
+  fi
+
+  # Ghostty no Linux: compilar da fonte ou usar binário pré-compilado
+  # Por enquanto, apenas avisar que não está disponível via gerenciadores comuns
+  msg "  ℹ️  Ghostty para Linux: requer build manual ou binário pré-compilado"
+  msg "      Visite: https://github.com/mitchellh/ghostty"
+
+  # Opcionalmente, poderia tentar flatpak se houver
+  # flatpak_install_or_update com.mitchellh.ghostty "Ghostty" optional
+}
+
+# ═══════════════════════════════════════════════════════════
+# Aplicação de configurações específicas do Linux
+# ═══════════════════════════════════════════════════════════
+
+apply_linux_configs() {
+  local source_dir="$CONFIG_LINUX"
+  [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
+  [[ -d "$source_dir" ]] || return
+  msg "▶ Copiando configs Linux"
+  copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"
+}

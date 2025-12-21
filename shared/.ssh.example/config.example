@@ -1,0 +1,65 @@
+# ════════════════════════════════════════════════════════════════
+# SSH Config - Exemplo de Configuração Multi-Conta
+# ════════════════════════════════════════════════════════════════
+# Renomeie este arquivo para 'config' (sem extensão) e ajuste
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │ GitHub - Conta Pessoal                                       │
+# └─────────────────────────────────────────────────────────────┘
+Host github-personal
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_personal
+    IdentitiesOnly yes
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │ GitHub - Conta Trabalho                                      │
+# └─────────────────────────────────────────────────────────────┘
+Host github-work
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_work
+    IdentitiesOnly yes
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │ GitLab - Conta Pessoal                                       │
+# └─────────────────────────────────────────────────────────────┘
+Host gitlab-personal
+    HostName gitlab.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_personal
+    IdentitiesOnly yes
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │ Servidor VPS/Cloud                                           │
+# └─────────────────────────────────────────────────────────────┘
+Host meu-servidor
+    HostName 192.168.1.100
+    User seu-usuario
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519_servidor
+    IdentitiesOnly yes
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │ Configurações Globais                                        │
+# └─────────────────────────────────────────────────────────────┘
+Host *
+    AddKeysToAgent yes
+    UseKeychain yes  # macOS only - armazena senhas no Keychain
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    Compression yes
+
+# ════════════════════════════════════════════════════════════════
+# Como usar:
+# ════════════════════════════════════════════════════════════════
+#
+# 1. Clone com alias:
+#    git clone git@github-personal:usuario/repo.git
+#
+# 2. Alterar remote existente:
+#    git remote set-url origin git@github-work:empresa/projeto.git
+#
+# 3. SSH para servidor:
+#    ssh meu-servidor
+#

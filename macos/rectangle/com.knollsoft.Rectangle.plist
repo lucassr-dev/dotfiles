@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Rectangle Configuration -->
+	<!-- Atalhos de teclado para gerenciamento de janelas -->
+
+	<!-- Maximizar janela: Ctrl+Opt+Enter -->
+	<key>maximize</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>36</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+
+	<!-- Meia tela esquerda: Ctrl+Opt+Left -->
+	<key>leftHalf</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>123</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+
+	<!-- Meia tela direita: Ctrl+Opt+Right -->
+	<key>rightHalf</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>124</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+
+	<!-- Topo: Ctrl+Opt+Up -->
+	<key>topHalf</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>126</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+
+	<!-- Baixo: Ctrl+Opt+Down -->
+	<key>bottomHalf</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>125</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+
+	<!-- Centralizar: Ctrl+Opt+C -->
+	<key>center</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>8</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+
+	<!-- Quase maximizar: Ctrl+Opt+M -->
+	<key>almostMaximize</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>46</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+
+	<!-- Mover para monitor da esquerda: Ctrl+Opt+Cmd+Left -->
+	<key>previousDisplay</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>123</integer>
+		<key>modifierFlags</key>
+		<integer>1835008</integer>
+	</dict>
+
+	<!-- Mover para monitor da direita: Ctrl+Opt+Cmd+Right -->
+	<key>nextDisplay</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>124</integer>
+		<key>modifierFlags</key>
+		<integer>1835008</integer>
+	</dict>
+
+	<!-- Configurações gerais -->
+	<key>launchOnLogin</key>
+	<true/>
+
+	<key>hideMenubarIcon</key>
+	<false/>
+
+	<key>subsequentExecutionMode</key>
+	<integer>1</integer>
+
+	<!-- Gap entre janelas (em pixels) -->
+	<key>gapSize</key>
+	<integer>0</integer>
+</dict>
+</plist>

@@ -1,0 +1,44 @@
+{
+  "comment": "KeyCastr Configuration - Exibe teclas pressionadas na tela",
+  "comment2": "Útil para apresentações, tutoriais e gravações de tela",
+
+  "settings": {
+    "launchAtLogin": true,
+    "checkForUpdates": true,
+
+    "display": {
+      "fontSize": 48,
+      "fontName": "JetBrains Mono",
+      "fadeDelay": 1.0,
+      "lingerDelay": 0.5,
+      "position": "bottom-left",
+      "backgroundColor": "#000000",
+      "backgroundOpacity": 0.75,
+      "textColor": "#FFFFFF",
+      "keystrokeDelay": 0.1
+    },
+
+    "behavior": {
+      "showModifierKeys": true,
+      "showMouseClicks": true,
+      "commandKeyVisualization": "⌘",
+      "optionKeyVisualization": "⌥",
+      "controlKeyVisualization": "⌃",
+      "shiftKeyVisualization": "⇧",
+      "capsLockVisualization": "⇪"
+    },
+
+    "hotkeys": {
+      "toggleDisplay": "⌘⇧K"
+    }
+  },
+
+  "installation_note": "Após instalar KeyCastr:",
+  "installation_steps": [
+    "1. Abra Preferências do Sistema > Segurança e Privacidade",
+    "2. Vá para aba 'Acessibilidade'",
+    "3. Adicione KeyCastr à lista de apps permitidos",
+    "4. Isso é necessário para que o app possa capturar teclas pressionadas",
+    "5. Use ⌘⇧K para ativar/desativar a exibição de teclas"
+  ]
+}

@@ -1,0 +1,48 @@
+# Mise Configuration
+# Runtimes/CLIs globais via mise. Apenas os três abaixo são instalados por padrão pelo script.
+
+[tools]
+node = "latest"
+python = "latest"
+php = "latest"
+
+# Opções sugeridas (descomente se quiser que o mise gerencie)
+# go = "latest"
+# rust = "latest"
+# bun = "latest"
+# deno = "latest"
+# elixir = "latest"
+# java = "latest"
+# ruby = "latest"
+# pnpm = "latest"
+# yarn = "latest"
+# biome = "latest"
+# awscli = "latest"
+# kubectl = "latest"
+# helm = "latest"
+# k9s = "latest"
+# kustomize = "latest"
+# kind = "latest"
+# minikube = "latest"
+# terraform = "latest"
+# terragrunt = "latest"
+# packer = "latest"
+# flux = "latest"
+# argocd = "latest"
+# trivy = "latest"
+# cosign = "latest"
+# sops = "latest"
+# age = "latest"
+# doppler = "latest"
+# stern = "latest"
+# btop = "latest"
+# delta = "latest"
+# fd = "latest"
+# fzf = "latest"
+# ripgrep = "latest"
+# starship = "latest"
+# zoxide = "latest"
+
+[settings]
+experimental = true
+legacy_version_file = true

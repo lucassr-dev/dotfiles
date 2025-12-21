@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Stats Configuration -->
+	<!-- Monitor de sistema na menu bar -->
+
+	<!-- Lançar ao iniciar sistema -->
+	<key>runAtLoginInitialized</key>
+	<true/>
+	<key>runAtLogin</key>
+	<true/>
+
+	<!-- Verificar atualizações automaticamente -->
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+
+	<!-- Módulo CPU -->
+	<key>CPU_state</key>
+	<true/>
+	<key>CPU_widget</key>
+	<string>mini</string>
+	<key>CPU_updateInterval</key>
+	<real>2.0</real>
+	<key>CPU_mini_showPercent</key>
+	<true/>
+
+	<!-- Módulo Memory (RAM) -->
+	<key>RAM_state</key>
+	<true/>
+	<key>RAM_widget</key>
+	<string>mini</string>
+	<key>RAM_updateInterval</key>
+	<real>2.0</real>
+	<key>RAM_mini_showPercent</key>
+	<true/>
+
+	<!-- Módulo Disk -->
+	<key>Disk_state</key>
+	<true/>
+	<key>Disk_widget</key>
+	<string>mini</string>
+	<key>Disk_updateInterval</key>
+	<real>10.0</real>
+
+	<!-- Módulo Network -->
+	<key>Net_state</key>
+	<true/>
+	<key>Net_widget</key>
+	<string>mini</string>
+	<key>Net_updateInterval</key>
+	<real>2.0</real>
+	<key>Net_speed_icon</key>
+	<string>arrows</string>
+
+	<!-- Módulo Battery (para laptops) -->
+	<key>Battery_state</key>
+	<true/>
+	<key>Battery_widget</key>
+	<string>mini</string>
+	<key>Battery_updateInterval</key>
+	<real>10.0</real>
+
+	<!-- Aparência -->
+	<key>appearance</key>
+	<string>system</string>
+
+	<!-- Posição dos widgets na menu bar (mais à direita) -->
+	<key>widget_order</key>
+	<array>
+		<string>CPU</string>
+		<string>RAM</string>
+		<string>Disk</string>
+		<string>Net</string>
+		<string>Battery</string>
+	</array>
+</dict>
+</plist>

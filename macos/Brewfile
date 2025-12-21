@@ -1,0 +1,236 @@
+# ════════════════════════════════════════════════════════════════
+# Brewfile - macOS Apps & Tools
+# ════════════════════════════════════════════════════════════════
+#
+# Este arquivo define todos os apps e ferramentas instalados via Homebrew.
+#
+# Como usar:
+#   brew bundle install --file=config/macos/Brewfile
+#
+# Como atualizar:
+#   brew bundle dump --describe --force --file=config/macos/Brewfile
+#
+# ════════════════════════════════════════════════════════════════
+
+# ════════════════════════════════════════════════════════════════
+# Taps (Repositórios adicionais)
+# ════════════════════════════════════════════════════════════════
+tap "homebrew/bundle"
+tap "homebrew/services"
+tap "jesseduffield/lazygit"
+
+# ════════════════════════════════════════════════════════════════
+# CLI Tools - Essenciais
+# ════════════════════════════════════════════════════════════════
+brew "git"                  # Version control
+brew "curl"                 # Transfer data with URLs
+brew "wget"                 # Internet file retriever
+brew "jq"                   # JSON processor
+brew "yq"                   # YAML processor
+
+# Shells
+brew "zsh"                  # UNIX shell (command interpreter)
+brew "fish"                 # User-friendly command-line shell
+
+# Terminal multiplexer
+brew "tmux"                 # Terminal multiplexer
+
+# Editors
+brew "neovim"               # Modern Vim
+brew "vim"                  # Vi improved
+
+# ════════════════════════════════════════════════════════════════
+# CLI Tools - Modernos (substituem ferramentas antigas)
+# ════════════════════════════════════════════════════════════════
+brew "eza"                  # Modern replacement for ls
+brew "bat"                  # Modern replacement for cat
+brew "zoxide"               # Smarter cd command
+brew "ripgrep"              # Faster grep
+brew "fd"                   # Faster find
+brew "fzf"                  # Fuzzy finder
+brew "delta"                # Modern git diff
+brew "lazygit"              # Git TUI
+brew "btop"                 # Modern htop
+brew "htop"                 # Interactive process viewer
+brew "tlrc"                 # Tealdeer - fast tldr client in Rust
+
+# ════════════════════════════════════════════════════════════════
+# Development Tools
+# ════════════════════════════════════════════════════════════════
+brew "mise"                 # Runtime manager (Node, Python, Ruby, etc)
+brew "direnv"               # Environment switcher per directory
+brew "gh"                   # GitHub CLI
+brew "git-lfs"              # Git Large File Storage
+
+# ════════════════════════════════════════════════════════════════
+# Databases & Infrastructure
+# ════════════════════════════════════════════════════════════════
+brew "postgresql@15"        # PostgreSQL database
+brew "redis"                # In-memory data structure store
+brew "mysql"                # MySQL database
+
+# ════════════════════════════════════════════════════════════════
+# Media & Utilities
+# ════════════════════════════════════════════════════════════════
+brew "ffmpeg"               # Media converter
+brew "imagemagick"          # Image manipulation
+brew "youtube-dl"           # Download videos from YouTube
+
+# ════════════════════════════════════════════════════════════════
+# Prompt & Theme
+# ════════════════════════════════════════════════════════════════
+brew "starship"             # Cross-shell prompt
+
+# ════════════════════════════════════════════════════════════════
+# Browsers
+# ════════════════════════════════════════════════════════════════
+cask "arc"                  # Modern browser with spaces
+cask "firefox"              # Mozilla Firefox
+
+# ════════════════════════════════════════════════════════════════
+# Terminals
+# ════════════════════════════════════════════════════════════════
+cask "ghostty"              # Fast, native, feature-rich terminal (Mitchell Hashimoto)
+cask "iterm2"               # Replacement for Terminal
+
+# ════════════════════════════════════════════════════════════════
+# Development - Code Editors & IDEs
+# ════════════════════════════════════════════════════════════════
+cask "visual-studio-code"   # Microsoft VS Code
+
+# ════════════════════════════════════════════════════════════════
+# Development - Docker & Containers
+# ════════════════════════════════════════════════════════════════
+# Usando Docker Engine via Colima (mais leve, sem GUI pesada)
+# Se preferir Docker Desktop com GUI, comente as 3 linhas abaixo e descomente o cask "docker"
+
+brew "docker"               # Docker CLI
+brew "docker-compose"       # Docker Compose
+brew "colima"               # Container runtime for macOS (lightweight alternative to Docker Desktop)
+
+# Alternativa: Docker Desktop (GUI + Engine, mais pesado)
+# cask "docker"
+
+# ════════════════════════════════════════════════════════════════
+# Development - API & Database Tools
+# ════════════════════════════════════════════════════════════════
+cask "postman"              # API development and testing
+cask "dbeaver-community"    # Universal database tool
+
+# ════════════════════════════════════════════════════════════════
+# Productivity
+# ════════════════════════════════════════════════════════════════
+cask "slack"                # Team communication
+cask "notion"               # Notes and project management
+cask "obsidian"             # Knowledge base and note-taking
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - Launcher & Productivity
+# ════════════════════════════════════════════════════════════════
+cask "raycast"              # Supercharged launcher (substitute for Alfred/Spotlight)
+                            # NOTA: Plugins do Raycast NÃO são instalados via Homebrew
+                            # Após instalar o Raycast, instale manualmente os plugins:
+                            # 1. Abra Raycast (Cmd+Space ou atalho configurado)
+                            # 2. Digite "Store" e pressione Enter
+                            # 3. Instale os plugins recomendados:
+                            #    - Homebrew (gerenciar packages)
+                            #    - Rectangle (window management via Raycast)
+                            #    - Clipboard History
+                            #    - Google Search
+                            #    - GitHub
+                            #    - Kill Process
+                            #    - Search npm Packages
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - Window Management
+# ════════════════════════════════════════════════════════════════
+cask "rectangle"            # Window manager (move & resize with keyboard shortcuts)
+                            # Atalhos principais: Ctrl+Opt+Arrow keys
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - App Switching
+# ════════════════════════════════════════════════════════════════
+cask "alt-tab"              # Windows-style alt-tab with window previews
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - Menu Bar Management
+# ════════════════════════════════════════════════════════════════
+cask "hiddenbar"            # Hide menu bar items (free alternative to Bartender)
+cask "stats"                # System monitor in menu bar (CPU, Memory, Network, Disk)
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - System Cleaning (GRATUITO)
+# ════════════════════════════════════════════════════════════════
+brew "ncdu"                 # Disk usage analyzer (CLI)
+cask "appcleaner"           # Uninstall apps completely (free alternative to CleanMyMac)
+                            # CleanMyMac é PAGO (~$90/ano) - AppCleaner é gratuito
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - Screenshots & Screen Recording
+# ════════════════════════════════════════════════════════════════
+cask "cleanshot"            # Screenshot and screen recording tool (PAGO)
+                            # Alternativa gratuita nativa do macOS: Cmd+Shift+5
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - File Operations
+# ════════════════════════════════════════════════════════════════
+cask "commandx"             # Cut & Paste files in Finder (like Windows Ctrl+X)
+
+# ════════════════════════════════════════════════════════════════
+# Utilities - Keyboard Visualization
+# ════════════════════════════════════════════════════════════════
+cask "keycastr"             # Keystroke visualizer (show pressed keys on screen)
+                            # Útil para apresentações, tutoriais e screencasts
+
+# ════════════════════════════════════════════════════════════════
+# Fonts - Nerd Fonts
+# ════════════════════════════════════════════════════════════════
+# Nota: As fontes já estão em config/fonts/
+# Mas você pode instalá-las via Homebrew também:
+# tap "homebrew/cask-fonts"
+# cask "font-jetbrains-mono-nerd-font"
+# cask "font-fira-code-nerd-font"
+# cask "font-hack-nerd-font"
+# cask "font-meslo-lg-nerd-font"
+
+# ════════════════════════════════════════════════════════════════
+# Communication
+# ════════════════════════════════════════════════════════════════
+cask "discord"              # Voice, video, and text chat for gamers and communities
+
+# Outros apps de comunicação (descomente se necessário)
+# cask "zoom"
+# cask "microsoft-teams"
+# cask "telegram"
+# cask "whatsapp"
+
+# ════════════════════════════════════════════════════════════════
+# Media & Entertainment
+# ════════════════════════════════════════════════════════════════
+cask "vlc"                  # Open-source media player (suporta qualquer formato)
+cask "spotify"              # Music streaming
+
+# Outros apps de mídia (descomente se necessário)
+# cask "iina"               # Modern media player for macOS (alternativa ao VLC)
+
+# Design
+# cask "figma"
+
+# VPN & Security
+# cask "1password"
+# cask "nordvpn"
+
+# Backup & Cloud
+# cask "google-drive"
+# cask "dropbox"
+
+# Virtualization
+# cask "utm"                # Virtual machines (alternativa ao VMware/Parallels)
+# cask "virtualbox"
+
+# ════════════════════════════════════════════════════════════════
+# Mac App Store (requer mas-cli: brew install mas)
+# ════════════════════════════════════════════════════════════════
+# mas "Magnet", id: 441258766           # Window manager
+# mas "Amphetamine", id: 937984704      # Keep Mac awake
+# mas "Xcode", id: 497799835            # Apple's IDE

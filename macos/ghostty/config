@@ -1,0 +1,93 @@
+# Ghostty Terminal Configuration - macOS
+# 👻 Terminal moderno e rápido
+
+# ═══════════════════════════════════════════════════════════
+# Shell
+# ═══════════════════════════════════════════════════════════
+command = fish --login --interactive
+shell-integration = fish
+
+# ═══════════════════════════════════════════════════════════
+# Theme
+# ═══════════════════════════════════════════════════════════
+theme = Catppuccin Mocha
+background-opacity = 0.95
+
+# ═══════════════════════════════════════════════════════════
+# Font
+# ═══════════════════════════════════════════════════════════
+font-family = "JetBrainsMono Nerd Font"
+font-size = 13
+font-feature = liga
+font-feature = zero
+font-feature = ss01
+font-feature = cv01
+
+# ═══════════════════════════════════════════════════════════
+# Cursor
+# ═══════════════════════════════════════════════════════════
+cursor-style = block
+cursor-style-blink = true
+
+# ═══════════════════════════════════════════════════════════
+# Window
+# ═══════════════════════════════════════════════════════════
+window-padding-x = 10
+window-padding-y = 10
+window-theme = dark
+macos-titlebar-style = tabs
+
+# Better window management for macOS
+macos-option-as-alt = true
+
+# ═══════════════════════════════════════════════════════════
+# Behavior
+# ═══════════════════════════════════════════════════════════
+copy-on-select = true
+clipboard-read = allow
+clipboard-write = allow
+confirm-close-surface = false
+
+# macOS-specific: better integration with Mission Control
+quit-after-last-window-closed = false
+
+# ═══════════════════════════════════════════════════════════
+# Performance & Developer Features
+# ═══════════════════════════════════════════════════════════
+scrollback-limit = 20000
+
+# Better rendering for complex Unicode (emojis, icons, box drawing)
+grapheme-width-method = unicode
+
+# Better for Docker logs, React dev server, npm outputs
+shell-integration-features = cursor,sudo,title
+
+# ═══════════════════════════════════════════════════════════
+# Keybindings (macOS-style + Developer workflow)
+# ═══════════════════════════════════════════════════════════
+# Note: macOS uses Cmd by default, but we add some extras here
+
+# Tab management (Cmd+T/W work natively, these are extras)
+keybind = cmd+shift+t=new_tab
+keybind = cmd+shift+w=close_tab
+keybind = cmd+shift+n=new_window
+keybind = cmd+alt+left=previous_tab
+keybind = cmd+alt+right=next_tab
+
+# Quick splits (useful for Docker + dev server side by side)
+keybind = cmd+d=new_split:right
+keybind = cmd+shift+d=new_split:down
+
+# Font size adjustment (zoom in/out)
+keybind = cmd+plus=increase_font_size:1
+keybind = cmd+minus=decrease_font_size:1
+keybind = cmd+zero=reset_font_size
+
+# Search in terminal (useful for long logs)
+keybind = cmd+f=toggle_quick_terminal
+
+# Jump between splits
+keybind = cmd+shift+left=goto_split:left
+keybind = cmd+shift+right=goto_split:right
+keybind = cmd+shift+up=goto_split:up
+keybind = cmd+shift+down=goto_split:down

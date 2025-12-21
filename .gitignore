@@ -1,0 +1,23 @@
+# ════════════════════════════════════════════════════════════════
+# Dotfiles - .gitignore
+# ════════════════════════════════════════════════════════════════
+# Este arquivo impede que dados sensíveis sejam commitados
+
+# Chaves SSH privadas (NUNCA COMMITAR)
+shared/.ssh/
+.ssh/
+
+# Configurações Git com dados pessoais/empresa
+shared/git/.gitconfig-personal
+shared/git/.gitconfig-work
+
+# Backups automáticos do instalador
+.dotfiles-backup-*/
+
+# Nerd Fonts (arquivos grandes - baixados dinamicamente)
+fonts/
+
+# Arquivos temporários
+*.tmp
+*.log
+.DS_Store

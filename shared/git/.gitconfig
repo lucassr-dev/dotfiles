@@ -1,0 +1,94 @@
+[color]
+    status = auto
+    branch = auto
+    interactive = auto
+    diff = auto
+
+# ════════════════════════════════════════════════════════════════
+# Alternar automaticamente entre contas pessoal e trabalho
+# ════════════════════════════════════════════════════════════════
+#
+# Estrutura recomendada de diretórios:
+# ~/personal/    → Usa .gitconfig-personal (conta pessoal)
+# ~/projects/    → Usa .gitconfig-personal (conta pessoal)
+# ~/work/        → Usa .gitconfig-work (conta trabalho)
+# ~/workspace/   → Usa .gitconfig-work (conta trabalho)
+# ~/humu/        → Usa .gitconfig-work (conta trabalho)
+#
+# Como usar:
+# 1. Clone seus repos pessoais em ~/personal/ ou ~/projects/
+# 2. Clone seus repos de trabalho em ~/work/, ~/workspace/ ou ~/humu/
+# 3. O Git alternará automaticamente name/email baseado no diretório
+# ════════════════════════════════════════════════════════════════
+
+# Conta pessoal (projetos pessoais)
+[includeIf "gitdir:~/personal/"]
+    path = ~/.gitconfig-personal
+
+[includeIf "gitdir:~/projects/"]
+    path = ~/.gitconfig-personal
+
+# Conta trabalho (projetos Humu)
+[includeIf "gitdir:~/work/"]
+    path = ~/.gitconfig-work
+
+[includeIf "gitdir:~/workspace/"]
+    path = ~/.gitconfig-work
+
+[includeIf "gitdir:~/humu/"]
+    path = ~/.gitconfig-work
+
+# ════════════════════════════════════════════════════════════════
+# Aliases úteis
+# ════════════════════════════════════════════════════════════════
+[alias]
+    st = status
+    co = checkout
+    br = branch
+    ci = commit
+    lg = log --oneline --graph --all --decorate
+    last = log -1 HEAD
+    unstage = reset HEAD --
+    undo = reset --soft HEAD~1
+
+# ════════════════════════════════════════════════════════════════
+# Configurações de diff e merge
+# ════════════════════════════════════════════════════════════════
+[core]
+    editor = nvim
+    pager = delta
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true
+    light = false
+    side-by-side = true
+    line-numbers = true
+
+[merge]
+    conflictstyle = diff3
+
+[diff]
+    colorMoved = default
+
+# ════════════════════════════════════════════════════════════════
+# Configurações de push e pull
+# ════════════════════════════════════════════════════════════════
+[push]
+    default = current
+    autoSetupRemote = true
+
+[pull]
+    rebase = false
+
+# ════════════════════════════════════════════════════════════════
+# Outras configurações úteis
+# ════════════════════════════════════════════════════════════════
+[init]
+    defaultBranch = main
+
+[credential]
+    helper = manager-core
+    helper = cache --timeout=3600
