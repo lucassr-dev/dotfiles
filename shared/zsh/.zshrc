@@ -8,8 +8,7 @@
 # ═══════════════════════════════════════════════════════════
 export ZSH="$HOME/.oh-my-zsh"
 
-# Plugins (mantidos para ambos os prompts)
-plugins=(git docker npm node python command-not-found sudo extract z web-search zsh-autosuggestions zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete zsh-completions)
+plugins=(git docker npm sudo zsh-autosuggestions fast-syntax-highlighting)
 
 prompt_load_omz_with_p10k() {
   ZSH_THEME="powerlevel10k/powerlevel10k"
@@ -171,8 +170,7 @@ setopt HIST_IGNORE_DUPS
 setopt HIST_IGNORE_SPACE
 
 # ═══════════════════════════════════════════════════════════
-# Completion
+# Completion (compinit já é executado pelo Oh My Zsh)
 # ═══════════════════════════════════════════════════════════
-autoload -U compinit && compinit
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'

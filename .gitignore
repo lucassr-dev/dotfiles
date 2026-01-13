@@ -21,5 +21,11 @@ fonts/
 *.tmp
 *.log
 .DS_Store
+
+# AI Agents
 .claude/
 lib/CLAUDE.md
+.cursor/
+.aider*
+.continue/
+copilot-*
