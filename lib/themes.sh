@@ -237,161 +237,112 @@ preview_oh_my_posh() {
 # ═══════════════════════════════════════════════════════════
 
 ask_themes() {
-  while true; do
-    INSTALL_OH_MY_ZSH=0
-    INSTALL_POWERLEVEL10K=0
-    INSTALL_OH_MY_POSH=0
-    INSTALL_STARSHIP=0
+  INSTALL_OH_MY_ZSH=0
+  INSTALL_POWERLEVEL10K=0
+  INSTALL_OH_MY_POSH=0
+  INSTALL_STARSHIP=0
 
-    show_section_header "🎨 TEMAS - Personalize seu Shell"
+  show_section_header "🎨 TEMAS - Personalize seu Shell"
 
-    msg "Temas deixam seu terminal bonito e informativo com ícones, cores e informações úteis."
+  msg "Temas deixam seu terminal bonito e informativo com ícones, cores e informações úteis."
+  msg ""
+
+  # Verificar quais shells foram selecionados
+  local has_zsh=$INSTALL_ZSH
+  local has_fish=$INSTALL_FISH
+
+  if [[ $has_zsh -eq 0 ]] && [[ $has_fish -eq 0 ]]; then
+    msg "  ℹ️  Nenhum shell foi selecionado. Pulando seleção de temas."
     msg ""
+    return 0
+  fi
 
-    # Verificar quais shells foram selecionados
-    local has_zsh=$INSTALL_ZSH
-    local has_fish=$INSTALL_FISH
+  msg "⚠️  IMPORTANTE:"
+  msg "  • Você pode instalar múltiplos temas e alterná-los depois"
+  msg "  • Todos os temas requerem Nerd Fonts instaladas"
+  msg ""
 
-    if [[ $has_zsh -eq 0 ]] && [[ $has_fish -eq 0 ]]; then
-      msg "  ℹ️  Nenhum shell foi selecionado. Pulando seleção de temas."
-      msg ""
-      return 0
-    fi
+  # Construir opções de temas baseadas nos shells selecionados
+  local theme_options_with_desc=()
 
-    msg "📝 Opções disponíveis:"
-    msg ""
+  if [[ $has_zsh -eq 1 ]]; then
+    theme_options_with_desc+=("OhMyZsh-P10k  - [zsh] Oh My Zsh + Powerlevel10k (framework completo)")
+  fi
 
-    msg "⚠️  IMPORTANTE:"
-    msg ""
-    msg "  • Você pode instalar múltiplos temas e alterná-los depois"
-    msg "  • Todos os temas requerem Nerd Fonts instaladas"
-    msg ""
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    msg "  Selecione os temas que deseja instalar"
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    msg ""
-    msg "  (Você pode selecionar múltiplos temas)"
-    msg ""
+  # Starship funciona em ambos
+  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]]; then
+    local compat=""
+    [[ $has_zsh -eq 1 ]] && compat="zsh"
+    [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
+    theme_options_with_desc+=("Starship      - [$compat] Prompt minimalista com presets prontos")
+  fi
 
-    # Opções de temas baseadas nos shells
-    local theme_options=()
-    local theme_compat=()
-    local theme_desc=()
+  # Oh My Posh funciona em ambos
+  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]]; then
+    local compat=""
+    [[ $has_zsh -eq 1 ]] && compat="zsh"
+    [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
+    theme_options_with_desc+=("OhMyPosh      - [$compat] Prompt configurável com centenas de temas")
+  fi
 
-    if [[ $has_zsh -eq 1 ]]; then
-      theme_options+=("Oh My Zsh + Powerlevel10k")
-      theme_compat+=("zsh")
-      theme_desc+=("Framework completo + prompt ultra-rápido")
-    fi
+  # Usar seleção múltipla moderna
+  local selected_desc=()
+  select_multiple_items "🎨 Selecione os temas para instalar" selected_desc "${theme_options_with_desc[@]}"
 
-    # Starship funciona em ambos
-    if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]]; then
-      local compat=""
-      [[ $has_zsh -eq 1 ]] && compat="zsh"
-      [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
-      theme_options+=("Starship")
-      theme_compat+=("$compat")
-      theme_desc+=("Prompt minimalista com presets prontos")
-    fi
-
-    # Oh My Posh funciona em ambos
-    if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]]; then
-      local compat=""
-      [[ $has_zsh -eq 1 ]] && compat="zsh"
-      [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
-      theme_options+=("Oh My Posh")
-      theme_compat+=("$compat")
-      theme_desc+=("Prompt configurável com centenas de temas")
-    fi
-
-    # Mostrar opções com compatibilidade
-    local idx=1
-    for i in "${!theme_options[@]}"; do
-      msg "  $idx) ${theme_options[$i]} (${theme_compat[$i]}) - ${theme_desc[$i]}"
-      idx=$((idx + 1))
-    done
-    msg ""
-    msg "  a) Todos"
-    msg "  (Enter para nenhum)"
-    msg ""
-
-    local input=""
-    read -r -p "  Selecione números separados por vírgula ou 'a': " input
-
-    # Processar seleção
-    local selected_themes=()
-
-    if [[ -z "$input" ]]; then
-      msg ""
-      msg "  ⏭️  Nenhum tema selecionado"
-      msg ""
-      return 0
-    fi
-
-    case "$input" in
-      a|A|all|ALL|todos|T|t)
-        selected_themes=("${theme_options[@]}")
+  # Mapear seleções para variáveis
+  for item in "${selected_desc[@]}"; do
+    local theme_id
+    theme_id=$(echo "$item" | awk '{print $1}')
+    case "$theme_id" in
+      "OhMyZsh-P10k")
+        INSTALL_OH_MY_ZSH=1
+        INSTALL_POWERLEVEL10K=1
         ;;
-      *)
-        local nums=()
-        IFS=',' read -r -a nums <<< "$input"
-        for n in "${nums[@]}"; do
-          n="${n//[[:space:]]/}"
-          [[ -z "$n" ]] && continue
-          if [[ "$n" =~ ^[0-9]+$ ]] && (( n >= 1 )) && (( n <= ${#theme_options[@]} )); then
-            selected_themes+=("${theme_options[n-1]}")
-          fi
-        done
+      "Starship")
+        INSTALL_STARSHIP=1
+        ;;
+      "OhMyPosh")
+        INSTALL_OH_MY_POSH=1
         ;;
     esac
-
-    # Mapear seleções para variáveis
-    for theme in "${selected_themes[@]}"; do
-      case "$theme" in
-        "Oh My Zsh + Powerlevel10k")
-          INSTALL_OH_MY_ZSH=1
-          INSTALL_POWERLEVEL10K=1
-          ;;
-        "Starship")
-          INSTALL_STARSHIP=1
-          ;;
-        "Oh My Posh")
-          INSTALL_OH_MY_POSH=1
-          ;;
-      esac
-    done
-
-    msg ""
-    msg "✅ Seleção de temas concluída"
-
-    if [[ ${#selected_themes[@]} -gt 0 ]]; then
-      print_selection_summary "🎨 Temas" "${selected_themes[@]}"
-    else
-      print_selection_summary "🎨 Temas" "(nenhum)"
-    fi
-
-    if [[ $INSTALL_STARSHIP -eq 1 || $INSTALL_OH_MY_POSH -eq 1 ]]; then
-      msg "  ℹ️  As prévias de Starship e Oh My Posh aparecem nas próximas etapas."
-      msg ""
-    fi
-
-    if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
-      if declare -F clear_screen >/dev/null; then
-        clear_screen
-      else
-        clear
-      fi
-      show_section_header "🖼️  PRÉVIA DO TEMA"
-      print_selection_summary "🎨 Temas" "${selected_themes[@]}"
-      msg ""
-      preview_powerlevel10k
-      msg ""
-      if declare -F pause_before_next_section >/dev/null; then
-        pause_before_next_section "Pressione Enter para continuar..."
-      fi
-    fi
-    break
   done
+
+  msg ""
+  msg "✅ Seleção de temas concluída"
+
+  # Construir lista de temas selecionados para resumo
+  local selected_themes=()
+  [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && selected_themes+=("Oh My Zsh + Powerlevel10k")
+  [[ $INSTALL_STARSHIP -eq 1 ]] && selected_themes+=("Starship")
+  [[ $INSTALL_OH_MY_POSH -eq 1 ]] && selected_themes+=("Oh My Posh")
+
+  if [[ ${#selected_themes[@]} -gt 0 ]]; then
+    print_selection_summary "🎨 Temas" "${selected_themes[@]}"
+  else
+    print_selection_summary "🎨 Temas" "(nenhum)"
+  fi
+
+  if [[ $INSTALL_STARSHIP -eq 1 || $INSTALL_OH_MY_POSH -eq 1 ]]; then
+    msg "  ℹ️  As prévias de Starship e Oh My Posh aparecem nas próximas etapas."
+    msg ""
+  fi
+
+  # Mostrar prévia do Powerlevel10k se selecionado
+  if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
+    if declare -F clear_screen >/dev/null; then
+      clear_screen
+    else
+      clear
+    fi
+    show_section_header "🖼️  PRÉVIA DO TEMA"
+    print_selection_summary "🎨 Temas" "${selected_themes[@]}"
+    msg ""
+    preview_powerlevel10k
+    msg ""
+    if declare -F pause_before_next_section >/dev/null; then
+      pause_before_next_section "Pressione Enter para continuar..."
+    fi
+  fi
 }
 
 # ═══════════════════════════════════════════════════════════

@@ -2,102 +2,82 @@
 
 Sistema completo de gerenciamento de dotfiles para **Linux**, **macOS** e **Windows**.
 
-[![GitHub](https://img.shields.io/badge/GitHub-lucassr--dev-181717?style=flat&logo=github)](https://github.com/lucassr-dev)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+> ⚠️ **Repositório Privado** - Contém chaves SSH e configurações Git pessoais.
+>
+> 📦 **Versão Pública**: [github.com/lucassr-dev/dotfiles](https://github.com/lucassr-dev/dotfiles)
 
 ---
 
 ## 📋 Índice
 
-- [Características](#-características)
-- [Instalação](#-instalação)
+- [Primeira Instalação](#-primeira-instalação-máquina-nova)
 - [Comandos](#-comandos)
 - [O que Instala](#-o-que-instala)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
-- [Personalização](#-personalização)
 - [Flags e Opções](#-flags-e-opções)
+- [Sincronizar Repo Público](#-sincronizar-repo-público)
 - [Troubleshooting](#-troubleshooting)
 - [Recursos Úteis](#-recursos-úteis)
-- [Contribuindo](#-contribuindo)
 
 ---
 
-## ✨ Características
+## 🚀 Primeira Instalação (Máquina Nova)
 
-- **Cross-platform**: Linux, macOS e Windows (Git Bash)
-- **Interativo**: Menus de seleção para escolher o que instalar
-- **Modular**: Escolha shells, CLI tools, runtimes, apps e temas
-- **Seguro**: Backups automáticos antes de qualquer alteração
-- **Responsivo**: Interface adaptável ao tamanho do terminal
+Na primeira instalação, as chaves SSH ainda não existem no sistema. Por isso, use **HTTPS com Personal Access Token**.
 
----
+### Criar Personal Access Token
 
-## 🚀 Instalação
+1. GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)**
+2. Scope: `repo` (Full control of private repositories)
+3. Copie o token gerado
 
-### Instalação Rápida
+### macOS
 
 ```bash
-git clone https://github.com/lucassr-dev/dotfiles.git ~/.config
-cd ~/.config && bash install.sh
-```
-
-### Por Sistema Operacional
-
-<details>
-<summary><strong>🐧 Linux (Ubuntu/Debian)</strong></summary>
-
-```bash
-sudo apt-get update && sudo apt-get install -y git curl
-git clone https://github.com/lucassr-dev/dotfiles.git ~/.config
-cd ~/.config && bash install.sh
-```
-</details>
-
-<details>
-<summary><strong>🐧 Linux (Fedora/RHEL)</strong></summary>
-
-```bash
-sudo dnf install -y git curl
-git clone https://github.com/lucassr-dev/dotfiles.git ~/.config
-cd ~/.config && bash install.sh
-```
-</details>
-
-<details>
-<summary><strong>🐧 Linux (Arch)</strong></summary>
-
-```bash
-sudo pacman -Sy git curl
-git clone https://github.com/lucassr-dev/dotfiles.git ~/.config
-cd ~/.config && bash install.sh
-```
-</details>
-
-<details>
-<summary><strong>🍎 macOS</strong></summary>
-
-```bash
-# Instalar Homebrew (se não tiver)
+# 1. Instalar Homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Clonar e instalar
-git clone https://github.com/lucassr-dev/dotfiles.git ~/.config
+# 2. Clonar via HTTPS
+git clone https://SEU_TOKEN@github.com/lucassr-dev/.config.git ~/.config
+
+# 3. Executar instalador
 cd ~/.config && bash install.sh
 ```
-</details>
 
-<details>
-<summary><strong>🪟 Windows (Git Bash)</strong></summary>
+### Linux (Ubuntu/Debian)
+
+```bash
+# 1. Instalar dependências
+sudo apt-get update && sudo apt-get install -y git curl
+
+# 2. Clonar via HTTPS
+git clone https://SEU_TOKEN@github.com/lucassr-dev/.config.git ~/.config
+
+# 3. Executar instalador
+cd ~/.config && bash install.sh
+```
+
+### Windows (Git Bash)
 
 ```bash
 # 1. Instalar Git for Windows
 winget install Git.Git
 
-# 2. Abrir Git Bash e executar:
-git clone https://github.com/lucassr-dev/dotfiles.git ~/.config
+# 2. Abrir Git Bash e clonar
+git clone https://SEU_TOKEN@github.com/lucassr-dev/.config.git ~/.config
+
+# 3. Executar instalador
 cd ~/.config && bash install.sh
 ```
-</details>
+
+### 📝 Instalações Subsequentes
+
+Após a primeira instalação, as chaves SSH estarão configuradas:
+
+```bash
+git clone git@github.com-lucassr-dev:lucassr-dev/.config.git ~/.config
+cd ~/.config && bash install.sh
+```
 
 ---
 
@@ -202,47 +182,20 @@ Configuração automática para alternar entre contas:
 │   ├── apps.sh             #    Apps GUI por categoria
 │   └── runtimes.sh         #    Runtimes disponíveis
 ├── shared/                 # 🔗 Configs compartilhadas
+│   ├── .ssh/               #    🔑 Chaves SSH (PRIVADO!)
+│   ├── git/                #    Configs Git
 │   ├── fish/               #    Configs Fish
 │   ├── zsh/                #    Configs Zsh
 │   ├── nvim/               #    Configs Neovim
 │   ├── tmux/               #    Configs Tmux
 │   ├── vscode/             #    Configs VS Code
-│   ├── git/                #    Templates Git
 │   └── starship.toml       #    Preset Starship
 ├── linux/                  # 🐧 Específico Linux
 ├── macos/                  # 🍎 Específico macOS
-└── windows/                # 🪟 Específico Windows
+├── windows/                # 🪟 Específico Windows
+└── scripts/                # 🔧 Utilitários
+    └── sync_public.sh      #    Sync para repo público
 ```
-
----
-
-## 🔧 Personalização
-
-### Configuração Git Multi-conta
-
-Crie seus arquivos de configuração Git:
-
-```bash
-# Personal
-cat > shared/git/.gitconfig-personal << 'EOF'
-[user]
-  name = Seu Nome
-  email = seu@email.com
-EOF
-
-# Work (opcional)
-cat > shared/git/.gitconfig-work << 'EOF'
-[user]
-  name = Seu Nome (Work)
-  email = seu@empresa.com
-EOF
-```
-
-### Chaves SSH
-
-Coloque suas chaves SSH em `shared/.ssh/`:
-- `id_ed25519` e `id_ed25519.pub` (ou outro tipo de chave)
-- `config` (opcional, para múltiplas contas GitHub/GitLab)
 
 ---
 
@@ -255,6 +208,26 @@ VERBOSE_REPORT=1 bash install.sh
 # Escolher preset do Starship
 STARSHIP_PRESET=catppuccin-powerline bash install.sh
 ```
+
+---
+
+## 🔄 Sincronizar Repo Público
+
+O repo público não contém dados sensíveis (SSH, configs pessoais).
+
+```bash
+# Sincronizar
+bash scripts/sync_public.sh
+
+# Ou especificar diretório
+DOTFILES_PUBLIC_DIR="/caminho/para/dotfiles" bash scripts/sync_public.sh
+```
+
+**Arquivos excluídos automaticamente:**
+- `shared/.ssh/` (chaves privadas)
+- `shared/git/.gitconfig-personal`
+- `shared/git/.gitconfig-work`
+- `scripts/sync_public.sh`
 
 ---
 
@@ -329,15 +302,13 @@ STARSHIP_CONFIG="shared/starship.toml" starship print-config
 
 ---
 
-## 🤝 Contribuindo
+## 🔑 Segurança
 
-Contribuições são bem-vindas! Sinta-se à vontade para:
+> ⚠️ **NUNCA** commite este repo como público - contém chaves privadas!
 
-1. Fazer um fork do projeto
-2. Criar uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abrir um Pull Request
+- Chaves SSH em `shared/.ssh/`
+- Configs Git com dados pessoais em `shared/git/`
+- Use o repo público para compartilhar: [lucassr-dev/dotfiles](https://github.com/lucassr-dev/dotfiles)
 
 ---
 
@@ -347,16 +318,9 @@ Contribuições são bem-vindas! Sinta-se à vontade para:
 
 - ✨ Banner ASCII responsivo (3 tamanhos)
 - ✨ Dashboard pós-instalação em 2 colunas
-- ⚡ Otimização de plugins Zsh para performance
 - 🐛 Correção de variáveis não inicializadas
 - 🔧 Funções helper para eliminar duplicação
 - 📝 README completo e organizado
-
----
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ---
 

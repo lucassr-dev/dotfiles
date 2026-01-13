@@ -16,6 +16,10 @@ get_version() {
     node) node --version 2>/dev/null ;;
     python) python3 --version 2>/dev/null | awk '{print $2}' ;;
     php) php --version 2>/dev/null | head -n 1 | awk '{print $2}' ;;
+    rust) rustc --version 2>/dev/null | awk '{print $2}' ;;
+    go) go version 2>/dev/null | awk '{print $3}' | sed 's/go//' ;;
+    bun) bun --version 2>/dev/null ;;
+    deno) deno --version 2>/dev/null | head -n 1 | awk '{print $2}' ;;
   esac
 }
 
@@ -94,8 +98,10 @@ print_post_install_report() {
     has_cmd node && rt_col1+=("🟢 Node.js: $(get_version node)")
     has_cmd python3 && rt_col1+=("🐍 Python: $(get_version python)")
     has_cmd php && rt_col2+=("🐘 PHP: $(get_version php)")
-    has_cmd cargo && rt_col2+=("🦀 Rust: instalado")
-    has_cmd go && rt_col2+=("🔷 Go: instalado")
+    has_cmd rustc && rt_col2+=("🦀 Rust: $(get_version rust)")
+    has_cmd go && rt_col2+=("🔷 Go: $(get_version go)")
+    has_cmd bun && rt_col2+=("🧅 Bun: $(get_version bun)")
+    has_cmd deno && rt_col2+=("🦕 Deno: $(get_version deno)")
 
     echo -e "${YELLOW}🚀 RUNTIMES DE DESENVOLVIMENTO${NC}"
     echo -e "${CYAN}┌───────────────────────────────────────┬─────────────────────────────────────────┐${NC}"
@@ -155,9 +161,32 @@ print_post_install_report() {
   echo ""
 
   # ═══════════════════════════════════════════════════════════════════════════
+  # DICAS DO MISE (se instalado)
+  # ═══════════════════════════════════════════════════════════════════════════
+  if has_cmd mise; then
+    echo -e "${PURPLE}📦 MISE - GERENCIADOR DE RUNTIMES${NC}"
+    echo -e "${CYAN}┌─────────────────────────────────────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${NC}                                                                                 ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${WHITE}mise ls${NC}                   →  Listar runtimes instalados                        ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${WHITE}mise ls-remote node${NC}       →  Ver versões disponíveis do Node.js                ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${WHITE}mise use -g node@22${NC}       →  Instalar e definir Node 22 como global            ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${WHITE}mise use node@20${NC}          →  Usar Node 20 apenas no projeto atual              ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${WHITE}mise install${NC}              →  Instalar versões definidas no .mise.toml          ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${WHITE}mise prune${NC}                →  Remover versões não utilizadas                    ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}                                                                                 ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${BLUE}Exemplos:${NC}                                                                       ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    mise use -g python@3.12     →  Python 3.12 global                            ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    mise use -g rust@stable     →  Rust stable global                            ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    mise use -g go@1.22         →  Go 1.22 global                                ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}                                                                                 ${CYAN}│${NC}"
+    echo -e "${CYAN}└─────────────────────────────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+  fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # FOOTER
   # ═══════════════════════════════════════════════════════════════════════════
   [[ -d "$BACKUP_DIR" ]] && echo -e "  ${BLUE}📂 Backup:${NC} $BACKUP_DIR"
-  echo -e "  ${BLUE}🌐 Portfólio:${NC} lucassr.dev          ${GREEN}📦 GitHub:${NC} github.com/lucassrdev/configs"
+  echo -e "  ${BLUE}🌐 Portfólio:${NC} https://lucassr.dev          ${GREEN}📦 GitHub:${NC} https://github.com/lucassr-dev/.config"
   echo ""
 }

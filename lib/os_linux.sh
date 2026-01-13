@@ -123,6 +123,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         imagemagick
+        fzf
       )
       ;;
     dnf)
@@ -140,6 +141,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         ImageMagick
+        fzf
       )
       ;;
     pacman)
@@ -155,6 +157,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         imagemagick
+        fzf
       )
       ;;
     zypper)
@@ -172,6 +175,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         ImageMagick
+        fzf
       )
       ;;
   esac
@@ -195,6 +199,7 @@ install_linux_selected_apps() {
       ghostty) ensure_ghostty_linux ;;
       kitty) install_linux_packages optional kitty ;;
       alacritty) install_linux_packages optional alacritty ;;
+      wezterm) install_wezterm_linux ;;
       gnome-terminal) install_linux_packages optional gnome-terminal ;;
     esac
   done
@@ -412,203 +417,6 @@ install_linux_selected_apps() {
     done
   fi
 }
-# ═══════════════════════════════════════════════════════════
-# Instalação de apps específicos do Linux
-# ═══════════════════════════════════════════════════════════
-
-install_chrome_linux() {
-  detect_linux_pkg_manager
-  if has_cmd google-chrome || command -v google-chrome-stable >/dev/null 2>&1 || has_flatpak_ref "com.google.Chrome"; then
-    return 0
-  fi
-  if [[ "$LINUX_PKG_MANAGER" != "apt-get" ]]; then
-    record_failure "optional" "Google Chrome (Linux) suportado automaticamente apenas em distros apt; instale manualmente."
-    return 0
-  fi
-  local deb
-  deb="$(mktemp)"
-  trap 'rm -f "$deb"' RETURN
-
-  msg "  📦 Baixando Google Chrome para Linux..."
-  if curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -o "$deb"; then
-    if run_with_sudo dpkg -i "$deb"; then
-      msg "  ✅ Google Chrome instalado"
-      INSTALLED_MISC+=("google-chrome: deb")
-      run_with_sudo apt-get install -f -y >/dev/null 2>&1 || true
-    else
-      record_failure "optional" "Falha ao instalar Google Chrome via dpkg"
-    fi
-  else
-    record_failure "optional" "Falha ao baixar Google Chrome"
-  fi
-}
-
-install_brave_linux() {
-  if has_cmd brave-browser; then
-    return 0
-  fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update com.brave.Browser "Brave" optional
-    return 0
-  fi
-  if has_cmd snap; then
-    snap_install_or_refresh brave "Brave" optional
-    return 0
-  fi
-  record_failure "optional" "Brave não instalado: Flatpak/Snap indisponíveis nesta distro."
-}
-
-install_zen_linux() {
-  if has_cmd zen-browser; then
-    return 0
-  fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update io.github.ranfdev.Zen "Zen Browser" optional
-    return 0
-  fi
-  record_failure "optional" "Zen Browser não instalado: Flatpak indisponível nesta distro."
-}
-
-install_pgadmin_linux() {
-  if has_cmd pgadmin4; then
-    return 0
-  fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update org.pgadmin.pgadmin4 "pgAdmin" optional
-    return 0
-  fi
-  record_failure "optional" "pgAdmin não instalado: Flatpak indisponível nesta distro."
-}
-
-install_mongodb_linux() {
-  if has_cmd mongod || has_cmd mongodb-compass; then
-    return 0
-  fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update com.mongodb.Compass "MongoDB Compass" optional
-    return 0
-  fi
-  install_linux_packages optional mongodb 2>/dev/null
-}
-
-install_vscode_linux() {
-  # Se já estiver instalado via Snap, apenas atualiza
-  if has_snap_pkg code; then
-    msg "  🔄 Atualizando VS Code via snap (stable)..."
-    if run_with_sudo snap refresh code --channel=stable >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: snap refresh (stable)")
-    else
-      record_failure "optional" "Falha ao atualizar VS Code via snap"
-    fi
-    return 0
-  fi
-
-  # Se já estiver instalado via Flatpak, apenas atualiza
-  if has_flatpak_ref "com.visualstudio.code"; then
-    msg "  🔄 Atualizando VS Code via flatpak..."
-    if flatpak update -y com.visualstudio.code >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: flatpak update")
-    else
-      record_failure "optional" "Falha ao atualizar VS Code via flatpak"
-    fi
-    return 0
-  fi
-
-  detect_linux_pkg_manager
-
-  if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
-    local deb
-    deb="$(mktemp)"
-    trap 'rm -f "$deb"' RETURN
-
-    msg "  📦 Baixando VS Code (latest .deb)..."
-    if curl -fsSL "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64" -o "$deb"; then
-      if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
-        msg "  ✅ VS Code instalado via .deb"
-        INSTALLED_MISC+=("vscode: deb")
-        run_with_sudo apt-get install -f -y >/dev/null 2>&1 || true
-      else
-        warn "dpkg falhou; tentando snap como fallback"
-        snap_install_or_refresh code "VS Code" optional --classic
-      fi
-    else
-      warn "Download falhou; tentando snap como fallback"
-      snap_install_or_refresh code "VS Code" optional --classic
-    fi
-    return 0
-  fi
-
-  # Fallback para snap
-  snap_install_or_refresh code "VS Code" optional --classic
-}
-
-install_docker_linux() {
-  if has_cmd docker; then
-    return 0
-  fi
-  detect_linux_pkg_manager
-  if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
-    msg "  📦 Instalando Docker via apt..."
-    # Instalar dependências
-    install_linux_packages optional ca-certificates curl gnupg lsb-release
-    # Adicionar chave GPG e repositório Docker
-    if ! run_with_sudo mkdir -p /etc/apt/keyrings 2>/dev/null; then
-      record_failure "optional" "Falha ao criar diretório /etc/apt/keyrings"
-      return
-    fi
-    if curl -fsSL https://download.docker.com/linux/ubuntu/gpg | run_with_sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null; then
-      local codename
-      codename="$(get_distro_codename "jammy")"
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $codename stable" | run_with_sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
-      LINUX_PKG_UPDATED=0
-      install_linux_packages optional docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    else
-      record_failure "optional" "Falha ao adicionar chave GPG do Docker"
-    fi
-  else
-    install_linux_packages optional docker
-  fi
-}
-
-install_php_build_deps_linux() {
-  detect_linux_pkg_manager
-  local php_deps=()
-  case "$LINUX_PKG_MANAGER" in
-    apt-get)
-      php_deps=(
-        autoconf bison build-essential curl libcurl4-openssl-dev
-        libonig-dev libreadline-dev libsqlite3-dev libssl-dev
-        libxml2-dev libzip-dev pkg-config re2c zlib1g-dev
-      )
-      ;;
-    dnf)
-      php_deps=(
-        autoconf bison gcc gcc-c++ libcurl-devel oniguruma-devel
-        readline-devel sqlite-devel openssl-devel libxml2-devel
-        libzip-devel pkgconfig re2c zlib-devel
-      )
-      ;;
-    pacman)
-      php_deps=(
-        autoconf bison curl oniguruma readline sqlite openssl
-        libxml2 libzip pkgconf re2c zlib
-      )
-      ;;
-    zypper)
-      php_deps=(
-        autoconf bison gcc gcc-c++ libcurl-devel oniguruma-devel
-        readline-devel sqlite3-devel libopenssl-devel libxml2-devel
-        libzip-devel pkg-config re2c zlib-devel
-      )
-      ;;
-  esac
-
-  if [[ ${#php_deps[@]} -gt 0 ]]; then
-    msg "  📦 Instalando dependências de build do PHP..."
-    install_linux_packages optional "${php_deps[@]}"
-  fi
-}
-
 ensure_ghostty_linux() {
   if has_cmd ghostty; then
     return 0
@@ -621,6 +429,36 @@ ensure_ghostty_linux() {
 
   # Opcionalmente, poderia tentar flatpak se houver
   # flatpak_install_or_update com.mitchellh.ghostty "Ghostty" optional
+}
+
+install_wezterm_linux() {
+  if has_cmd wezterm; then
+    return 0
+  fi
+
+  # WezTerm via Flatpak (recomendado)
+  if has_cmd flatpak; then
+    msg "  📦 Instalando WezTerm via Flatpak..."
+    if flatpak install -y flathub org.wezfurlong.wezterm >/dev/null 2>&1; then
+      INSTALLED_MISC+=("wezterm: flatpak")
+      return 0
+    fi
+  fi
+
+  # WezTerm via AppImage
+  detect_linux_pkg_manager
+  if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
+    msg "  📦 Instalando WezTerm via repositório oficial..."
+    # Adicionar repositório WezTerm
+    curl -fsSL https://apt.fury.io/wez/gpg.key | run_with_sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg 2>/dev/null
+    echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | run_with_sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
+    LINUX_PKG_UPDATED=0
+    install_linux_packages optional wezterm
+    return 0
+  fi
+
+  # Fallback: instruções manuais
+  msg "  ℹ️  WezTerm: visite https://wezfurlong.org/wezterm/install/linux.html"
 }
 
 # ═══════════════════════════════════════════════════════════

@@ -90,7 +90,7 @@ show_banner_large() {
   echo ""
   center_colored "${BANNER_MAGENTA}~ my dotfiles ~${BANNER_RESET}" "$width"
   echo ""
-  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} ${BANNER_BOLD}lucassr.dev${BANNER_RESET}  ${BANNER_DIM}│${BANNER_RESET}  ${BANNER_GREEN}📦${BANNER_RESET} ${BANNER_BOLD}github.com/lucassrdev/configs${BANNER_RESET}" "$width"
+  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} ${BANNER_BOLD}https://lucassr.dev${BANNER_RESET}  ${BANNER_DIM}│${BANNER_RESET}  ${BANNER_GREEN}📦${BANNER_RESET} ${BANNER_BOLD}https://github.com/lucassr-dev/.config${BANNER_RESET}" "$width"
   echo ""
 }
 
@@ -111,7 +111,7 @@ show_banner_medium() {
   echo ""
   center_colored "${BANNER_YELLOW}-dev${BANNER_RESET}  ${BANNER_MAGENTA}~ my dotfiles ~${BANNER_RESET}" "$width"
   echo ""
-  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} lucassr.dev  ${BANNER_GREEN}📦${BANNER_RESET} github.com/lucassrdev" "$width"
+  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} lucassr.dev  ${BANNER_GREEN}📦${BANNER_RESET} github.com/lucassr-dev" "$width"
   echo ""
 }
 
@@ -173,21 +173,8 @@ show_section_header() {
   echo ""
 }
 
-clear_and_show_section() {
-  local title="$1"
-  local skip_clear="${2:-false}"
-
-  [[ "$skip_clear" != "true" ]] && clear_screen
-  show_section_header "$title"
-}
-
 pause_before_next_section() {
   local message="${1:-Pressione Enter para continuar...}"
   echo ""
   read -r -p "💡 $message "
-}
-
-# Alias para compatibilidade
-show_ascii_banner() {
-  show_ascii_banner_responsive "$(get_term_width)"
 }

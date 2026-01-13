@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Funções de seleção interativa para categorias de apps/ferramentas
+# Usa o sistema de UI moderno (fzf/gum/bash) de lib/ui.sh
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # Arrays globais para armazenar seleções
@@ -8,9 +9,15 @@ declare -a SELECTED_IA_TOOLS=()
 declare -a SELECTED_TERMINALS=()
 
 # ═══════════════════════════════════════════════════════════
-# Função auxiliar para seleção de múltiplos itens
+# Funções de compatibilidade (fallback se ui.sh não carregou)
 # ═══════════════════════════════════════════════════════════
 
+# Verifica se o sistema de UI moderno está disponível
+_has_modern_ui() {
+  declare -F ui_select_multiple >/dev/null 2>&1
+}
+
+# Fallback para menu_header se não tiver ui.sh
 menu_header() {
   local title="$1"
   msg ""
@@ -20,14 +27,33 @@ menu_header() {
   echo ""
 }
 
+# Fallback para seleção única
 menu_select_single() {
   local title="$1"
   local prompt="$2"
   local out_var="$3"
   shift 3
   local options=("$@")
-  local selection=""
 
+  # Usar UI moderna se disponível
+  if _has_modern_ui; then
+    local result=""
+    ui_select_single "$title" result "${options[@]}"
+    # Mapear resultado para índice
+    for i in "${!options[@]}"; do
+      local opt_name
+      opt_name=$(echo "${options[i]}" | awk '{print $1}')
+      if [[ "$opt_name" == "$result" ]]; then
+        printf -v "$out_var" '%s' "$((i + 1))"
+        return 0
+      fi
+    done
+    printf -v "$out_var" '%s' "1"
+    return 0
+  fi
+
+  # Fallback bash puro
+  local selection=""
   while true; do
     menu_header "$title"
     local idx=1
@@ -45,12 +71,20 @@ menu_select_single() {
   done
 }
 
+# Fallback para seleção múltipla
 select_multiple_items() {
   local title="$1"
   local out_var="$2"
   shift 2
   local options=("$@")
 
+  # Usar UI moderna se disponível
+  if _has_modern_ui; then
+    ui_select_multiple "$title" "$out_var" "${options[@]}"
+    return
+  fi
+
+  # Fallback bash puro (código original)
   local input=""
   local selected=()
 
@@ -128,7 +162,7 @@ select_multiple_items() {
     msg "  ⚠️  Entrada inválida. Use números da lista separados por vírgula, 'a' para todos ou Enter para nenhum."
   done
 
-  # Usar nameref para atribuir array de volta (Bash 4.3+, seguro e sem eval)
+  # Usar nameref para atribuir array de volta (Bash 4.3+)
   declare -n array_ref="$out_var"
   array_ref=("${selected[@]}")
   unset -n array_ref
@@ -139,51 +173,58 @@ select_multiple_items() {
 # ═══════════════════════════════════════════════════════════
 
 ask_cli_tools() {
-  while true; do
-    SELECTED_CLI_TOOLS=()
+  SELECTED_CLI_TOOLS=()
 
-    show_section_header "🛠️  CLI TOOLS - Ferramentas de Linha de Comando"
+  show_section_header "🛠️  CLI TOOLS - Ferramentas de Linha de Comando"
 
-    msg "Ferramentas modernas para melhorar sua experiência na linha de comando."
-    msg ""
+  msg "Ferramentas modernas para melhorar sua experiência na linha de comando."
+  if _has_modern_ui && has_cmd fzf; then
+    msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
+  fi
+  msg ""
 
-    local tools_with_desc=()
-    for tool in "${CLI_TOOLS[@]}"; do
-      case "$tool" in
-        fzf) tools_with_desc+=("fzf        - Busca fuzzy interativa (arquivos, histórico, comandos)") ;;
-        zoxide) tools_with_desc+=("zoxide     - 'cd' inteligente que aprende seus diretórios favoritos") ;;
-        eza) tools_with_desc+=("eza        - Substituto moderno do 'ls' com cores e ícones") ;;
-        bat) tools_with_desc+=("bat        - 'cat' com syntax highlighting e integração com Git") ;;
-        ripgrep) tools_with_desc+=("ripgrep    - Busca de texto ultrarrápida (substitui grep)") ;;
-        fd) tools_with_desc+=("fd         - Busca de arquivos moderna (substitui find)") ;;
-        delta) tools_with_desc+=("delta      - Visualizador de diffs do Git com syntax highlighting") ;;
-        lazygit) tools_with_desc+=("lazygit    - Interface TUI para Git (gerenciar commits, branches, etc)") ;;
-        gh) tools_with_desc+=("gh         - CLI oficial do GitHub (PRs, issues, repos)") ;;
-        jq) tools_with_desc+=("jq         - Processador JSON para linha de comando") ;;
-        direnv) tools_with_desc+=("direnv     - Carrega variáveis de ambiente por diretório") ;;
-        btop) tools_with_desc+=("btop       - Monitor de recursos (CPU, RAM, disco, rede)") ;;
-        tmux) tools_with_desc+=("tmux       - Multiplexador de terminal (sessões, janelas, painéis)") ;;
-        atuin) tools_with_desc+=("atuin      - Histórico de shell sincronizado e com busca avançada") ;;
-        *) tools_with_desc+=("$tool") ;;
-      esac
-    done
-
-    local selected_desc=()
-    select_multiple_items "🛠️  Selecione as CLI Tools que deseja instalar" selected_desc "${tools_with_desc[@]}"
-
-    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
-    for item in "${selected_desc[@]}"; do
-      local tool_name
-      tool_name="$(echo "$item" | awk '{print $1}')"
-      SELECTED_CLI_TOOLS+=("$tool_name")
-    done
-
-    msg ""
-    msg "✅ Seleção de CLI Tools concluída"
-    print_selection_summary "🛠️  CLI Tools" "${SELECTED_CLI_TOOLS[@]}"
-    msg ""
-    break
+  local tools_with_desc=()
+  for tool in "${CLI_TOOLS[@]}"; do
+    case "$tool" in
+      fzf)        tools_with_desc+=("fzf        - Busca fuzzy interativa (arquivos, histórico, comandos)") ;;
+      zoxide)     tools_with_desc+=("zoxide     - 'cd' inteligente que aprende seus diretórios favoritos") ;;
+      eza)        tools_with_desc+=("eza        - Substituto moderno do 'ls' com cores e ícones") ;;
+      bat)        tools_with_desc+=("bat        - 'cat' com syntax highlighting e integração com Git") ;;
+      ripgrep)    tools_with_desc+=("ripgrep    - Busca de texto ultrarrápida (substitui grep)") ;;
+      fd)         tools_with_desc+=("fd         - Busca de arquivos moderna (substitui find)") ;;
+      delta)      tools_with_desc+=("delta      - Visualizador de diffs do Git com syntax highlighting") ;;
+      lazygit)    tools_with_desc+=("lazygit    - Interface TUI para Git (gerenciar commits, branches)") ;;
+      gh)         tools_with_desc+=("gh         - CLI oficial do GitHub (PRs, issues, repos)") ;;
+      jq)         tools_with_desc+=("jq         - Processador JSON para linha de comando") ;;
+      direnv)     tools_with_desc+=("direnv     - Carrega variáveis de ambiente por diretório") ;;
+      btop)       tools_with_desc+=("btop       - Monitor de recursos (CPU, RAM, disco, rede)") ;;
+      tmux)       tools_with_desc+=("tmux       - Multiplexador de terminal (sessões, janelas, painéis)") ;;
+      atuin)      tools_with_desc+=("atuin      - Histórico de shell sincronizado e com busca avançada") ;;
+      tealdeer)   tools_with_desc+=("tealdeer   - tldr em Rust - man pages simplificadas e práticas") ;;
+      yazi)       tools_with_desc+=("yazi       - File manager moderno em Rust (substitui ranger)") ;;
+      procs)      tools_with_desc+=("procs      - ps moderno com cores e informações detalhadas") ;;
+      dust)       tools_with_desc+=("dust       - du visual e intuitivo (uso de disco)") ;;
+      sd)         tools_with_desc+=("sd         - sed intuitivo e moderno (find & replace)") ;;
+      tokei)      tools_with_desc+=("tokei      - Contador de linhas de código por linguagem") ;;
+      hyperfine)  tools_with_desc+=("hyperfine  - Benchmarking CLI (medir tempo de comandos)") ;;
+      *)          tools_with_desc+=("$tool") ;;
+    esac
   done
+
+  local selected_desc=()
+  select_multiple_items "🛠️  Selecione as CLI Tools" selected_desc "${tools_with_desc[@]}"
+
+  # Mapear de volta para nomes sem descrição
+  for item in "${selected_desc[@]}"; do
+    local tool_name
+    tool_name="$(echo "$item" | awk '{print $1}')"
+    SELECTED_CLI_TOOLS+=("$tool_name")
+  done
+
+  msg ""
+  msg "✅ Seleção de CLI Tools concluída"
+  print_selection_summary "🛠️  CLI Tools" "${SELECTED_CLI_TOOLS[@]}"
+  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -191,44 +232,47 @@ ask_cli_tools() {
 # ═══════════════════════════════════════════════════════════
 
 ask_ia_tools() {
-  while true; do
-    SELECTED_IA_TOOLS=()
+  SELECTED_IA_TOOLS=()
 
-    show_section_header "🤖 IA TOOLS - Ferramentas de Desenvolvimento com IA"
+  show_section_header "🤖 IA TOOLS - Ferramentas de Desenvolvimento com IA"
 
-    msg "Ferramentas que usam IA para auxiliar no desenvolvimento."
+  msg "Ferramentas que usam IA para auxiliar no desenvolvimento."
+  msg ""
+  msg "⚠️  Algumas ferramentas podem exigir configuração adicional"
+  msg "   (API keys, login, instalação manual)."
+  if _has_modern_ui && has_cmd fzf; then
     msg ""
-    msg "⚠️  Algumas ferramentas podem exigir configuração adicional"
-    msg "   (API keys, login, instalação manual)."
-    msg ""
+    msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
+  fi
+  msg ""
 
-    local tools_with_desc=()
-    for tool in "${IA_TOOLS[@]}"; do
-      case "$tool" in
-        spec-kit) tools_with_desc+=("spec-kit     - Spec-driven development com IA") ;;
-        serena) tools_with_desc+=("serena       - Assistente de código baseado em IA") ;;
-        codex) tools_with_desc+=("codex        - Geração de código com OpenAI Codex") ;;
-        claude-code) tools_with_desc+=("claude-code  - CLI para interagir com Claude AI") ;;
-        *) tools_with_desc+=("$tool") ;;
-      esac
-    done
-
-    local selected_desc=()
-    select_multiple_items "🤖 Selecione as IA Tools que deseja instalar" selected_desc "${tools_with_desc[@]}"
-
-    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
-    for item in "${selected_desc[@]}"; do
-      local tool_name
-      tool_name="$(echo "$item" | awk '{print $1}')"
-      SELECTED_IA_TOOLS+=("$tool_name")
-    done
-
-    msg ""
-    msg "✅ Seleção de IA Tools concluída"
-    print_selection_summary "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"
-    msg ""
-    break
+  local tools_with_desc=()
+  for tool in "${IA_TOOLS[@]}"; do
+    case "$tool" in
+      spec-kit)    tools_with_desc+=("spec-kit    - Spec-driven development com IA") ;;
+      serena)      tools_with_desc+=("serena      - Assistente de código baseado em IA") ;;
+      codex)       tools_with_desc+=("codex       - Geração de código com OpenAI Codex") ;;
+      claude-code) tools_with_desc+=("claude-code - CLI oficial do Claude AI (Anthropic)") ;;
+      aider)       tools_with_desc+=("aider       - AI pair programming (25K+ GitHub stars)") ;;
+      continue)    tools_with_desc+=("continue    - Open-source AI assistant para IDEs") ;;
+      goose)       tools_with_desc+=("goose       - AI agent framework (Block/Square)") ;;
+      *)           tools_with_desc+=("$tool") ;;
+    esac
   done
+
+  local selected_desc=()
+  select_multiple_items "🤖 Selecione as IA Tools" selected_desc "${tools_with_desc[@]}"
+
+  for item in "${selected_desc[@]}"; do
+    local tool_name
+    tool_name="$(echo "$item" | awk '{print $1}')"
+    SELECTED_IA_TOOLS+=("$tool_name")
+  done
+
+  msg ""
+  msg "✅ Seleção de IA Tools concluída"
+  print_selection_summary "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"
+  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -236,84 +280,85 @@ ask_ia_tools() {
 # ═══════════════════════════════════════════════════════════
 
 ask_terminals() {
-  while true; do
-    SELECTED_TERMINALS=()
+  SELECTED_TERMINALS=()
 
-    show_section_header "💻 TERMINAIS - Emuladores de Terminal"
+  show_section_header "💻 TERMINAIS - Emuladores de Terminal"
 
-    msg "Escolha qual(is) emulador(es) de terminal você deseja instalar."
-    msg ""
-    local ghostty_desc="Terminal rápido e moderno em Zig (Linux/macOS)"
-    local kitty_desc="Terminal rico em recursos com GPU acceleration"
-    local alacritty_desc="Terminal ultrarrápido focado em performance"
-    local iterm_desc="Terminal avançado para macOS"
-    local gnome_desc="Terminal padrão do GNOME"
-    local windows_desc="Terminal moderno da Microsoft"
+  msg "Escolha qual(is) emulador(es) de terminal você deseja instalar."
+  if _has_modern_ui && has_cmd fzf; then
+    msg "💡 Use Tab para selecionar, Enter para confirmar"
+  fi
+  msg ""
 
-    # Filtrar terminais por OS
-    local available_terminals=()
-    for term in "${TERMINALS[@]}"; do
-      case "$term" in
-        iterm2)
-          if [[ "$TARGET_OS" == "macos" ]]; then
-            available_terminals+=("iTerm2 (recomendado macOS) - $iterm_desc")
-          fi
-          ;;
-        windows-terminal)
-          if [[ "$TARGET_OS" == "windows" ]]; then
-            available_terminals+=("Windows Terminal (recomendado Windows) - $windows_desc")
-          fi
-          ;;
-        gnome-terminal)
-          if [[ "$TARGET_OS" == "linux" || "$TARGET_OS" == "wsl2" ]]; then
-            available_terminals+=("GNOME Terminal (Linux) - $gnome_desc")
-          fi
-          ;;
-        ghostty)
-          if [[ "$TARGET_OS" != "windows" ]]; then
-            if [[ "$TARGET_OS" == "macos" ]]; then
-              available_terminals+=("Ghostty (recomendado macOS) - $ghostty_desc")
-            else
-              available_terminals+=("Ghostty (Linux) - $ghostty_desc")
-            fi
-          fi
-          ;;
-      kitty|alacritty)
-        if [[ "$term" == "kitty" ]]; then
-          available_terminals+=("Kitty - $kitty_desc")
-        else
-          available_terminals+=("Alacritty - $alacritty_desc")
+  local ghostty_desc="Terminal rápido e moderno em Zig"
+  local kitty_desc="Terminal rico em recursos com GPU acceleration"
+  local alacritty_desc="Terminal ultrarrápido focado em performance"
+  local wezterm_desc="Terminal Rust + Lua scripting (cross-platform)"
+  local iterm_desc="Terminal avançado para macOS"
+  local gnome_desc="Terminal padrão do GNOME"
+  local windows_desc="Terminal moderno da Microsoft"
+
+  # Filtrar terminais por OS
+  local available_terminals=()
+  for term in "${TERMINALS[@]}"; do
+    case "$term" in
+      iterm2)
+        if [[ "$TARGET_OS" == "macos" ]]; then
+          available_terminals+=("iTerm2     - $iterm_desc (recomendado macOS)")
         fi
         ;;
-      esac
-    done
-
-    if [[ ${#available_terminals[@]} -eq 0 ]]; then
-      msg "  ℹ️  Nenhum terminal adicional disponível para $TARGET_OS"
-      return
-    fi
-
-    local selected_desc=()
-    select_multiple_items "💻 Selecione os terminais que deseja instalar" selected_desc "${available_terminals[@]}"
-
-    # Mapear de volta para nomes padronizados
-    for item in "${selected_desc[@]}"; do
-      case "$item" in
-        "iTerm2"*) SELECTED_TERMINALS+=("iterm2") ;;
-        "Windows Terminal"*) SELECTED_TERMINALS+=("windows-terminal") ;;
-        "GNOME Terminal"*) SELECTED_TERMINALS+=("gnome-terminal") ;;
-        "Ghostty"*) SELECTED_TERMINALS+=("ghostty") ;;
-        "Kitty"*) SELECTED_TERMINALS+=("kitty") ;;
-        "Alacritty"*) SELECTED_TERMINALS+=("alacritty") ;;
-      esac
-    done
-
-    msg ""
-    msg "✅ Seleção de Terminais concluída"
-    print_selection_summary "💻 Terminais" "${SELECTED_TERMINALS[@]}"
-    msg ""
-    break
+      windows-terminal)
+        if [[ "$TARGET_OS" == "windows" ]]; then
+          available_terminals+=("WindowsTerminal - $windows_desc (recomendado)")
+        fi
+        ;;
+      gnome-terminal)
+        if [[ "$TARGET_OS" == "linux" || "$TARGET_OS" == "wsl2" ]]; then
+          available_terminals+=("gnome-terminal - $gnome_desc")
+        fi
+        ;;
+      ghostty)
+        if [[ "$TARGET_OS" != "windows" ]]; then
+          available_terminals+=("Ghostty    - $ghostty_desc")
+        fi
+        ;;
+      kitty)
+        available_terminals+=("Kitty      - $kitty_desc")
+        ;;
+      alacritty)
+        available_terminals+=("Alacritty  - $alacritty_desc")
+        ;;
+      wezterm)
+        available_terminals+=("WezTerm    - $wezterm_desc")
+        ;;
+    esac
   done
+
+  if [[ ${#available_terminals[@]} -eq 0 ]]; then
+    msg "  ℹ️  Nenhum terminal adicional disponível para $TARGET_OS"
+    return
+  fi
+
+  local selected_desc=()
+  select_multiple_items "💻 Selecione os terminais" selected_desc "${available_terminals[@]}"
+
+  # Mapear de volta para nomes padronizados
+  for item in "${selected_desc[@]}"; do
+    case "$item" in
+      "iTerm2"*)           SELECTED_TERMINALS+=("iterm2") ;;
+      "WindowsTerminal"*)  SELECTED_TERMINALS+=("windows-terminal") ;;
+      "gnome-terminal"*)   SELECTED_TERMINALS+=("gnome-terminal") ;;
+      "Ghostty"*)          SELECTED_TERMINALS+=("ghostty") ;;
+      "Kitty"*)            SELECTED_TERMINALS+=("kitty") ;;
+      "Alacritty"*)        SELECTED_TERMINALS+=("alacritty") ;;
+      "WezTerm"*)          SELECTED_TERMINALS+=("wezterm") ;;
+    esac
+  done
+
+  msg ""
+  msg "✅ Seleção de Terminais concluída"
+  print_selection_summary "💻 Terminais" "${SELECTED_TERMINALS[@]}"
+  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -329,12 +374,26 @@ ask_shells() {
   msg "   chsh -s \$(which zsh)  # ou \$(which fish)"
   msg ""
 
+  local options=(
+    "Zsh    - Shell poderoso e altamente customizável (Recomendado)"
+    "Fish   - Sintaxe moderna e autosugestões nativas"
+    "Ambos  - Zsh + Fish (instalar os dois)"
+    "Nenhum - Manter shell atual"
+  )
+
   local choice=""
-  menu_select_single "Qual(is) shell(s) você deseja instalar?" "Digite sua escolha" choice \
-    "Zsh - Shell poderoso e altamente customizável" \
-    "Fish - Sintaxe moderna e autosugestões nativas" \
-    "Ambos (Zsh + Fish) - Zsh para customização total + Fish out of the box" \
-    "Nenhum - manter shell atual"
+  if _has_modern_ui; then
+    ui_select_single "Qual shell você deseja instalar?" choice "${options[@]}"
+    case "$choice" in
+      "Zsh")    choice="1" ;;
+      "Fish")   choice="2" ;;
+      "Ambos")  choice="3" ;;
+      "Nenhum") choice="4" ;;
+      *)        choice="1" ;;
+    esac
+  else
+    menu_select_single "Qual(is) shell(s) você deseja instalar?" "Digite sua escolha" choice "${options[@]}"
+  fi
 
   case "$choice" in
     1)
@@ -355,7 +414,7 @@ ask_shells() {
       msg ""
       msg "  ✅ Selecionado: Zsh + Fish"
       ;;
-    4)
+    4|*)
       INSTALL_ZSH=0
       INSTALL_FISH=0
       msg ""
@@ -398,12 +457,14 @@ ask_base_dependencies() {
       msg "  • unzip/zip        - Compressão e descompressão de arquivos"
       msg "  • fontconfig       - Gerenciamento de fontes"
       msg "  • imagemagick      - Redimensionar prévias de imagem"
+      msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
       ;;
     macos)
       msg "  • git              - Sistema de controle de versão"
       msg "  • curl             - Ferramenta para transferência de dados"
       msg "  • wget             - Download de arquivos"
       msg "  • imagemagick      - Redimensionar prévias de imagem"
+      msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
       msg ""
       msg "  ℹ️  Instalação via Homebrew"
       ;;
@@ -411,6 +472,7 @@ ask_base_dependencies() {
       msg "  • Git              - Sistema de controle de versão"
       msg "  • Windows Terminal - Terminal moderno da Microsoft"
       msg "  • ImageMagick      - Redimensionar prévias de imagem"
+      msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
       msg ""
       msg "  ℹ️  Instalação via winget"
       ;;

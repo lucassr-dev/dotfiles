@@ -2,6 +2,44 @@
 # Instalação de CLI Tools e IA Tools selecionadas
 # shellcheck disable=SC2034,SC2329,SC1091
 
+# Instala via cargo-binstall (binários pré-compilados) ou cargo install (compilação)
+# cargo-binstall é ~100x mais rápido pois baixa binários prontos
+cargo_smart_install() {
+  local crate="$1"
+  local display_name="${2:-$crate}"
+
+  if has_cmd cargo-binstall; then
+    msg "  📦 Instalando $display_name via binstall (binário)..."
+    if cargo binstall -y --quiet "$crate" >/dev/null 2>&1; then
+      INSTALLED_MISC+=("binstall: $crate")
+      return 0
+    fi
+  fi
+
+  # Fallback: compilação (mais lento)
+  msg "  🦀 Instalando $display_name via cargo (compilando, pode demorar)..."
+  if cargo install "$crate" >/dev/null 2>&1; then
+    INSTALLED_MISC+=("cargo: $crate")
+    return 0
+  fi
+
+  return 1
+}
+
+# Instala cargo-binstall se não existir (para acelerar instalações futuras)
+ensure_cargo_binstall() {
+  has_cmd cargo-binstall && return 0
+  has_cmd cargo || return 1
+
+  msg "  📦 Instalando cargo-binstall (acelera instalações futuras)..."
+  # Instalar via script oficial (mais rápido que compilar)
+  if curl -fsSL https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh 2>/dev/null | bash >/dev/null 2>&1; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+    return 0
+  fi
+  return 1
+}
+
 cli_tool_installed() {
   local tool="$1"
   case "$tool" in
@@ -10,6 +48,9 @@ cli_tool_installed() {
     eza) has_cmd eza || has_cmd exa ;;
     ripgrep) has_cmd rg ;;
     delta) has_cmd delta ;;
+    tealdeer) has_cmd tldr ;;
+    yazi) has_cmd yazi ;;
+    dust) has_cmd dust ;;
     *) has_cmd "$tool" ;;
   esac
 }
@@ -35,12 +76,10 @@ install_cli_tools_linux() {
         ensure_atuin
         continue
         ;;
-      lazygit|btop|gh)
-        # Instalados via PPA, snap ou método especial no segundo loop
+      lazygit|btop|gh|yazi|tealdeer|procs|dust|sd|tokei|hyperfine)
         continue
         ;;
       starship)
-        # starship também pode ser instalado via tema; aqui só respeita a seleção
         ;;
     esac
 
@@ -72,11 +111,10 @@ install_cli_tools_linux() {
     install_linux_packages optional "$pkg" 2>/dev/null
   done
 
-  # Fallback via cargo para ferramentas selecionadas sem pacote
   local need_cargo=0
   for tool in "${SELECTED_CLI_TOOLS[@]}"; do
     case "$tool" in
-      eza|zoxide|bat|delta|starship|ripgrep|fd)
+      eza|zoxide|bat|delta|starship|ripgrep|fd|tealdeer|yazi|procs|dust|sd|tokei|hyperfine)
         if ! cli_tool_installed "$tool"; then
           need_cargo=1
         fi
@@ -87,49 +125,56 @@ install_cli_tools_linux() {
   if [[ $need_cargo -eq 1 ]]; then
     ensure_rust_cargo
     if has_cmd cargo; then
+      # Instalar cargo-binstall primeiro para acelerar instalações (~100x mais rápido)
+      ensure_cargo_binstall
+
       for tool in "${SELECTED_CLI_TOOLS[@]}"; do
         case "$tool" in
           eza)
-            if ! cli_tool_installed "$tool"; then
-              msg "  🦀 Instalando eza via cargo..."
-              cargo install eza >/dev/null 2>&1 && INSTALLED_MISC+=("cargo: eza")
-            fi
+            cli_tool_installed "$tool" || cargo_smart_install eza "eza"
             ;;
           zoxide)
-            if ! cli_tool_installed "$tool"; then
-              msg "  🦀 Instalando zoxide via cargo..."
-              cargo install zoxide >/dev/null 2>&1 && INSTALLED_MISC+=("cargo: zoxide")
-            fi
+            cli_tool_installed "$tool" || cargo_smart_install zoxide "zoxide"
             ;;
           bat)
-            if ! cli_tool_installed "$tool"; then
-              msg "  🦀 Instalando bat via cargo..."
-              cargo install bat >/dev/null 2>&1 && INSTALLED_MISC+=("cargo: bat")
-            fi
+            cli_tool_installed "$tool" || cargo_smart_install bat "bat"
             ;;
           ripgrep)
-            if ! cli_tool_installed "rg"; then
-              msg "  🦀 Instalando ripgrep via cargo..."
-              cargo install ripgrep >/dev/null 2>&1 && INSTALLED_MISC+=("cargo: ripgrep")
-            fi
+            cli_tool_installed "rg" || cargo_smart_install ripgrep "ripgrep"
             ;;
           fd)
-            if ! cli_tool_installed "$tool"; then
-              msg "  🦀 Instalando fd via cargo..."
-              cargo install fd-find >/dev/null 2>&1 && INSTALLED_MISC+=("cargo: fd-find")
-            fi
+            cli_tool_installed "$tool" || cargo_smart_install fd-find "fd"
             ;;
           delta)
-            if ! cli_tool_installed "$tool"; then
-              msg "  🦀 Instalando git-delta via cargo..."
-              cargo install git-delta >/dev/null 2>&1 && INSTALLED_MISC+=("cargo: git-delta")
-            fi
+            cli_tool_installed "$tool" || cargo_smart_install git-delta "git-delta"
             ;;
           starship)
+            cli_tool_installed "$tool" || cargo_smart_install starship "starship"
+            ;;
+          tealdeer)
+            cli_tool_installed "$tool" || cargo_smart_install tealdeer "tealdeer"
+            ;;
+          yazi)
+            # yazi tem dois crates: yazi-fm (app) e yazi-cli (helper)
             if ! cli_tool_installed "$tool"; then
-              msg "  🦀 Instalando starship via cargo..."
-              cargo install starship >/dev/null 2>&1 && INSTALLED_MISC+=("cargo: starship")
+              cargo_smart_install yazi-fm "yazi"
+              cargo_smart_install yazi-cli "yazi-cli"
             fi
+            ;;
+          procs)
+            cli_tool_installed "$tool" || cargo_smart_install procs "procs"
+            ;;
+          dust)
+            cli_tool_installed "$tool" || cargo_smart_install du-dust "dust"
+            ;;
+          sd)
+            cli_tool_installed "$tool" || cargo_smart_install sd "sd"
+            ;;
+          tokei)
+            cli_tool_installed "$tool" || cargo_smart_install tokei "tokei"
+            ;;
+          hyperfine)
+            cli_tool_installed "$tool" || cargo_smart_install hyperfine "hyperfine"
             ;;
         esac
       done
@@ -153,14 +198,22 @@ install_cli_tools_linux() {
         ;;
       lazygit)
         if ! cli_tool_installed "$tool"; then
-          if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]] && has_cmd add-apt-repository; then
-            msg "  📦 Instalando lazygit via PPA..."
-            run_with_sudo add-apt-repository -y ppa:lazygit-team/release >/dev/null 2>&1
-            run_with_sudo apt-get update -qq >/dev/null 2>&1
-            run_with_sudo apt-get install -qq -y lazygit >/dev/null 2>&1 && INSTALLED_MISC+=("apt: lazygit")
-          elif has_cmd snap; then
-            msg "  📦 Instalando lazygit via snap..."
-            run_with_sudo snap install lazygit >/dev/null 2>&1 && INSTALLED_MISC+=("snap: lazygit")
+          msg "  📦 Instalando lazygit via GitHub Releases..."
+          local lazygit_version=""
+          lazygit_version="$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" 2>/dev/null | grep -Po '"tag_name": *"v\K[^"]*' || echo "")"
+          if [[ -n "$lazygit_version" ]]; then
+            local lazygit_url="https://github.com/jesseduffield/lazygit/releases/download/v${lazygit_version}/lazygit_${lazygit_version}_Linux_x86_64.tar.gz"
+            local lazygit_tmp=""
+            lazygit_tmp="$(mktemp -d)"
+            if curl -fsSL "$lazygit_url" -o "$lazygit_tmp/lazygit.tar.gz" 2>/dev/null; then
+              tar xf "$lazygit_tmp/lazygit.tar.gz" -C "$lazygit_tmp" lazygit 2>/dev/null
+              if [[ -f "$lazygit_tmp/lazygit" ]]; then
+                run_with_sudo install "$lazygit_tmp/lazygit" -D -t /usr/local/bin/ 2>/dev/null && INSTALLED_MISC+=("lazygit: v${lazygit_version} (GitHub)")
+              fi
+            fi
+            rm -rf "$lazygit_tmp" 2>/dev/null || true
+          else
+            record_failure "optional" "Falha ao obter versão do lazygit do GitHub"
           fi
         fi
         ;;
@@ -211,10 +264,17 @@ install_cli_tools_windows() {
       gh) winget_install "GitHub.cli" "GitHub CLI" optional ;;
       jq) winget_install "jqlang.jq" "jq" optional ;;
       direnv) winget_install "direnv.direnv" "direnv" optional ;;
-      btop) warn "btop não disponível via winget; instale manualmente." ;;
+      btop) warn "btop não disponível via winget. Use Scoop: scoop install btop-lhm" ;;
       tmux) warn "tmux não é suportado nativamente no Windows; use WSL." ;;
       starship) winget_install "Starship.Starship" "Starship" optional ;;
       atuin) warn "Atuin não disponível via winget; instale manualmente em https://atuin.sh" ;;
+      tealdeer) winget_install "dbrgn.tealdeer" "tealdeer" optional ;;
+      yazi) winget_install "sxyazi.yazi" "yazi" optional ;;
+      procs) winget_install "dalance.procs" "procs" optional ;;
+      dust) winget_install "bootandy.dust" "dust" optional ;;
+      sd) winget_install "chmln.sd" "sd" optional ;;
+      tokei) winget_install "XAMPPRocky.tokei" "tokei" optional ;;
+      hyperfine) winget_install "sharkdp.hyperfine" "hyperfine" optional ;;
     esac
   done
 }
@@ -303,6 +363,56 @@ install_selected_ia_tools() {
             fi
             ;;
         esac
+        ;;
+      aider)
+        msg "▶ Aider (AI Pair Programming)"
+        ensure_uv
+        if has_cmd uv; then
+          msg "  📦 Instalando Aider via uv..."
+          if uv tool install aider-chat >/dev/null 2>&1; then
+            INSTALLED_MISC+=("aider: uv tool")
+          else
+            record_failure "optional" "Falha ao instalar Aider via uv"
+          fi
+        elif has_cmd pipx; then
+          msg "  📦 Instalando Aider via pipx..."
+          if pipx install aider-chat >/dev/null 2>&1; then
+            INSTALLED_MISC+=("aider: pipx")
+          else
+            record_failure "optional" "Falha ao instalar Aider via pipx"
+          fi
+        else
+          warn "Aider requer uv ou pipx. Instale Python e uv primeiro."
+        fi
+        ;;
+      continue)
+        msg "▶ Continue (Open-source AI Assistant)"
+        msg "  ℹ️  Continue é uma extensão de IDE (VS Code/JetBrains)"
+        msg "     Instale via marketplace do seu editor:"
+        msg "     - VS Code: ext install Continue.continue"
+        msg "     - JetBrains: Plugin Marketplace → Continue"
+        INSTALLED_MISC+=("continue: IDE extension (manual)")
+        ;;
+      goose)
+        msg "▶ Goose (AI Agent Framework)"
+        ensure_uv
+        if has_cmd uv; then
+          msg "  📦 Instalando Goose via uv..."
+          if uv tool install goose-ai >/dev/null 2>&1; then
+            INSTALLED_MISC+=("goose: uv tool")
+          else
+            record_failure "optional" "Falha ao instalar Goose via uv"
+          fi
+        elif has_cmd pipx; then
+          msg "  📦 Instalando Goose via pipx..."
+          if pipx install goose-ai >/dev/null 2>&1; then
+            INSTALLED_MISC+=("goose: pipx")
+          else
+            record_failure "optional" "Falha ao instalar Goose via pipx"
+          fi
+        else
+          warn "Goose requer uv ou pipx. Instale Python e uv primeiro."
+        fi
         ;;
     esac
   done

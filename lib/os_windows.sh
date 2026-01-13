@@ -72,44 +72,12 @@ install_windows_base_dependencies() {
   winget_install "Git.Git" "Git" "critical"
   winget_install "Microsoft.WindowsTerminal" "Windows Terminal" "critical"
   winget_install "ImageMagick.ImageMagick" "ImageMagick" "critical"
+  winget_install "junegunn.fzf" "fzf" "critical"
 
   if ! has_cmd curl; then
     msg "  📦 curl não encontrado, instalando..."
     winget_install "cURL.cURL" "curl" "critical"
   fi
-}
-
-# ═══════════════════════════════════════════════════════════
-# Instalação de apps específicos do Windows
-# ═══════════════════════════════════════════════════════════
-
-install_vscode_windows() {
-  if has_cmd code; then
-    return 0
-  fi
-  winget_install "Microsoft.VisualStudioCode" "Visual Studio Code" "optional"
-}
-
-install_php_windows() {
-  # PHP no Windows: melhor usar instalador oficial ou winget
-  if has_cmd php; then
-    return 0
-  fi
-
-  msg "  📦 Instalando PHP para Windows..."
-
-  # Tentar via Chocolatey se disponível
-  if has_cmd choco; then
-    if choco install php -y >/dev/null 2>&1; then
-      INSTALLED_MISC+=("choco: php")
-      return 0
-    fi
-  fi
-
-  # Instruções manuais
-  msg "  ℹ️  PHP para Windows: instale manualmente de https://windows.php.net/download/"
-  msg "      Ou use Chocolatey: choco install php"
-  return 1
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -227,6 +195,15 @@ install_windows_selected_apps() {
     case "$terminal" in
       windows-terminal)
         # Já instalado como dependência base
+        ;;
+      wezterm)
+        winget_install "wez.wezterm" "WezTerm"
+        ;;
+      kitty)
+        msg "  ℹ️  Kitty no Windows: visite https://sw.kovidgoyal.net/kitty/"
+        ;;
+      alacritty)
+        winget_install "Alacritty.Alacritty" "Alacritty"
         ;;
     esac
   done

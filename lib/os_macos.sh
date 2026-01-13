@@ -100,62 +100,11 @@ install_macos_base_dependencies() {
     curl
     wget
     imagemagick
+    fzf
   )
 
   for formula in "${base_formulae[@]}"; do
     brew_install_formula "$formula" "critical"
-  done
-}
-
-# ═══════════════════════════════════════════════════════════
-# Instalação de apps específicos do macOS
-# ═══════════════════════════════════════════════════════════
-
-install_vscode_macos() {
-  if has_cmd code; then
-    return 0
-  fi
-
-  # Preferir download direto do site oficial
-  local dmg="/tmp/vscode.dmg"
-  msg "  📦 Baixando VS Code para macOS..."
-  if curl -fsSL "https://code.visualstudio.com/sha/download?build=stable&os=darwin-universal" -o "$dmg"; then
-    msg "  📦 Montando e instalando VS Code..."
-    if hdiutil attach "$dmg" -nobrowse -quiet 2>/dev/null; then
-      local volume="/Volumes/Visual Studio Code"
-      if [[ -d "$volume" ]]; then
-        cp -R "$volume/Visual Studio Code.app" /Applications/ 2>/dev/null
-        hdiutil detach "$volume" -quiet 2>/dev/null
-        INSTALLED_MISC+=("vscode: dmg")
-        msg "  ✅ VS Code instalado"
-      fi
-    fi
-    rm -f "$dmg"
-  else
-    # Fallback para Homebrew Cask
-    brew_install_cask visual-studio-code optional
-  fi
-}
-
-install_php_build_deps_macos() {
-  if ! has_cmd brew; then
-    return
-  fi
-
-  msg "  📦 Instalando dependências de build do PHP..."
-  local php_deps=(
-    autoconf
-    bison
-    libxml2
-    libzip
-    openssl@3
-    pkg-config
-    re2c
-    zlib
-  )
-
-  for dep in "${php_deps[@]}"; do
-    brew_install_formula "$dep" "optional"
   done
 }
 
@@ -215,6 +164,7 @@ EOF
         ghostty) echo "cask \"ghostty\"" >> "$brewfile" ;;
         kitty) echo "cask \"kitty\"" >> "$brewfile" ;;
         alacritty) echo "cask \"alacritty\"" >> "$brewfile" ;;
+        wezterm) echo "cask \"wezterm\"" >> "$brewfile" ;;
       esac
     done
     echo "" >> "$brewfile"

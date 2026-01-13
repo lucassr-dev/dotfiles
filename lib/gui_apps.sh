@@ -1,5 +1,20 @@
 #!/usr/bin/env bash
 # Seleção de apps GUI
+# Usa o sistema de UI moderno (fzf/gum/bash) de lib/ui.sh
+# shellcheck disable=SC2034,SC2329
+
+# ═══════════════════════════════════════════════════════════
+# Verificação de UI moderna
+# ═══════════════════════════════════════════════════════════
+
+# Verifica se o sistema de UI moderno está disponível
+_gui_has_modern_ui() {
+  declare -F ui_select_multiple >/dev/null 2>&1
+}
+
+# ═══════════════════════════════════════════════════════════
+# Função de seleção com suporte híbrido (moderno + fallback)
+# ═══════════════════════════════════════════════════════════
 
 select_apps() {
   local title="$1"
@@ -7,6 +22,15 @@ select_apps() {
   shift 2
   local options=("$@")
 
+  # Usar UI moderna se disponível
+  if _gui_has_modern_ui; then
+    ui_select_multiple "$title" "$out_var" "${options[@]}"
+    return
+  fi
+
+  # ═══════════════════════════════════════════════════════════
+  # Fallback: Bash puro com checkboxes visuais
+  # ═══════════════════════════════════════════════════════════
   local input=""
   local selected=()
 
@@ -89,13 +113,10 @@ select_apps() {
     msg "  ⚠️ Entrada inválida. Use números da lista separados por vírgula, 'a' para todos ou Enter para nenhum."
   done
 
-  eval "$out_var=(\"\${selected[@]}\")"
-
-  if declare -F clear_screen >/dev/null; then
-    clear_screen
-  else
-    clear
-  fi
+  # Usar nameref para atribuir array de volta (Bash 4.3+)
+  declare -n array_ref="$out_var"
+  array_ref=("${selected[@]}")
+  unset -n array_ref
 }
 
 ask_gui_apps() {
@@ -108,109 +129,241 @@ ask_gui_apps() {
   SELECTED_MEDIA=()
   SELECTED_UTILITIES=()
 
-  # Filtrar arrays por OS quando necessário
-  local ides_all=("${IDES[@]}")
-  local browsers_all=("${BROWSERS[@]}")
-  local dev_all=("${DEV_TOOLS[@]}")
-  local db_all=("${DATABASE_APPS[@]}")
-  local productivity_all=("${PRODUCTIVITY_APPS[@]}")
-  local communication_all=("${COMMUNICATION_APPS[@]}")
-  local media_all=("${MEDIA_APPS[@]}")
-  local utilities_all=("${UTILITIES_APPS[@]}")
-
   if [[ "$INTERACTIVE_GUI_APPS" != "true" ]]; then
-    SELECTED_IDES=("${ides_all[@]}")
-    SELECTED_BROWSERS=("${browsers_all[@]}")
-    SELECTED_DEV_TOOLS=("${dev_all[@]}")
-    SELECTED_DATABASES=("${db_all[@]}")
-    SELECTED_PRODUCTIVITY=("${productivity_all[@]}")
-    SELECTED_COMMUNICATION=("${communication_all[@]}")
-    SELECTED_MEDIA=("${media_all[@]}")
-    SELECTED_UTILITIES=("${utilities_all[@]}")
+    SELECTED_IDES=("${IDES[@]}")
+    SELECTED_BROWSERS=("${BROWSERS[@]}")
+    SELECTED_DEV_TOOLS=("${DEV_TOOLS[@]}")
+    SELECTED_DATABASES=("${DATABASE_APPS[@]}")
+    SELECTED_PRODUCTIVITY=("${PRODUCTIVITY_APPS[@]}")
+    SELECTED_COMMUNICATION=("${COMMUNICATION_APPS[@]}")
+    SELECTED_MEDIA=("${MEDIA_APPS[@]}")
+    SELECTED_UTILITIES=("${UTILITIES_APPS[@]}")
     return 0
   fi
 
-  while true; do
-    SELECTED_IDES=()
-    SELECTED_BROWSERS=()
-    SELECTED_DEV_TOOLS=()
-    SELECTED_DATABASES=()
-    SELECTED_PRODUCTIVITY=()
-    SELECTED_COMMUNICATION=()
-    SELECTED_MEDIA=()
-    SELECTED_UTILITIES=()
+  # Mostrar instruções de seleção
+  if declare -F show_section_header >/dev/null; then
+    show_section_header "🖥️  APLICATIVOS GUI"
+  fi
 
-    select_apps "⌨️  IDEs E EDITORES" SELECTED_IDES "${ides_all[@]}"
-    select_apps "🌐 NAVEGADORES" SELECTED_BROWSERS "${browsers_all[@]}"
-    select_apps "💻 FERRAMENTAS DE DESENVOLVIMENTO" SELECTED_DEV_TOOLS "${dev_all[@]}"
-    select_apps "🗄️  BANCOS DE DADOS" SELECTED_DATABASES "${db_all[@]}"
-    select_apps "📝 PRODUTIVIDADE" SELECTED_PRODUCTIVITY "${productivity_all[@]}"
-    select_apps "💬 COMUNICAÇÃO" SELECTED_COMMUNICATION "${communication_all[@]}"
-    select_apps "🎵 MÍDIA" SELECTED_MEDIA "${media_all[@]}"
-    select_apps "🛠️  UTILITÁRIOS" SELECTED_UTILITIES "${utilities_all[@]}"
+  msg "Selecione os aplicativos gráficos que você deseja instalar."
+  if _gui_has_modern_ui && has_cmd fzf; then
+    msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
+  fi
+  msg ""
 
-    if [[ "$TARGET_OS" == "macos" ]]; then
-      msg ""
-      msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      msg "  🍺 BREWFILE (APENAS macOS)"
-      msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      msg "  O Brewfile contém apps adicionais (Arc, iTerm2, Raycast, Rectangle, etc.)"
-      if ask_yes_no "  Instalar apps do Brewfile?"; then
-        export INSTALL_BREWFILE=true
-      else
-        export INSTALL_BREWFILE=false
-      fi
-    fi
-
-    break
+  # ═══════════════════════════════════════════════════════════
+  # IDEs e Editores com descrições
+  # ═══════════════════════════════════════════════════════════
+  local ides_with_desc=()
+  for ide in "${IDES[@]}"; do
+    case "$ide" in
+      vscode)         ides_with_desc+=("vscode          - Visual Studio Code (popular, extensível)") ;;
+      zed)            ides_with_desc+=("zed             - Editor ultrarrápido em Rust") ;;
+      cursor)         ides_with_desc+=("cursor          - VS Code + AI nativo (fork)") ;;
+      neovim)         ides_with_desc+=("neovim          - Vim moderno, altamente configurável") ;;
+      helix)          ides_with_desc+=("helix           - Editor modal moderno (inspirado no Kakoune)") ;;
+      intellij-idea)  ides_with_desc+=("intellij-idea   - IDE JetBrains para Java/Kotlin") ;;
+      pycharm)        ides_with_desc+=("pycharm         - IDE JetBrains para Python") ;;
+      webstorm)       ides_with_desc+=("webstorm        - IDE JetBrains para JavaScript/TypeScript") ;;
+      phpstorm)       ides_with_desc+=("phpstorm        - IDE JetBrains para PHP") ;;
+      goland)         ides_with_desc+=("goland          - IDE JetBrains para Go") ;;
+      rubymine)       ides_with_desc+=("rubymine        - IDE JetBrains para Ruby") ;;
+      clion)          ides_with_desc+=("clion           - IDE JetBrains para C/C++") ;;
+      rider)          ides_with_desc+=("rider           - IDE JetBrains para .NET/C#") ;;
+      datagrip)       ides_with_desc+=("datagrip        - IDE JetBrains para bancos de dados") ;;
+      sublime-text)   ides_with_desc+=("sublime-text    - Editor rápido e leve") ;;
+      android-studio) ides_with_desc+=("android-studio  - IDE oficial para desenvolvimento Android") ;;
+      *)              ides_with_desc+=("$ide") ;;
+    esac
   done
+  select_apps "⌨️  IDEs E EDITORES" SELECTED_IDES "${ides_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Navegadores com descrições
+  # ═══════════════════════════════════════════════════════════
+  local browsers_with_desc=()
+  for browser in "${BROWSERS[@]}"; do
+    case "$browser" in
+      firefox) browsers_with_desc+=("firefox - Mozilla Firefox (privacidade)") ;;
+      chrome)  browsers_with_desc+=("chrome  - Google Chrome (popular)") ;;
+      brave)   browsers_with_desc+=("brave   - Brave (bloqueio de ads nativo)") ;;
+      arc)     browsers_with_desc+=("arc     - Arc Browser (inovador, macOS-first)") ;;
+      zen)     browsers_with_desc+=("zen     - Zen Browser (Firefox fork, foco)") ;;
+      *)       browsers_with_desc+=("$browser") ;;
+    esac
+  done
+  select_apps "🌐 NAVEGADORES" SELECTED_BROWSERS "${browsers_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Ferramentas de Desenvolvimento com descrições
+  # ═══════════════════════════════════════════════════════════
+  local dev_with_desc=()
+  for tool in "${DEV_TOOLS[@]}"; do
+    case "$tool" in
+      docker)  dev_with_desc+=("docker  - Containers e virtualização") ;;
+      postman) dev_with_desc+=("postman - Cliente REST API") ;;
+      dbeaver) dev_with_desc+=("dbeaver - Cliente universal de bancos de dados") ;;
+      vscode)  dev_with_desc+=("vscode  - Visual Studio Code") ;;
+      *)       dev_with_desc+=("$tool") ;;
+    esac
+  done
+  select_apps "💻 FERRAMENTAS DE DESENVOLVIMENTO" SELECTED_DEV_TOOLS "${dev_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Bancos de Dados com descrições
+  # ═══════════════════════════════════════════════════════════
+  local db_with_desc=()
+  for db in "${DATABASE_APPS[@]}"; do
+    case "$db" in
+      postgresql) db_with_desc+=("postgresql - Banco relacional robusto e popular") ;;
+      redis)      db_with_desc+=("redis      - Cache e key-value store em memória") ;;
+      mysql)      db_with_desc+=("mysql      - Banco relacional clássico") ;;
+      mongodb)    db_with_desc+=("mongodb    - Banco NoSQL orientado a documentos") ;;
+      *)          db_with_desc+=("$db") ;;
+    esac
+  done
+  select_apps "🗄️  BANCOS DE DADOS" SELECTED_DATABASES "${db_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Produtividade com descrições
+  # ═══════════════════════════════════════════════════════════
+  local prod_with_desc=()
+  for app in "${PRODUCTIVITY_APPS[@]}"; do
+    case "$app" in
+      slack)    prod_with_desc+=("slack    - Comunicação para times") ;;
+      notion)   prod_with_desc+=("notion   - Notas e wikis colaborativas") ;;
+      obsidian) prod_with_desc+=("obsidian - Notas com links bidirecionais") ;;
+      *)        prod_with_desc+=("$app") ;;
+    esac
+  done
+  select_apps "📝 PRODUTIVIDADE" SELECTED_PRODUCTIVITY "${prod_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Comunicação com descrições
+  # ═══════════════════════════════════════════════════════════
+  local comm_with_desc=()
+  for app in "${COMMUNICATION_APPS[@]}"; do
+    case "$app" in
+      discord)  comm_with_desc+=("discord  - Chat e voz para comunidades") ;;
+      telegram) comm_with_desc+=("telegram - Mensagens rápidas e seguras") ;;
+      zoom)     comm_with_desc+=("zoom     - Videoconferência") ;;
+      teams)    comm_with_desc+=("teams    - Microsoft Teams") ;;
+      *)        comm_with_desc+=("$app") ;;
+    esac
+  done
+  select_apps "💬 COMUNICAÇÃO" SELECTED_COMMUNICATION "${comm_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Mídia com descrições
+  # ═══════════════════════════════════════════════════════════
+  local media_with_desc=()
+  for app in "${MEDIA_APPS[@]}"; do
+    case "$app" in
+      vlc)     media_with_desc+=("vlc     - Player de mídia universal") ;;
+      spotify) media_with_desc+=("spotify - Streaming de música") ;;
+      mpv)     media_with_desc+=("mpv     - Player minimalista e poderoso") ;;
+      *)       media_with_desc+=("$app") ;;
+    esac
+  done
+  select_apps "🎵 MÍDIA" SELECTED_MEDIA "${media_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Utilitários com descrições
+  # ═══════════════════════════════════════════════════════════
+  local util_with_desc=()
+  for app in "${UTILITIES_APPS[@]}"; do
+    case "$app" in
+      powertoys)    util_with_desc+=("powertoys    - Ferramentas Microsoft para Windows") ;;
+      sharex)       util_with_desc+=("sharex       - Captura de tela avançada (Windows)") ;;
+      rectangle)    util_with_desc+=("rectangle    - Gerenciador de janelas para macOS") ;;
+      alfred)       util_with_desc+=("alfred       - Launcher avançado para macOS") ;;
+      bartender)    util_with_desc+=("bartender    - Organizador de menu bar (macOS)") ;;
+      cleanmymac)   util_with_desc+=("cleanmymac   - Limpeza de sistema (macOS)") ;;
+      istat-menus)  util_with_desc+=("istat-menus  - Monitor de sistema na menu bar (macOS)") ;;
+      bitwarden)    util_with_desc+=("bitwarden    - Gerenciador de senhas open-source") ;;
+      1password)    util_with_desc+=("1password    - Gerenciador de senhas premium") ;;
+      keepassxc)    util_with_desc+=("keepassxc    - Gerenciador de senhas offline") ;;
+      flameshot)    util_with_desc+=("flameshot    - Screenshot tool (Linux)") ;;
+      syncthing)    util_with_desc+=("syncthing    - Sincronização P2P de arquivos") ;;
+      veracrypt)    util_with_desc+=("veracrypt    - Criptografia de disco") ;;
+      balenaetcher) util_with_desc+=("balenaetcher - Flash de imagens USB") ;;
+      *)            util_with_desc+=("$app") ;;
+    esac
+  done
+  select_apps "🛠️  UTILITÁRIOS" SELECTED_UTILITIES "${util_with_desc[@]}"
+
+  # ═══════════════════════════════════════════════════════════
+  # Brewfile (apenas macOS)
+  # ═══════════════════════════════════════════════════════════
+  if [[ "$TARGET_OS" == "macos" ]]; then
+    msg ""
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    msg "  🍺 BREWFILE (APENAS macOS)"
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    msg "  O Brewfile contém apps adicionais (Arc, iTerm2, Raycast, Rectangle, etc.)"
+    if ask_yes_no "  Instalar apps do Brewfile?"; then
+      export INSTALL_BREWFILE=true
+    else
+      export INSTALL_BREWFILE=false
+    fi
+  fi
+
+  # Mostrar resumo da seleção
+  msg ""
+  msg "✅ Seleção de Apps GUI concluída"
+  _show_gui_selection_summary
 }
 
-should_install_app() {
-  local app="$1"
-  local category="$2"
+# ═══════════════════════════════════════════════════════════
+# Funções auxiliares
+# ═══════════════════════════════════════════════════════════
 
-  case "$category" in
-    ides)
-      for selected in "${SELECTED_IDES[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-    browsers)
-      for selected in "${SELECTED_BROWSERS[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-    dev-tools)
-      for selected in "${SELECTED_DEV_TOOLS[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-    databases)
-      for selected in "${SELECTED_DATABASES[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-    productivity)
-      for selected in "${SELECTED_PRODUCTIVITY[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-    communication)
-      for selected in "${SELECTED_COMMUNICATION[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-    media)
-      for selected in "${SELECTED_MEDIA[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-    utilities)
-      for selected in "${SELECTED_UTILITIES[@]}"; do
-        [[ "$selected" == "$app" ]] && return 0
-      done
-      ;;
-  esac
-  return 1
+# Mostra resumo das seleções de apps GUI
+_show_gui_selection_summary() {
+  local has_any=0
+
+  if [[ ${#SELECTED_IDES[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  ⌨️  IDEs: ${SELECTED_IDES[*]}"
+  fi
+
+  if [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  🌐 Navegadores: ${SELECTED_BROWSERS[*]}"
+  fi
+
+  if [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  💻 Dev Tools: ${SELECTED_DEV_TOOLS[*]}"
+  fi
+
+  if [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  🗄️  Bancos: ${SELECTED_DATABASES[*]}"
+  fi
+
+  if [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  📝 Produtividade: ${SELECTED_PRODUCTIVITY[*]}"
+  fi
+
+  if [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  💬 Comunicação: ${SELECTED_COMMUNICATION[*]}"
+  fi
+
+  if [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  🎵 Mídia: ${SELECTED_MEDIA[*]}"
+  fi
+
+  if [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]; then
+    has_any=1
+    msg "  🛠️  Utilitários: ${SELECTED_UTILITIES[*]}"
+  fi
+
+  if [[ $has_any -eq 0 ]]; then
+    msg "  ℹ️  Nenhum app GUI selecionado"
+  fi
 }

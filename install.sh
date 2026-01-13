@@ -15,7 +15,7 @@ CONFIG_WINDOWS="$SCRIPT_DIR/windows"
 CONFIG_UNIX_LEGACY="$SCRIPT_DIR/mac-linux"
 DATA_APPS="$SCRIPT_DIR/data/apps.sh"
 DATA_RUNTIMES="$SCRIPT_DIR/data/runtimes.sh"
-BACKUP_DIR="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="$HOME/.bkp-$(date +%Y%m%d-%H%M)"
 TARGET_OS=""
 LINUX_PKG_MANAGER=""
 LINUX_PKG_UPDATED=0
@@ -375,6 +375,7 @@ INSTALL_BREWFILE=true
 [[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
 
 [[ -f "$SCRIPT_DIR/lib/banner.sh" ]] && source "$SCRIPT_DIR/lib/banner.sh"
+[[ -f "$SCRIPT_DIR/lib/ui.sh" ]] && source "$SCRIPT_DIR/lib/ui.sh"
 [[ -f "$SCRIPT_DIR/lib/selections.sh" ]] && source "$SCRIPT_DIR/lib/selections.sh"
 [[ -f "$SCRIPT_DIR/lib/nerd_fonts.sh" ]] && source "$SCRIPT_DIR/lib/nerd_fonts.sh"
 [[ -f "$SCRIPT_DIR/lib/themes.sh" ]] && source "$SCRIPT_DIR/lib/themes.sh"
@@ -434,39 +435,125 @@ review_selections() {
     else
       clear
     fi
-    msg ""
-    msg "╔══════════════════════════════════════════════════════════╗"
-    msg "║           RESUMO DAS SELEÇÕES                            ║"
-    msg "╚══════════════════════════════════════════════════════════╝"
-    msg ""
+    echo ""
+    echo "┌──────────────────────────────────────────────────────────┐"
+    echo "│           RESUMO FINAL DAS SELEÇÕES                      │"
+    echo "└──────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "  SHELL E APARÊNCIA"
+    echo "  ────────────────────────────────────────────────────────"
+
+    # Shells
     local selected_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
     [[ ${INSTALL_FISH:-0} -eq 1 ]] && selected_shells+=("fish")
-    print_selection_summary "🐚 Shells" "${selected_shells[@]}"
-    [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && print_selection_summary "🎨 Oh My Zsh" "ativado"
-    if [[ $INSTALL_STARSHIP -eq 1 ]]; then
-      local starship_summary="padrão"
-      if [[ -n "${SELECTED_STARSHIP_PRESET:-}" ]]; then
-        starship_summary="$SELECTED_STARSHIP_PRESET"
-        if [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]]; then
-          starship_summary+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
-        fi
-      fi
-      print_selection_summary "✨ Starship" "$starship_summary"
+    if [[ ${#selected_shells[@]} -gt 0 ]]; then
+      echo "    Shells:      ${selected_shells[*]}"
+    else
+      echo "    Shells:      (nenhum)"
     fi
-    [[ $INSTALL_OH_MY_POSH -eq 1 ]] && print_selection_summary "🎭 Oh My Posh" "${SELECTED_OMP_THEME:-padrão}"
-    print_selection_summary "💻 Terminais" "${SELECTED_TERMINALS[@]}"
-    print_selection_summary "🛠️  CLI Tools" "${SELECTED_CLI_TOOLS[@]}"
-    print_selection_summary "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"
-    print_selection_summary "📦 GUI Apps" "${#SELECTED_IDES[@]} IDEs, ${#SELECTED_BROWSERS[@]} navegadores, ${#SELECTED_DEV_TOOLS[@]} dev tools"
-    print_selection_summary "🧩 Runtimes" "${SELECTED_RUNTIMES[@]}"
+
+    # Temas
+    local themes_selected=()
+    [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && themes_selected+=("Oh My Zsh + P10k")
+    [[ $INSTALL_STARSHIP -eq 1 ]] && themes_selected+=("Starship")
+    [[ $INSTALL_OH_MY_POSH -eq 1 ]] && themes_selected+=("Oh My Posh")
+    if [[ ${#themes_selected[@]} -gt 0 ]]; then
+      echo "    Temas:       ${themes_selected[*]}"
+      if [[ $INSTALL_STARSHIP -eq 1 ]] && [[ -n "${SELECTED_STARSHIP_PRESET:-}" ]]; then
+        local starship_detail="$SELECTED_STARSHIP_PRESET"
+        [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]] && starship_detail+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
+        echo "                 └─ Starship: $starship_detail"
+      fi
+      [[ $INSTALL_OH_MY_POSH -eq 1 ]] && echo "                 └─ Oh My Posh: ${SELECTED_OMP_THEME:-padrão}"
+    else
+      echo "    Temas:       (nenhum)"
+    fi
+
+    # Nerd Fonts
+    if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
+      echo "    Nerd Fonts:  ${SELECTED_NERD_FONTS[*]}"
+    else
+      echo "    Nerd Fonts:  (nenhuma)"
+    fi
+
+    # Terminais
+    if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
+      echo "    Terminais:   ${SELECTED_TERMINALS[*]}"
+    else
+      echo "    Terminais:   (nenhum)"
+    fi
+
+    echo ""
+    echo "  FERRAMENTAS DE DESENVOLVIMENTO"
+    echo "  ────────────────────────────────────────────────────────"
+
+    # CLI Tools
+    if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
+      echo "    CLI Tools:   ${SELECTED_CLI_TOOLS[*]}"
+    else
+      echo "    CLI Tools:   (nenhuma)"
+    fi
+
+    # IA Tools
+    if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
+      echo "    IA Tools:    ${SELECTED_IA_TOOLS[*]}"
+    else
+      echo "    IA Tools:    (nenhuma)"
+    fi
+
+    # Runtimes
+    if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
+      echo "    Runtimes:    ${SELECTED_RUNTIMES[*]}"
+    else
+      echo "    Runtimes:    (nenhum)"
+    fi
+
+    echo ""
+    echo "  APLICATIVOS GUI"
+    echo "  ────────────────────────────────────────────────────────"
+
+    # GUI Apps detalhados
+    local gui_total=0
+    gui_total=$((${#SELECTED_IDES[@]} + ${#SELECTED_BROWSERS[@]} + ${#SELECTED_DEV_TOOLS[@]} + \
+                 ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
+                 ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
+
+    if [[ $gui_total -gt 0 ]]; then
+      echo "    GUI Apps:    $gui_total selecionados"
+      [[ ${#SELECTED_IDES[@]} -gt 0 ]] && echo "      IDEs:        ${SELECTED_IDES[*]}"
+      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && echo "      Navegadores: ${SELECTED_BROWSERS[*]}"
+      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && echo "      Dev Tools:   ${SELECTED_DEV_TOOLS[*]}"
+      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && echo "      Bancos:      ${SELECTED_DATABASES[*]}"
+      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && echo "      Produtiv.:   ${SELECTED_PRODUCTIVITY[*]}"
+      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && echo "      Comunic.:    ${SELECTED_COMMUNICATION[*]}"
+      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && echo "      Midia:       ${SELECTED_MEDIA[*]}"
+      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && echo "      Utilit.:     ${SELECTED_UTILITIES[*]}"
+    else
+      echo "    GUI Apps:    (nenhum)"
+    fi
+
+    echo ""
+    echo "  CONFIGURAÇÕES"
+    echo "  ────────────────────────────────────────────────────────"
+
+    # VS Code Extensions
     if [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
       if [[ $INSTALL_VSCODE_EXTENSIONS -eq 1 ]]; then
-        print_selection_summary "🧩 VS Code Extensions" "instalar"
+        local ext_count
+        ext_count=$(wc -l < "$CONFIG_SHARED/vscode/extensions.txt" 2>/dev/null || echo "?")
+        echo "    VS Code Ext: $ext_count extensões"
       else
-        print_selection_summary "🧩 VS Code Extensions" "não instalar"
+        echo "    VS Code Ext: (não instalar)"
       fi
     fi
+
+    # Git
+    if [[ -n "${GIT_USER_NAME:-}" ]] || [[ -n "${GIT_USER_EMAIL:-}" ]]; then
+      echo "    Git Config:  ${GIT_USER_NAME:-não definido} <${GIT_USER_EMAIL:-não definido}>"
+    fi
+
+    # SSH Keys
     local ssh_source=""
     if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
       ssh_source="$PRIVATE_SHARED/.ssh"
@@ -474,24 +561,24 @@ review_selections() {
       ssh_source="$CONFIG_SHARED/.ssh"
     fi
     if [[ -n "$ssh_source" ]]; then
-      msg ""
-      warn "Chaves SSH encontradas em $ssh_source (serão copiadas para ~/.ssh)."
-      warn "Confira se você não está commitando chaves privadas: git status"
+      echo ""
+      warn "Chaves SSH encontradas em $ssh_source (serão copiadas para ~/.ssh)"
     fi
-    msg ""
-    msg "Digite o número da seção para editar."
-    msg "Enter ou C para iniciar, S para sair."
-    msg "  1) Shells e temas"
-    msg "  2) Nerd Fonts"
-    msg "  3) Terminais"
-    msg "  4) CLI Tools"
-    msg "  5) IA Tools"
-    msg "  6) GUI Apps"
-    msg "  7) Runtimes"
-    msg "  8) Git"
-    msg "  9) VS Code Extensions"
-    msg ""
-    read -r -p "👉 " choice
+
+    echo ""
+    echo "┌──────────────────────────────────────────────────────────┐"
+    echo "│  AÇÕES DISPONÍVEIS                                       │"
+    echo "├──────────────────────────────────────────────────────────┤"
+    echo "│  [Enter/C] Iniciar instalação                            │"
+    echo "│  [S]       Sair sem instalar                             │"
+    echo "│                                                          │"
+    echo "│  Editar seção:                                           │"
+    echo "│  [1] Shells/temas   [4] CLI Tools    [7] Runtimes        │"
+    echo "│  [2] Nerd Fonts     [5] IA Tools     [8] Git             │"
+    echo "│  [3] Terminais      [6] GUI Apps     [9] VS Code Ext     │"
+    echo "└──────────────────────────────────────────────────────────┘"
+    echo ""
+    read -r -p "Escolha uma opção: " choice
     case "$choice" in
       ""|c|C)
         break
@@ -1973,7 +2060,7 @@ EXEMPLOS:
   bash config/install.sh sync             # Sincronizar bidirecional
 
 NOTAS:
-  • Backups automáticos são criados em ~/.dotfiles-backup-*
+  • Backups automáticos são criados em ~/.bkp-*
   • Seleção interativa de apps GUI (evita instalar tudo automaticamente)
   • CLI Tools modernas são opcionais e selecionadas no menu
   • Oh My Zsh e plugins são configurados automaticamente

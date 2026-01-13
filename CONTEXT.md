@@ -10,7 +10,7 @@
   - `lib/runtimes.sh` (selecao/instalacao de runtimes via mise).
   - `lib/report.sh` (relatorio final).
 - `shared/mise/config.toml` com node/python/php latest por padrao.
-- `.gitignore` ignora `.ssh/` e `.dotfiles-backup-*/`.
+- `.gitignore` ignora `.ssh/` e `.bkp-*/`.
 - `DRY_RUN=1` simula copias/sudo.
 
 ## Contexto definitivo (lista completa de mudancas solicitadas)

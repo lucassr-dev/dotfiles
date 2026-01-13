@@ -2,14 +2,14 @@
 # shellcheck disable=SC2034
 # ═══════════════════════════════════════════════════════════
 # Listas de apps por categoria (usadas na seleção interativa)
-# Atualizado: 2025 - Fontes oficiais
+# Atualizado: Janeiro 2026 - Fontes oficiais verificadas
 # ═══════════════════════════════════════════════════════════
 
 # ───────────────────────────────────────────────────────────
 # CLI Tools - Ferramentas de linha de comando modernas
 # ───────────────────────────────────────────────────────────
 CLI_TOOLS=(
-  fzf           # Fuzzy finder interativo
+  # fzf é dependência base (lib/os_linux.sh) - não incluir aqui
   zoxide        # cd inteligente (substitui autojump/z)
   eza           # ls moderno com cores e ícones
   bat           # cat com syntax highlighting
@@ -23,6 +23,13 @@ CLI_TOOLS=(
   btop          # Monitor de recursos (htop++)
   tmux          # Multiplexador de terminal
   atuin         # Histórico de shell sincronizado
+  tealdeer      # tldr em Rust - man pages simplificadas
+  yazi          # File manager moderno em Rust
+  procs         # ps moderno com cores
+  dust          # du visual e intuitivo
+  sd            # sed intuitivo e moderno
+  tokei         # Contador de linhas de código
+  hyperfine     # Benchmarking CLI
 )
 
 # ───────────────────────────────────────────────────────────
@@ -33,6 +40,18 @@ IA_TOOLS=(
   serena       # Assistente de código baseado em IA
   codex        # Geração de código com OpenAI Codex
   claude-code  # CLI oficial do Claude (Anthropic)
+  aider        # AI pair programming (25K+ GitHub stars)
+  continue     # Open-source AI assistant IDE
+  goose        # AI agent framework (Block/Square)
+)
+
+# ───────────────────────────────────────────────────────────
+# Shells - Interpretadores de comandos modernos
+# ───────────────────────────────────────────────────────────
+SHELLS=(
+  zsh          # Shell padrão macOS, extensível com Oh My Zsh
+  fish         # User-friendly, autocomplete nativo
+  nushell      # Shell moderno com dados estruturados (Rust)
 )
 
 # ───────────────────────────────────────────────────────────
@@ -42,6 +61,7 @@ TERMINALS=(
   ghostty              # Terminal rápido em Zig (Linux/macOS)
   kitty                # Terminal GPU-accelerated
   alacritty            # Terminal ultrarrápido em Rust
+  wezterm              # Terminal Rust + Lua scripting (cross-platform)
   iterm2               # macOS only - Terminal avançado
   gnome-terminal       # Linux only - GNOME padrão
   windows-terminal     # Windows only - Terminal moderno MS
@@ -55,6 +75,7 @@ IDES=(
   zed                  # Editor moderno e rápido (Rust)
   cursor               # Fork do VSCode com IA integrada
   neovim               # Vim moderno e extensível
+  helix                # Editor modal moderno (Rust, LSP built-in)
   intellij-idea        # Java IDE (JetBrains) - Community/Ultimate
   pycharm              # Python IDE (JetBrains) - Community/Ultimate
   webstorm             # JavaScript IDE (JetBrains)
