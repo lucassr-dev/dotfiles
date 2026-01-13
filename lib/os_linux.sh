@@ -69,31 +69,31 @@ install_linux_packages() {
   linux_pkg_update_cache
   case "$LINUX_PKG_MANAGER" in
     apt-get)
-      if ! run_with_sudo apt-get install -qq -y "${packages[@]}" 2>&1 | grep -v "já é a versão mais nova\|is already the newest version\|Lendo\|Reading\|Construindo\|Building" | grep -v "^$"; then
-        record_failure "$level" "Falha ao instalar (apt) ${packages[*]}"
-      else
+      if run_with_sudo apt-get install -qq -y "${packages[@]}" >/dev/null 2>&1; then
         INSTALLED_PACKAGES+=("apt: ${packages[*]}")
+      else
+        record_failure "$level" "Falha ao instalar (apt) ${packages[*]}"
       fi
       ;;
     dnf)
-      if ! run_with_sudo dnf install -q -y "${packages[@]}" 2>&1 | grep -v "Already installed\|Nada para fazer\|Nothing to do"; then
-        record_failure "$level" "Falha ao instalar (dnf) ${packages[*]}"
-      else
+      if run_with_sudo dnf install -q -y "${packages[@]}" >/dev/null 2>&1; then
         INSTALLED_PACKAGES+=("dnf: ${packages[*]}")
+      else
+        record_failure "$level" "Falha ao instalar (dnf) ${packages[*]}"
       fi
       ;;
     pacman)
-      if ! run_with_sudo pacman -Sy --noconfirm --needed --quiet "${packages[@]}" 2>&1; then
-        record_failure "$level" "Falha ao instalar (pacman) ${packages[*]}"
-      else
+      if run_with_sudo pacman -Sy --noconfirm --needed "${packages[@]}" >/dev/null 2>&1; then
         INSTALLED_PACKAGES+=("pacman: ${packages[*]}")
+      else
+        record_failure "$level" "Falha ao instalar (pacman) ${packages[*]}"
       fi
       ;;
     zypper)
-      if ! run_with_sudo zypper install --quiet -y "${packages[@]}" 2>&1 | grep -v "already installed"; then
-        record_failure "$level" "Falha ao instalar (zypper) ${packages[*]}"
-      else
+      if run_with_sudo zypper install -y "${packages[@]}" >/dev/null 2>&1; then
         INSTALLED_PACKAGES+=("zypper: ${packages[*]}")
+      else
+        record_failure "$level" "Falha ao instalar (zypper) ${packages[*]}"
       fi
       ;;
   esac
@@ -425,8 +425,10 @@ install_chrome_linux() {
     record_failure "optional" "Google Chrome (Linux) suportado automaticamente apenas em distros apt; instale manualmente."
     return 0
   fi
-  local deb=""
-  deb="$(mktemp /tmp/google-chrome-XXXXXX.deb)"
+  local deb
+  deb="$(mktemp)"
+  trap 'rm -f "$deb"' RETURN
+
   msg "  📦 Baixando Google Chrome para Linux..."
   if curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -o "$deb"; then
     if run_with_sudo dpkg -i "$deb"; then
@@ -439,7 +441,6 @@ install_chrome_linux() {
   else
     record_failure "optional" "Falha ao baixar Google Chrome"
   fi
-  rm -f "$deb"
 }
 
 install_brave_linux() {
@@ -515,10 +516,11 @@ install_vscode_linux() {
 
   detect_linux_pkg_manager
 
-  # Preferir pacotes oficiais do site
   if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
-    local deb=""
-    deb="$(mktemp /tmp/vscode-XXXXXX.deb)"
+    local deb
+    deb="$(mktemp)"
+    trap 'rm -f "$deb"' RETURN
+
     msg "  📦 Baixando VS Code (latest .deb)..."
     if curl -fsSL "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64" -o "$deb"; then
       if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
@@ -533,7 +535,6 @@ install_vscode_linux() {
       warn "Download falhou; tentando snap como fallback"
       snap_install_or_refresh code "VS Code" optional --classic
     fi
-    rm -f "$deb"
     return 0
   fi
 
@@ -556,7 +557,9 @@ install_docker_linux() {
       return
     fi
     if curl -fsSL https://download.docker.com/linux/ubuntu/gpg | run_with_sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null; then
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | run_with_sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+      local codename
+      codename="$(get_distro_codename "jammy")"
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $codename stable" | run_with_sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
       LINUX_PKG_UPDATED=0
       install_linux_packages optional docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     else

@@ -13,20 +13,43 @@ select_apps() {
   while true; do
     msg ""
     msg "════════════════════════════════════════════════════════════"
-    msg "  🖥️  SELEÇÃO DE APLICATIVOS GUI"
+    msg "  $title"
     msg "════════════════════════════════════════════════════════════"
     msg ""
     msg "Use números separados por vírgula, 'a' para todos ou Enter para nenhum."
     msg ""
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    msg "  $title"
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     local idx=1
-    for opt in "${options[@]}"; do
-      msg "  $idx) $opt"
-      idx=$((idx + 1))
-    done
+    local total=${#options[@]}
+
+    if [[ $total -gt 15 ]]; then
+      local mid=$(( (total + 1) / 2 ))
+      local col_width=35
+
+      for (( i=0; i<mid; i++ )); do
+        local left_idx=$((i + 1))
+        local right_idx=$((mid + i + 1))
+        local left_item="${options[i]}"
+        local right_item=""
+
+        if [[ $right_idx -le $total ]]; then
+          right_item="${options[mid + i]}"
+        fi
+
+        if [[ -n "$right_item" ]]; then
+          printf "  %-2d) %-${col_width}s  %-2d) %s\n" "$left_idx" "$left_item" "$right_idx" "$right_item"
+        else
+          printf "  %-2d) %s\n" "$left_idx" "$left_item"
+        fi
+      done
+    else
+      for opt in "${options[@]}"; do
+        msg "  $idx) $opt"
+        idx=$((idx + 1))
+      done
+    fi
+
+    msg ""
     msg "  a) Todos"
     msg "  (Enter para nenhum)"
     read -r -p "  Selecione números separados por vírgula ou 'a': " input

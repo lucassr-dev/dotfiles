@@ -390,13 +390,4 @@ install_nerd_fonts() {
 
   msg "  ✅ Instalação de Nerd Fonts concluída!"
   msg ""
-
-  # Dica para o usuário
-  msg "  💡 DICA: Reinicie seu terminal para ver as novas fontes."
-  msg "     Configure seu terminal para usar uma das fontes instaladas:"
-  msg ""
-  for font in "${SELECTED_NERD_FONTS[@]}"; do
-    msg "       • $font Nerd Font"
-  done
-  msg ""
 }

@@ -23,7 +23,7 @@ SELECTED_OMP_THEME=""
 # ═══════════════════════════════════════════════════════════
 
 THEME_PREVIEW_MAX_WIDTH=1280
-THEME_PREVIEW_MAX_HEIGHT=530
+THEME_PREVIEW_MAX_HEIGHT=300
 
 theme_preview_cache_dir() {
   local base="${XDG_CACHE_HOME:-$HOME/.cache}"
@@ -118,7 +118,7 @@ show_theme_preview() {
       kitty) kitty +kitten icat --transfer-mode=stream --align=left "$render_path" 2>/dev/null ;;
       imgcat) imgcat "$render_path" 2>/dev/null ;;
       sixel) img2sixel "$render_path" 2>/dev/null ;;
-      chafa) chafa -s 80x20 "$render_path" 2>/dev/null ;;
+      chafa) chafa -s 70x12 "$render_path" 2>/dev/null ;;
       *) ;;
     esac
     if [[ -z "$renderer" ]]; then
@@ -385,7 +385,6 @@ ask_themes() {
       print_selection_summary "🎨 Temas" "${selected_themes[@]}"
       msg ""
       preview_powerlevel10k
-      msg "  💡 Para personalizar o Powerlevel10k: execute 'p10k configure'"
       msg ""
       if declare -F pause_before_next_section >/dev/null; then
         pause_before_next_section "Pressione Enter para continuar..."
@@ -431,8 +430,11 @@ ask_oh_my_zsh_plugins() {
 
     local selected_omz_desc=()
     select_multiple_items "🔌 Selecione os plugins built-in do Oh My Zsh" selected_omz_desc "${omz_plugins_desc[@]}"
+    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
     for item in "${selected_omz_desc[@]}"; do
-      SELECTED_OMZ_PLUGINS+=("${item%% - *}")
+      local plugin_name
+      plugin_name="$(echo "$item" | awk '{print $1}')"
+      SELECTED_OMZ_PLUGINS+=("$plugin_name")
     done
 
     msg ""
@@ -451,8 +453,11 @@ ask_oh_my_zsh_plugins() {
 
     local selected_external_desc=()
     select_multiple_items "📦 Selecione os plugins externos do Oh My Zsh" selected_external_desc "${external_plugins_desc[@]}"
+    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
     for item in "${selected_external_desc[@]}"; do
-      SELECTED_OMZ_EXTERNAL_PLUGINS+=("${item%% - *}")
+      local plugin_name
+      plugin_name="$(echo "$item" | awk '{print $1}')"
+      SELECTED_OMZ_EXTERNAL_PLUGINS+=("$plugin_name")
     done
 
     msg ""
@@ -723,8 +728,11 @@ ask_fish_plugins() {
 
     local selected_fish_desc=()
     select_multiple_items "🐟 Selecione os plugins do Fish" selected_fish_desc "${fish_plugins_desc[@]}"
+    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
     for item in "${selected_fish_desc[@]}"; do
-      SELECTED_FISH_PLUGINS+=("${item%% - *}")
+      local plugin_name
+      plugin_name="$(echo "$item" | awk '{print $1}')"
+      SELECTED_FISH_PLUGINS+=("$plugin_name")
     done
 
     msg ""
@@ -947,10 +955,12 @@ install_starship() {
     if starship preset "$preset" -o "$starship_config" 2>/dev/null; then
       msg "  ✅ Preset $preset aplicado"
 
-      # Se for Catppuccin, aplicar o sabor selecionado
-      if [[ "$preset" == "catppuccin-powerline" ]] && [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]]; then
+      if [[ "$preset" == "catppuccin-powerline" ]] && [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]]; then
+        if [[ -z "$SELECTED_CATPPUCCIN_FLAVOR" ]]; then
+          warn "Sabor Catppuccin não selecionado, usando padrão (mocha)"
+          SELECTED_CATPPUCCIN_FLAVOR="catppuccin_mocha"
+        fi
         msg "  🎨 Aplicando sabor Catppuccin: ${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_}"
-        # Substituir a linha palette = 'catppuccin_mocha' pelo sabor escolhido
         if [[ -f "$starship_config" ]]; then
           sed -i "s/palette = 'catppuccin_mocha'/palette = '$SELECTED_CATPPUCCIN_FLAVOR'/" "$starship_config"
           msg "  ✅ Sabor ${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_} aplicado"

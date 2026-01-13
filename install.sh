@@ -48,7 +48,6 @@ declare -a COPIED_PATHS=()
 declare -a INSTALLED_PACKAGES=()
 declare -a INSTALLED_MISC=()
 
-# Parse argumentos da linha de comando
 for arg in "$@"; do
   case "$arg" in
     install|export|sync|help|--help|-h)
@@ -78,7 +77,6 @@ is_truthy() {
 }
 
 should_ensure_latest() {
-  # Padrão: atualizar itens selecionados quando possível
   return 0
 }
 
@@ -112,7 +110,6 @@ snap_install_or_refresh() {
 }
 
 ensure_snap_app() {
-  # Instala/atualiza via Snap, mas evita duplicar se já houver Flatpak ou binário.
   local pkg="$1"
   local friendly="$2"
   local flatpak_ref="${3:-}"
@@ -140,7 +137,6 @@ flatpak_install_or_update() {
   local level="${3:-optional}"
 
   has_cmd flatpak || return 0
-  # Garantir flathub (idempotente)
   flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
 
   if flatpak info "$ref" >/dev/null 2>&1; then
@@ -164,7 +160,6 @@ flatpak_install_or_update() {
 }
 
 ensure_flatpak_app() {
-  # Usa Flatpak só quando o app não está presente via snap/cli; atualiza se já for Flatpak.
   local ref="$1"
   local friendly="$2"
   local snap_pkg="${3:-}"
@@ -313,10 +308,8 @@ normalize_crlf_to_lf() {
   local file="$1"
   [[ -f "$file" ]] || return 0
 
-  # Só faz sentido em ambientes Unix; no Windows CRLF pode ser desejado.
   [[ "${TARGET_OS:-}" == "windows" ]] && return 0
 
-  # Detecta carriage return (CR) e remove de forma portátil (sem sed -i específico por OS)
   if LC_ALL=C grep -q $'\r' "$file" 2>/dev/null; then
     local tmp
     if ! tmp="$(mktemp)"; then
@@ -332,14 +325,30 @@ normalize_crlf_to_lf() {
       return 1
     fi
   fi
+  return 0
 }
 
 set_ssh_permissions() {
   if [[ -d "$HOME/.ssh" ]]; then
     chmod 700 "$HOME/.ssh"
-    # Usar find para evitar problemas com globbing e nomes de arquivo com espaços
     find "$HOME/.ssh" -type f -exec chmod 600 {} + 2>/dev/null || true
     find "$HOME/.ssh" -type d -exec chmod 700 {} + 2>/dev/null || true
+  fi
+}
+
+download_file() {
+  local url="$1"
+  local output="$2"
+
+  if has_cmd curl; then
+    curl -fsSL "$url" -o "$output"
+  elif has_cmd wget; then
+    wget -qO "$output" "$url"
+  elif [[ "${TARGET_OS:-}" == "windows" ]] && has_cmd powershell; then
+    powershell -NoProfile -Command "Invoke-WebRequest -Uri '$url' -OutFile '$output'"
+  else
+    record_failure "critical" "Nenhuma ferramenta de download disponível (curl/wget/PowerShell)"
+    return 1
   fi
 }
 
@@ -347,115 +356,38 @@ set_ssh_permissions() {
 # Seleção Interativa de Apps GUI
 # ═══════════════════════════════════════════════════════════
 
-# Arrays globais para armazenar seleções de apps
-# shellcheck disable=SC2034
+# Arrays para armazenar seleções do usuário no menu interativo.
+# Estes arrays são populados pelos arquivos DATA_APPS e DATA_RUNTIMES
+# e utilizados pelas funções de instalação de GUI apps.
 declare -a SELECTED_IDES=()
-# shellcheck disable=SC2034
 declare -a SELECTED_BROWSERS=()
-# shellcheck disable=SC2034
 declare -a SELECTED_DEV_TOOLS=()
-# shellcheck disable=SC2034
 declare -a SELECTED_DATABASES=()
-# shellcheck disable=SC2034
 declare -a SELECTED_PRODUCTIVITY=()
-# shellcheck disable=SC2034
 declare -a SELECTED_COMMUNICATION=()
-# shellcheck disable=SC2034
 declare -a SELECTED_MEDIA=()
-# shellcheck disable=SC2034
 declare -a SELECTED_UTILITIES=()
-# shellcheck disable=SC2034
 declare -a SELECTED_RUNTIMES=()
-# shellcheck disable=SC2034
 INTERACTIVE_GUI_APPS=true
+INSTALL_BREWFILE=true
 
-# Variável de controle: se false, não pergunta e instala tudo (comportamento antigo)
-INSTALL_BREWFILE=true  # macOS only: instalar apps do Brewfile
+[[ -f "$DATA_APPS" ]] && source "$DATA_APPS" || warn "Arquivo de dados de apps não encontrado: $DATA_APPS"
+[[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
 
-# Carregar dados de apps/runtimes
-# shellcheck disable=SC1091
-if [[ -f "$DATA_APPS" ]]; then
-  # shellcheck source=./data/apps.sh
-  # shellcheck disable=SC1091
-  source "$DATA_APPS"
-else
-  warn "Arquivo de dados de apps não encontrado: $DATA_APPS"
-fi
-if [[ -f "$DATA_RUNTIMES" ]]; then
-  # shellcheck source=./data/runtimes.sh
-  # shellcheck disable=SC1091
-  source "$DATA_RUNTIMES"
-else
-  warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
-fi
-# Libs
-if [[ -f "$SCRIPT_DIR/lib/banner.sh" ]]; then
-  # shellcheck source=./lib/banner.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/banner.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/selections.sh" ]]; then
-  # shellcheck source=./lib/selections.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/selections.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/nerd_fonts.sh" ]]; then
-  # shellcheck source=./lib/nerd_fonts.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/nerd_fonts.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/themes.sh" ]]; then
-  # shellcheck source=./lib/themes.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/themes.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/os_linux.sh" ]]; then
-  # shellcheck source=./lib/os_linux.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/os_linux.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/os_macos.sh" ]]; then
-  # shellcheck source=./lib/os_macos.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/os_macos.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/os_windows.sh" ]]; then
-  # shellcheck source=./lib/os_windows.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/os_windows.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/gui_apps.sh" ]]; then
-  # shellcheck source=./lib/gui_apps.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/gui_apps.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/app_installers.sh" ]]; then
-  # shellcheck source=./lib/app_installers.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/app_installers.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/tools.sh" ]]; then
-  # shellcheck source=./lib/tools.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/tools.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/git_config.sh" ]]; then
-  # shellcheck source=./lib/git_config.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/git_config.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/runtimes.sh" ]]; then
-  # shellcheck source=./lib/runtimes.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/runtimes.sh"
-fi
-if [[ -f "$SCRIPT_DIR/lib/report.sh" ]]; then
-  # shellcheck source=./lib/report.sh
-  # shellcheck disable=SC1091
-  source "$SCRIPT_DIR/lib/report.sh"
-fi
+[[ -f "$SCRIPT_DIR/lib/banner.sh" ]] && source "$SCRIPT_DIR/lib/banner.sh"
+[[ -f "$SCRIPT_DIR/lib/selections.sh" ]] && source "$SCRIPT_DIR/lib/selections.sh"
+[[ -f "$SCRIPT_DIR/lib/nerd_fonts.sh" ]] && source "$SCRIPT_DIR/lib/nerd_fonts.sh"
+[[ -f "$SCRIPT_DIR/lib/themes.sh" ]] && source "$SCRIPT_DIR/lib/themes.sh"
+[[ -f "$SCRIPT_DIR/lib/os_linux.sh" ]] && source "$SCRIPT_DIR/lib/os_linux.sh"
+[[ -f "$SCRIPT_DIR/lib/os_macos.sh" ]] && source "$SCRIPT_DIR/lib/os_macos.sh"
+[[ -f "$SCRIPT_DIR/lib/os_windows.sh" ]] && source "$SCRIPT_DIR/lib/os_windows.sh"
+[[ -f "$SCRIPT_DIR/lib/gui_apps.sh" ]] && source "$SCRIPT_DIR/lib/gui_apps.sh"
+[[ -f "$SCRIPT_DIR/lib/app_installers.sh" ]] && source "$SCRIPT_DIR/lib/app_installers.sh"
+[[ -f "$SCRIPT_DIR/lib/tools.sh" ]] && source "$SCRIPT_DIR/lib/tools.sh"
+[[ -f "$SCRIPT_DIR/lib/git_config.sh" ]] && source "$SCRIPT_DIR/lib/git_config.sh"
+[[ -f "$SCRIPT_DIR/lib/runtimes.sh" ]] && source "$SCRIPT_DIR/lib/runtimes.sh"
+[[ -f "$SCRIPT_DIR/lib/report.sh" ]] && source "$SCRIPT_DIR/lib/report.sh"
 
-# shellcheck disable=SC2329
 print_selection_summary() {
   local label="$1"
   shift
@@ -507,7 +439,10 @@ review_selections() {
     msg "║           RESUMO DAS SELEÇÕES                            ║"
     msg "╚══════════════════════════════════════════════════════════╝"
     msg ""
-    print_selection_summary "🐚 Shells" "${INSTALL_ZSH:+zsh}" "${INSTALL_FISH:+fish}"
+    local selected_shells=()
+    [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
+    [[ ${INSTALL_FISH:-0} -eq 1 ]] && selected_shells+=("fish")
+    print_selection_summary "🐚 Shells" "${selected_shells[@]}"
     [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && print_selection_summary "🎨 Oh My Zsh" "ativado"
     if [[ $INSTALL_STARSHIP -eq 1 ]]; then
       local starship_summary="padrão"
@@ -682,7 +617,6 @@ print_final_summary() {
 detect_os() {
   case "${OSTYPE:-}" in
     linux*)
-      # Detectar WSL2 (Windows Subsystem for Linux)
       if grep -qiE '(microsoft|wsl)' /proc/version 2>/dev/null; then
         echo "wsl2"
       else
@@ -695,9 +629,18 @@ detect_os() {
   esac
 }
 
-# Função auxiliar para verificar se é WSL2
 is_wsl2() {
   [[ "$TARGET_OS" == "wsl2" ]]
+}
+
+get_distro_codename() {
+  local default_codename="${1:-stable}"
+  if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    echo "${VERSION_CODENAME:-$default_codename}"
+  else
+    echo "$default_codename"
+  fi
 }
 
 detect_linux_pkg_manager() {
@@ -778,9 +721,13 @@ install_linux_packages() {
 }
 
 install_chrome_linux() {
-  # Suporte automático apenas para distros baseadas em apt (Ubuntu/Debian)
   detect_linux_pkg_manager
   if has_cmd google-chrome || command -v google-chrome-stable >/dev/null 2>&1 || has_flatpak_ref "com.google.Chrome"; then
+    local chrome_version
+    chrome_version="$(google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null || echo '')"
+    if [[ -n "$chrome_version" ]]; then
+      msg "  ✅ Google Chrome já instalado ($chrome_version)"
+    fi
     return 0
   fi
   if [[ "$LINUX_PKG_MANAGER" != "apt-get" ]]; then
@@ -788,7 +735,12 @@ install_chrome_linux() {
     return 0
   fi
   local deb=""
-  deb="$(mktemp /tmp/google-chrome-XXXXXX.deb)"
+  deb="$(mktemp)" || {
+    record_failure "optional" "Falha ao criar arquivo temporário para Google Chrome"
+    return 1
+  }
+  trap 'rm -f "$deb"' RETURN
+
   msg "  📦 Baixando Google Chrome para Linux..."
   if curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -o "$deb"; then
     if run_with_sudo dpkg -i "$deb"; then
@@ -801,48 +753,62 @@ install_chrome_linux() {
   else
     record_failure "optional" "Falha ao baixar Google Chrome"
   fi
-  rm -f "$deb"
+}
+
+install_via_flatpak_or_snap() {
+  local cmd="$1"
+  local friendly="$2"
+  local flatpak_ref="$3"
+  local snap_pkg="${4:-}"
+
+  if has_cmd "$cmd"; then
+    local version=""
+    version="$($cmd --version 2>/dev/null | head -n 1 || echo '')"
+    if [[ -n "$version" ]]; then
+      msg "  ✅ $friendly já instalado ($version)"
+    else
+      msg "  ✅ $friendly já instalado"
+    fi
+    return 0
+  fi
+
+  if has_cmd flatpak; then
+    flatpak_install_or_update "$flatpak_ref" "$friendly" optional
+    return 0
+  fi
+
+  if [[ -n "$snap_pkg" ]] && has_cmd snap; then
+    snap_install_or_refresh "$snap_pkg" "$friendly" optional
+    return 0
+  fi
+
+  if [[ -n "$snap_pkg" ]]; then
+    record_failure "optional" "$friendly não instalado: Flatpak/Snap indisponíveis nesta distro."
+  else
+    record_failure "optional" "$friendly não instalado: Flatpak indisponível nesta distro."
+  fi
+  return 1
 }
 
 install_brave_linux() {
-  if has_cmd brave-browser; then
-    return 0
-  fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update com.brave.Browser "Brave" optional
-    return 0
-  fi
-  if has_cmd snap; then
-    snap_install_or_refresh brave "Brave" optional
-    return 0
-  fi
-  record_failure "optional" "Brave não instalado: Flatpak/Snap indisponíveis nesta distro."
+  install_via_flatpak_or_snap "brave-browser" "Brave" "com.brave.Browser" "brave"
 }
 
 install_zen_linux() {
-  if has_cmd zen-browser; then
-    return 0
-  fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update io.github.ranfdev.Zen "Zen Browser" optional
-    return 0
-  fi
-  record_failure "optional" "Zen Browser não instalado: Flatpak indisponível nesta distro."
+  install_via_flatpak_or_snap "zen-browser" "Zen Browser" "io.github.ranfdev.Zen"
 }
 
 install_pgadmin_linux() {
-  if has_cmd pgadmin4; then
-    return 0
-  fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update org.pgadmin.pgadmin4 "pgAdmin" optional
-    return 0
-  fi
-  record_failure "optional" "pgAdmin não instalado: Flatpak indisponível nesta distro."
+  install_via_flatpak_or_snap "pgadmin4" "pgAdmin" "org.pgadmin.pgadmin4"
 }
 
 install_mongodb_linux() {
   if has_cmd mongod || has_cmd mongodb-compass; then
+    local mongo_version
+    mongo_version="$(mongod --version 2>/dev/null | head -n 1 || echo '')"
+    if [[ -n "$mongo_version" ]]; then
+      msg "  ✅ MongoDB já instalado ($mongo_version)"
+    fi
     return 0
   fi
   if has_cmd flatpak; then
@@ -853,10 +819,6 @@ install_mongodb_linux() {
 }
 
 install_vscode_linux() {
-  # Objetivo: garantir VS Code Stable o mais recente possível no Linux.
-  # Preferência: instalador oficial (latest .deb/.rpm). Fallback: snap/flatpak.
-
-  # Se já estiver instalado via Snap, apenas atualiza no canal stable.
   if has_snap_pkg code; then
     msg "  🔄 Atualizando VS Code via snap (stable)..."
     if run_with_sudo snap refresh code --channel=stable >/dev/null 2>&1; then
@@ -867,7 +829,6 @@ install_vscode_linux() {
     return 0
   fi
 
-  # Se já estiver instalado via Flatpak, apenas atualiza.
   if has_flatpak_ref "com.visualstudio.code"; then
     msg "  🔄 Atualizando VS Code via flatpak..."
     if flatpak update -y com.visualstudio.code >/dev/null 2>&1; then
@@ -880,21 +841,29 @@ install_vscode_linux() {
 
   detect_linux_pkg_manager
 
-  # Preferir pacotes oficiais do site (sempre apontam para o último stable).
   if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
     if has_cmd code; then
-      msg "  🔄 Atualizando VS Code (deb oficial)..."
-    else
-      msg "  📦 Instalando VS Code (deb oficial)..."
+      local installed_version
+      installed_version="$(code --version 2>/dev/null | head -n 1 || echo '')"
+      if [[ -n "$installed_version" ]]; then
+        msg "  ✅ VS Code já instalado (versão: $installed_version)"
+        return 0
+      fi
     fi
 
+    msg "  📦 Instalando VS Code (deb oficial)..."
+
     local deb=""
-    deb="$(mktemp /tmp/vscode-XXXXXX.deb)"
+    deb="$(mktemp)" || {
+      record_failure "optional" "Falha ao criar arquivo temporário para VS Code"
+      return 1
+    }
+    trap 'rm -f "$deb"' RETURN
+
     if curl -fsSL "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64" -o "$deb"; then
       if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
         INSTALLED_MISC+=("vscode: deb oficial (stable)")
       else
-        # Resolver dependências quebradas (dpkg -i pode falhar por deps)
         run_with_sudo apt-get install -f -y >/dev/null 2>&1 || true
         if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
           INSTALLED_MISC+=("vscode: deb oficial (stable)")
@@ -902,14 +871,21 @@ install_vscode_linux() {
           record_failure "optional" "Falha ao instalar VS Code (deb)"
         fi
       fi
-      rm -f "$deb" >/dev/null 2>&1 || true
       return 0
     fi
-    rm -f "$deb" >/dev/null 2>&1 || true
     record_failure "optional" "Falha ao baixar VS Code (deb oficial)"
   fi
 
   if [[ "$LINUX_PKG_MANAGER" == "dnf" ]]; then
+    if has_cmd code; then
+      local installed_version
+      installed_version="$(code --version 2>/dev/null | head -n 1 || echo '')"
+      if [[ -n "$installed_version" ]]; then
+        msg "  ✅ VS Code já instalado (versão: $installed_version)"
+        return 0
+      fi
+    fi
+
     msg "  📦 Instalando VS Code (rpm oficial via dnf)..."
     if run_with_sudo dnf install -y "https://code.visualstudio.com/sha/download?build=stable&os=linux-rpm-x64" >/dev/null 2>&1; then
       INSTALLED_MISC+=("vscode: rpm oficial (stable)")
@@ -920,6 +896,15 @@ install_vscode_linux() {
   fi
 
   if [[ "$LINUX_PKG_MANAGER" == "zypper" ]]; then
+    if has_cmd code; then
+      local installed_version
+      installed_version="$(code --version 2>/dev/null | head -n 1 || echo '')"
+      if [[ -n "$installed_version" ]]; then
+        msg "  ✅ VS Code já instalado (versão: $installed_version)"
+        return 0
+      fi
+    fi
+
     msg "  📦 Instalando VS Code (rpm oficial via zypper)..."
     if run_with_sudo zypper install -y "https://code.visualstudio.com/sha/download?build=stable&os=linux-rpm-x64" >/dev/null 2>&1; then
       INSTALLED_MISC+=("vscode: rpm oficial (stable)")
@@ -929,7 +914,6 @@ install_vscode_linux() {
     return 0
   fi
 
-  # Fallbacks quando não dá pra usar .deb/.rpm.
   if has_cmd snap; then
     msg "  📦 Instalando VS Code via snap (stable)..."
     if run_with_sudo snap install code --classic --channel=stable >/dev/null 2>&1; then
@@ -957,11 +941,17 @@ install_vscode_linux() {
 
 install_vscode_macos() {
   # Objetivo: garantir VS Code Stable o mais recente possível no macOS.
-  # Preferência: Homebrew cask (bem mantido). Fallback: não automatizado.
-
   if has_cmd brew; then
     msg "  🍺 VS Code via Homebrew..."
     if brew list --cask visual-studio-code >/dev/null 2>&1; then
+      # Show version if already installed
+      if has_cmd code; then
+        local version=""
+        version="$(code --version 2>/dev/null | head -n 1 || echo '')"
+        if [[ -n "$version" ]]; then
+          msg "  ✅ VS Code já instalado (versão: $version)"
+        fi
+      fi
       if should_ensure_latest; then
         if brew upgrade --cask visual-studio-code >/dev/null 2>&1; then
           INSTALLED_PACKAGES+=("brew cask: visual-studio-code (upgrade)")
@@ -987,13 +977,19 @@ install_vscode_macos() {
 
 install_vscode_windows() {
   # Objetivo: garantir VS Code Stable o mais recente possível no Windows.
-  # Preferência: winget (upgrade/install). Fallback: Chocolatey.
-
   if has_cmd winget; then
     local id="Microsoft.VisualStudioCode"
     local result=""
     result="$(winget list --id "$id" 2>/dev/null || true)"
     if [[ "$result" == *"$id"* ]]; then
+      # Show version if already installed
+      if has_cmd code; then
+        local version=""
+        version="$(code --version 2>/dev/null | head -n 1 || echo '')"
+        if [[ -n "$version" ]]; then
+          msg "  ✅ VS Code já instalado (versão: $version)"
+        fi
+      fi
       if should_ensure_latest; then
         if winget upgrade --id "$id" -e --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
           INSTALLED_PACKAGES+=("winget: VS Code (upgrade)")
@@ -1017,6 +1013,14 @@ install_vscode_windows() {
     local result=""
     result="$(choco list --local-only "$package" 2>/dev/null || true)"
     if [[ "$result" == *"$package"* ]]; then
+      # Show version if already installed
+      if has_cmd code; then
+        local version=""
+        version="$(code --version 2>/dev/null | head -n 1 || echo '')"
+        if [[ -n "$version" ]]; then
+          msg "  ✅ VS Code já instalado (versão: $version)"
+        fi
+      fi
       if should_ensure_latest; then
         if choco upgrade -y "$package" >/dev/null 2>&1; then
           INSTALLED_PACKAGES+=("choco: vscode (upgrade)")
@@ -1050,6 +1054,11 @@ install_vscode() {
 install_docker_linux() {
   # Objetivo: garantir Docker Engine + compose plugin pelo gerenciador nativo.
   if has_cmd docker; then
+    local docker_version
+    docker_version="$(docker --version 2>/dev/null | head -n 1 || echo '')"
+    if [[ -n "$docker_version" ]]; then
+      msg "  ✅ Docker já instalado ($docker_version)"
+    fi
     return 0
   fi
 
@@ -1073,9 +1082,7 @@ install_docker_linux() {
   esac
 }
 
-# shellcheck disable=SC2329
 install_php_build_deps_linux() {
-  # Dependências de build necessárias para compilar PHP (mise/asdf-php).
   detect_linux_pkg_manager
   case "$LINUX_PKG_MANAGER" in
     apt-get)
@@ -1111,10 +1118,7 @@ install_php_build_deps_linux() {
   esac
 }
 
-# shellcheck disable=SC2329
 install_php_build_deps_macos() {
-  # Dependências de build necessárias para compilar PHP (mise/asdf-php) no macOS.
-  # Evitamos instalá-las sempre; só chamamos quando o runtime PHP é selecionado.
   local deps=(
     autoconf
     bison
@@ -1133,12 +1137,9 @@ install_php_build_deps_macos() {
   done
 }
 
-# shellcheck disable=SC2329
 install_php_windows() {
-  # Preferir binário pronto no Windows (winget/choco) em vez de compilar via mise.
   local installed=0
   if has_cmd winget; then
-    # Tenta a versão genérica (latest) e depois uma específica.
     winget_install PHP.PHP "PHP" optional
     if has_cmd php; then
       installed=1
@@ -1162,9 +1163,7 @@ install_php_windows() {
   return 1
 }
 
-# shellcheck disable=SC2329
 install_composer_and_laravel() {
-  # Instala Composer (via mise) e Laravel installer (via Composer global) se ainda não existirem.
   if ! has_cmd composer; then
     if has_cmd mise; then
       msg "  📦 Composer (latest) via mise..."
@@ -1181,8 +1180,7 @@ install_composer_and_laravel() {
   if ! has_cmd laravel; then
     msg "  📦 Laravel installer via Composer..."
     if composer global require laravel/installer >/dev/null 2>&1; then
-      # Garantir que o binário global esteja acessível (via symlink em ~/.local/bin)
-      local bin_dir=""
+      local bin_dir
       bin_dir="$(composer global config bin-dir --absolute 2>/dev/null || true)"
       if [[ -n "$bin_dir" && -x "$bin_dir/laravel" ]]; then
         mkdir -p "$HOME/.local/bin"
@@ -1196,6 +1194,42 @@ install_composer_and_laravel() {
   fi
 }
 
+# Helper: Download and execute installer script
+# Usage: download_and_run_script <url> <friendly_name> [shell] [curl_extra_flags] [script_args]
+# Returns: 0 on success, 1 on failure (sets INSTALLER_ERROR with details)
+download_and_run_script() {
+  local url="$1"
+  local friendly="$2"
+  local shell="${3:-sh}"
+  local curl_extra="${4:-}"
+  local script_args="${5:-}"
+
+  if ! has_cmd curl; then
+    record_failure "critical" "curl não encontrado. Instale curl primeiro para continuar."
+    return 1
+  fi
+
+  local temp_script=""
+  temp_script="$(mktemp)" || {
+    record_failure "critical" "Falha ao criar arquivo temporário para instalador $friendly"
+    return 1
+  }
+  trap 'rm -f "$temp_script"' RETURN
+
+  # shellcheck disable=SC2086
+  if ! curl -fsSL $curl_extra "$url" -o "$temp_script"; then
+    record_failure "critical" "Falha ao baixar instalador $friendly"
+    return 1
+  fi
+
+  # shellcheck disable=SC2086
+  if $shell "$temp_script" $script_args >/dev/null 2>&1; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 ensure_rust_cargo() {
   if has_cmd cargo; then
     return 0
@@ -1203,8 +1237,7 @@ ensure_rust_cargo() {
 
   msg "▶ Rust/Cargo não encontrado. Instalando..."
 
-  if curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path >/dev/null 2>&1; then
-    # Adicionar cargo ao PATH da sessão atual
+  if download_and_run_script "https://sh.rustup.rs" "Rust" "bash" "--proto '=https' --tlsv1.2" "-y --no-modify-path"; then
     export PATH="$HOME/.cargo/bin:$PATH"
     INSTALLED_MISC+=("rustup: installer script")
     msg "  ✅ Rust/Cargo instalado com sucesso"
@@ -1217,15 +1250,13 @@ ensure_rust_cargo() {
 
 ensure_ghostty_linux() {
   if has_cmd ghostty; then
-    return
+    return 0
   fi
 
   msg "▶ Ghostty não encontrado. Tentando instalar..."
 
-  # Detectar distro
   local distro=""
   if [[ -f /etc/os-release ]]; then
-    # shellcheck disable=SC1091
     distro="$(. /etc/os-release && echo "$ID")"
   fi
 
@@ -1241,7 +1272,9 @@ ensure_ghostty_linux() {
     debian)
       msg "  📦 Debian detectado. Instalando via repositório griffo.io..."
       if curl -sS https://debian.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc | run_with_sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/debian.griffo.io.gpg 2>/dev/null; then
-        echo "deb https://debian.griffo.io/apt $(lsb_release -sc 2>/dev/null || echo "bookworm") main" | run_with_sudo tee /etc/apt/sources.list.d/debian.griffo.io.list >/dev/null
+        local codename
+        codename="$(get_distro_codename "bookworm")"
+        echo "deb https://debian.griffo.io/apt $codename main" | run_with_sudo tee /etc/apt/sources.list.d/debian.griffo.io.list >/dev/null
         run_with_sudo apt-get update >/dev/null 2>&1
         if run_with_sudo apt-get install -y ghostty >/dev/null 2>&1; then
           msg "  ✅ Ghostty instalado com sucesso"
@@ -1278,7 +1311,6 @@ ensure_ghostty_linux() {
       ;;
   esac
 
-  # Fallback: Tentar Flatpak
   if has_cmd flatpak; then
     if ! flatpak info com.mitchellh.ghostty >/dev/null 2>&1; then
       msg "  📦 Tentando instalar via Flatpak..."
@@ -1291,7 +1323,6 @@ ensure_ghostty_linux() {
     fi
   fi
 
-  # Fallback: Tentar Snap
   if has_cmd snap; then
     if run_with_sudo snap install ghostty --classic >/dev/null 2>&1; then
       msg "  ✅ Ghostty instalado via snap"
@@ -1312,14 +1343,12 @@ ensure_uv() {
 
   msg "▶ uv (Python Package Manager) não encontrado. Instalando..."
 
-  # Tentar via script oficial
-  if curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1; then
-    # Adicionar uv ao PATH da sessão atual
+  if download_and_run_script "https://astral.sh/uv/install.sh" "uv"; then
     export PATH="$HOME/.local/bin:$PATH"
     INSTALLED_MISC+=("uv: installer script")
     msg "  ✅ uv instalado com sucesso"
 
-    # Gerar completions para shells
+    # Generate shell completions
     if has_cmd fish && [[ -d "$HOME/.config/fish/completions" ]]; then
       uv generate-shell-completion fish > "$HOME/.config/fish/completions/uv.fish" 2>/dev/null
     fi
@@ -1334,7 +1363,6 @@ ensure_uv() {
   fi
 }
 
-# shellcheck disable=SC2329
 ensure_mise() {
   if has_cmd mise; then
     return 0
@@ -1342,7 +1370,7 @@ ensure_mise() {
 
   msg "▶ mise (runtime manager) não encontrado. Instalando..."
 
-  # Em macOS, preferir Homebrew quando disponível
+  # Try Homebrew first on macOS
   if [[ "${TARGET_OS:-}" == "macos" ]] && has_cmd brew; then
     if brew install mise >/dev/null 2>&1; then
       INSTALLED_PACKAGES+=("brew: mise (install)")
@@ -1351,8 +1379,8 @@ ensure_mise() {
     fi
   fi
 
-  # Fallback cross-platform: instalador standalone
-  if curl -fsSL https://mise.run | sh >/dev/null 2>&1; then
+  # Fall back to installer script
+  if download_and_run_script "https://mise.run" "mise"; then
     export PATH="$HOME/.local/bin:$PATH"
     INSTALLED_MISC+=("mise: installer script")
     msg "  ✅ mise instalado com sucesso"
@@ -1364,20 +1392,16 @@ ensure_mise() {
 }
 
 ensure_spec_kit() {
-  # Verificar se uv está instalado (necessário para spec-kit)
   if ! has_cmd uv; then
     record_failure "optional" "uv não encontrado. spec-kit precisa de uv instalado."
     msg "  💡 Execute: curl -LsSf https://astral.sh/uv/install.sh | sh"
     return 1
   fi
 
-  # Verificar se specify já está instalado
   if has_cmd specify; then
     local spec_version
     spec_version="$(specify --version 2>/dev/null | head -n1 || echo 'unknown')"
     msg "  ℹ️  spec-kit já instalado: $spec_version"
-
-    # Oferecer atualização se estiver desatualizado
     if uv tool list 2>/dev/null | grep -q "specify-cli"; then
       msg "  💡 Para atualizar: uv tool upgrade specify-cli"
     fi
@@ -1388,16 +1412,12 @@ ensure_spec_kit() {
   msg "  📚 Spec-Kit: Toolkit do GitHub para desenvolvimento guiado por especificações"
   msg "  🤖 Integra com Claude para gerar especificações e implementações"
 
-  # Instalar spec-kit via uv tool
   local install_output
   install_output="$(uv tool install specify-cli --from git+https://github.com/github/spec-kit.git 2>&1)"
   local install_status=$?
 
   if [[ $install_status -eq 0 ]]; then
-    # Adicionar ao PATH da sessão atual
     export PATH="$HOME/.local/bin:$PATH"
-
-    # Verificar se o comando está disponível agora
     if has_cmd specify; then
       local installed_version
       installed_version="$(specify --version 2>/dev/null | head -n1 || echo 'instalado')"
@@ -1436,9 +1456,7 @@ ensure_atuin() {
 
   msg "▶ Atuin (Better Shell History) não encontrado. Instalando..."
 
-  # Tentar via script oficial
-  if curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh -s -- --yes >/dev/null 2>&1; then
-    # Adicionar atuin ao PATH da sessão atual
+  if download_and_run_script "https://setup.atuin.sh" "Atuin" "sh" "--proto '=https' --tlsv1.2" "--yes"; then
     export PATH="$HOME/.atuin/bin:$PATH"
     export PATH="$HOME/.local/bin:$PATH"
     INSTALLED_MISC+=("atuin: installer script")
@@ -1447,9 +1465,8 @@ ensure_atuin() {
     msg "  💡 Use 'atuin register' para criar conta e sincronizar"
     msg "  💡 Use 'atuin login' se já tiver conta"
 
-    # Gerar completions e configuração para shells
+    # Configure fish shell integration
     if has_cmd fish && [[ -d "$HOME/.config/fish" ]]; then
-      # Adicionar init do atuin no config.fish se não existir
       local fish_config="$HOME/.config/fish/config.fish"
       if [[ -f "$fish_config" ]] && ! grep -q "atuin init fish" "$fish_config"; then
         {
@@ -1462,8 +1479,8 @@ ensure_atuin() {
       fi
     fi
 
+    # Configure zsh shell integration
     if has_cmd zsh && [[ -f "$HOME/.zshrc" ]]; then
-      # Adicionar init do atuin no .zshrc se não existir
       if ! grep -q "atuin init zsh" "$HOME/.zshrc"; then
         {
           echo ""
@@ -1554,8 +1571,6 @@ apply_shared_configs() {
   else
     msg "  ⚠️ Zsh não selecionado/encontrado, pulando .zshrc."
   fi
-
-  # Starship config será aplicado durante install_starship() após seleção do preset
 
   if has_cmd git; then
     local git_base="$CONFIG_SHARED/git/.gitconfig"
@@ -1695,15 +1710,8 @@ apply_windows_configs() {
 
 copy_windows_terminal_settings() {
   local wt_settings="$CONFIG_WINDOWS/windows-terminal-settings.json"
-  [[ -f "$wt_settings" ]] || return
-  local base="${LOCALAPPDATA:-}"
-  if [[ -z "$base" ]]; then
-    base="$HOME/AppData/Local"
-  fi
-  if [[ -z "$base" ]]; then
-    msg "  ⚠️ LOCALAPPDATA não definido; pulando Windows Terminal."
-    return
-  fi
+  [[ -f "$wt_settings" ]] || return 0
+  local base="${LOCALAPPDATA:-$HOME/AppData/Local}"
 
   local stable="$base/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
   local preview="$base/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json"
@@ -1727,7 +1735,6 @@ copy_windows_powershell_profiles() {
     local docs_win
     docs_win="$(powershell.exe -NoProfile -Command '[Environment]::GetFolderPath("MyDocuments")' 2>/dev/null | tr -d '\r' || true)"
     if [[ -n "$docs_win" ]]; then
-      # Priorizar wslpath (WSL2) sobre cygpath (Cygwin/MSYS2)
       if has_cmd wslpath; then
         docs="$(wslpath -u "$docs_win" 2>/dev/null || echo "$docs")"
       elif has_cmd cygpath; then
@@ -1781,11 +1788,9 @@ install_vscode_extensions() {
   installed_extensions="$(code --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')"
 
   while IFS= read -r extension; do
-    # Pular linhas vazias e comentários
     [[ -z "$extension" ]] && continue
     [[ "$extension" =~ ^# ]] && continue
 
-    # Verificar se já está instalado (case-insensitive)
     local ext_lower
     ext_lower="$(echo "$extension" | tr '[:upper:]' '[:lower:]')"
 

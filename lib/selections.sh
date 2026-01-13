@@ -38,7 +38,7 @@ menu_select_single() {
     msg ""
     read -r -p "  $prompt (1-${#options[@]}): " selection
     if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 )) && (( selection <= ${#options[@]} )); then
-      eval "$out_var=$selection"
+      printf -v "$out_var" '%s' "$selection"
       return 0
     fi
     msg "  ⚠️  Opção inválida. Digite 1-${#options[@]}."
@@ -57,11 +57,36 @@ select_multiple_items() {
   while true; do
     menu_header "$title"
 
-    local idx=1
-    for opt in "${options[@]}"; do
-      msg "  $idx) $opt"
-      idx=$((idx + 1))
-    done
+    local total=${#options[@]}
+
+    if [[ $total -gt 15 ]]; then
+      local mid=$(( (total + 1) / 2 ))
+      local col_width=35
+
+      for (( i=0; i<mid; i++ )); do
+        local left_idx=$((i + 1))
+        local right_idx=$((mid + i + 1))
+        local left_item="${options[i]}"
+        local right_item=""
+
+        if [[ $right_idx -le $total ]]; then
+          right_item="${options[mid + i]}"
+        fi
+
+        if [[ -n "$right_item" ]]; then
+          printf "  %-2d) %-${col_width}s  %-2d) %s\n" "$left_idx" "$left_item" "$right_idx" "$right_item"
+        else
+          printf "  %-2d) %s\n" "$left_idx" "$left_item"
+        fi
+      done
+    else
+      local idx=1
+      for opt in "${options[@]}"; do
+        msg "  $idx) $opt"
+        idx=$((idx + 1))
+      done
+    fi
+
     echo ""
     msg "  a) Todos"
     msg "  (Enter para nenhum)"
@@ -103,7 +128,10 @@ select_multiple_items() {
     msg "  ⚠️  Entrada inválida. Use números da lista separados por vírgula, 'a' para todos ou Enter para nenhum."
   done
 
-  eval "$out_var=(\"\${selected[@]}\")"
+  # Usar nameref para atribuir array de volta (Bash 4.3+, seguro e sem eval)
+  declare -n array_ref="$out_var"
+  array_ref=("${selected[@]}")
+  unset -n array_ref
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -143,12 +171,10 @@ ask_cli_tools() {
     local selected_desc=()
     select_multiple_items "🛠️  Selecione as CLI Tools que deseja instalar" selected_desc "${tools_with_desc[@]}"
 
-    # Mapear de volta para nomes sem descrição
+    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
     for item in "${selected_desc[@]}"; do
-      # Remove tudo após " - " para pegar só o nome da ferramenta
-      local tool_name="${item%% - *}"
-      # Remove espaços extras
-      tool_name="${tool_name// /}"
+      local tool_name
+      tool_name="$(echo "$item" | awk '{print $1}')"
       SELECTED_CLI_TOOLS+=("$tool_name")
     done
 
@@ -190,9 +216,10 @@ ask_ia_tools() {
     local selected_desc=()
     select_multiple_items "🤖 Selecione as IA Tools que deseja instalar" selected_desc "${tools_with_desc[@]}"
 
-    # Mapear de volta para nomes sem descrição
+    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
     for item in "${selected_desc[@]}"; do
-      local tool_name="${item%% - *}"
+      local tool_name
+      tool_name="$(echo "$item" | awk '{print $1}')"
       SELECTED_IA_TOOLS+=("$tool_name")
     done
 

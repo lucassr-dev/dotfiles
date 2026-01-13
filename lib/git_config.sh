@@ -11,9 +11,11 @@ declare -a GIT_WORK_DIRS=()
 GIT_PERSONAL_NAME=""
 GIT_PERSONAL_EMAIL=""
 GIT_PERSONAL_USER=""
+GIT_PERSONAL_SSH_KEY=""
 GIT_WORK_NAME=""
 GIT_WORK_EMAIL=""
 GIT_WORK_USER=""
+GIT_WORK_SSH_KEY=""
 GIT_EDITOR="nvim"
 GIT_PAGER="delta"
 GIT_CONFIGURE=0
@@ -34,6 +36,7 @@ show_git_multi_account_info() {
   msg "  • Você define pastas para projetos de trabalho (ex: ~/work/, ~/workspace/)"
   msg "  • O Git usa includeIf para aplicar name/email correto automaticamente"
   msg "  • Cada commit terá o autor correto baseado na pasta do repo"
+  msg "  • Chaves SSH diferentes para cada conta (pessoal vs trabalho)"
   msg ""
   msg "🎯 Benefícios:"
   msg ""
@@ -41,6 +44,7 @@ show_git_multi_account_info() {
   msg "  • Evita commits com autor errado (ex: email pessoal em repo do trabalho)"
   msg "  • Funciona automaticamente ao clonar novos repos"
   msg "  • Suporte para múltiplos usuários GitHub/GitLab"
+  msg "  • Usa a chave SSH correta automaticamente por diretório"
   msg ""
   msg "⚙️  Configurações adicionais:"
   msg ""
@@ -110,6 +114,60 @@ ask_git_configuration() {
   read -r -p "  Email: " GIT_PERSONAL_EMAIL
   read -r -p "  Usuário GitHub/GitLab (opcional): " GIT_PERSONAL_USER
 
+  msg ""
+  msg "🔑 Chave SSH para conta pessoal:"
+  msg ""
+
+  # Listar chaves SSH disponíveis (buscar em ~/.ssh e shared/.ssh)
+  local ssh_keys=()
+
+  # Buscar em ~/.ssh
+  if [[ -d "$HOME/.ssh" ]]; then
+    while IFS= read -r key; do
+      ssh_keys+=("$key")
+    done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
+  fi
+
+  # Buscar também em shared/.ssh (do repositório de config)
+  if [[ -n "${SCRIPT_DIR:-}" ]] && [[ -d "$SCRIPT_DIR/shared/.ssh" ]]; then
+    while IFS= read -r key; do
+      # Evitar duplicatas (comparar basename)
+      local key_basename
+      key_basename="$(basename "$key")"
+      local found=0
+      for existing in "${ssh_keys[@]}"; do
+        if [[ "$(basename "$existing")" == "$key_basename" ]]; then
+          found=1
+          break
+        fi
+      done
+      [[ $found -eq 0 ]] && ssh_keys+=("$key")
+    done < <(find "$SCRIPT_DIR/shared/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
+  fi
+
+  if [[ ${#ssh_keys[@]} -gt 0 ]]; then
+    msg "  Chaves SSH encontradas:"
+    local idx=1
+    for key in "${ssh_keys[@]}"; do
+      msg "    $idx) $(basename "$key")"
+      idx=$((idx + 1))
+    done
+    msg ""
+
+    local key_choice=""
+    read -r -p "  Selecione uma chave (número) ou digite o caminho [1]: " key_choice
+    key_choice="${key_choice:-1}"
+
+    if [[ "$key_choice" =~ ^[0-9]+$ ]] && (( key_choice >= 1 )) && (( key_choice <= ${#ssh_keys[@]} )); then
+      GIT_PERSONAL_SSH_KEY="${ssh_keys[key_choice-1]}"
+    else
+      GIT_PERSONAL_SSH_KEY="$key_choice"
+    fi
+  else
+    msg "  ⚠️  Nenhuma chave SSH encontrada em ~/.ssh ou shared/.ssh"
+    read -r -p "  Caminho da chave SSH (Enter para não configurar): " GIT_PERSONAL_SSH_KEY
+  fi
+
   # Perguntar diretórios para conta de trabalho
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -145,6 +203,60 @@ ask_git_configuration() {
   read -r -p "  Email: " GIT_WORK_EMAIL
   read -r -p "  Usuário GitHub/GitLab (opcional): " GIT_WORK_USER
 
+  msg ""
+  msg "🔑 Chave SSH para conta de trabalho:"
+  msg ""
+
+  # Listar chaves SSH disponíveis (buscar em ~/.ssh e shared/.ssh)
+  local ssh_keys=()
+
+  # Buscar em ~/.ssh
+  if [[ -d "$HOME/.ssh" ]]; then
+    while IFS= read -r key; do
+      ssh_keys+=("$key")
+    done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
+  fi
+
+  # Buscar também em shared/.ssh (do repositório de config)
+  if [[ -n "${SCRIPT_DIR:-}" ]] && [[ -d "$SCRIPT_DIR/shared/.ssh" ]]; then
+    while IFS= read -r key; do
+      # Evitar duplicatas (comparar basename)
+      local key_basename
+      key_basename="$(basename "$key")"
+      local found=0
+      for existing in "${ssh_keys[@]}"; do
+        if [[ "$(basename "$existing")" == "$key_basename" ]]; then
+          found=1
+          break
+        fi
+      done
+      [[ $found -eq 0 ]] && ssh_keys+=("$key")
+    done < <(find "$SCRIPT_DIR/shared/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
+  fi
+
+  if [[ ${#ssh_keys[@]} -gt 0 ]]; then
+    msg "  Chaves SSH encontradas:"
+    local idx=1
+    for key in "${ssh_keys[@]}"; do
+      msg "    $idx) $(basename "$key")"
+      idx=$((idx + 1))
+    done
+    msg ""
+
+    local key_choice=""
+    read -r -p "  Selecione uma chave (número) ou digite o caminho [2]: " key_choice
+    key_choice="${key_choice:-2}"
+
+    if [[ "$key_choice" =~ ^[0-9]+$ ]] && (( key_choice >= 1 )) && (( key_choice <= ${#ssh_keys[@]} )); then
+      GIT_WORK_SSH_KEY="${ssh_keys[key_choice-1]}"
+    else
+      GIT_WORK_SSH_KEY="$key_choice"
+    fi
+  else
+    msg "  ⚠️  Nenhuma chave SSH encontrada em ~/.ssh ou shared/.ssh"
+    read -r -p "  Caminho da chave SSH (Enter para não configurar): " GIT_WORK_SSH_KEY
+  fi
+
   # Perguntar preferências de editor e pager
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -170,12 +282,14 @@ ask_git_configuration() {
   msg "  • Nome: $GIT_PERSONAL_NAME"
   msg "  • Email: $GIT_PERSONAL_EMAIL"
   [[ -n "$GIT_PERSONAL_USER" ]] && msg "  • Usuário: $GIT_PERSONAL_USER"
+  [[ -n "$GIT_PERSONAL_SSH_KEY" ]] && msg "  • Chave SSH: $GIT_PERSONAL_SSH_KEY"
   msg "  • Diretórios: ${GIT_PERSONAL_DIRS[*]}"
   msg ""
   msg "💼 CONTA TRABALHO:"
   msg "  • Nome: $GIT_WORK_NAME"
   msg "  • Email: $GIT_WORK_EMAIL"
   [[ -n "$GIT_WORK_USER" ]] && msg "  • Usuário: $GIT_WORK_USER"
+  [[ -n "$GIT_WORK_SSH_KEY" ]] && msg "  • Chave SSH: $GIT_WORK_SSH_KEY"
   msg "  • Diretórios: ${GIT_WORK_DIRS[*]}"
   msg ""
   msg "⚙️  PREFERÊNCIAS:"
@@ -218,6 +332,14 @@ EOF
 EOF
   fi
 
+  if [[ -n "$GIT_PERSONAL_SSH_KEY" ]]; then
+    cat >> "$gitconfig_personal" << EOF
+
+[core]
+    sshCommand = ssh -i $GIT_PERSONAL_SSH_KEY -o IdentitiesOnly=yes
+EOF
+  fi
+
   msg "  ✅ Criado: ~/.gitconfig-personal"
 
   # Criar .gitconfig-work
@@ -234,6 +356,14 @@ EOF
 
 [github]
     user = $GIT_WORK_USER
+EOF
+  fi
+
+  if [[ -n "$GIT_WORK_SSH_KEY" ]]; then
+    cat >> "$gitconfig_work" << EOF
+
+[core]
+    sshCommand = ssh -i $GIT_WORK_SSH_KEY -o IdentitiesOnly=yes
 EOF
   fi
 
@@ -350,18 +480,6 @@ EOF
 
   msg ""
   msg "  ✅ Configuração Git multi-conta concluída!"
-  msg ""
-  msg "  💡 DICA: Clone seus projetos nos diretórios configurados:"
-  msg ""
-  msg "     PESSOAL:"
-  for dir in "${GIT_PERSONAL_DIRS[@]}"; do
-    msg "       cd $dir && git clone <repo>"
-  done
-  msg ""
-  msg "     TRABALHO:"
-  for dir in "${GIT_WORK_DIRS[@]}"; do
-    msg "       cd $dir && git clone <repo>"
-  done
   msg ""
 
   INSTALLED_MISC+=("git: multi-conta configurada")
