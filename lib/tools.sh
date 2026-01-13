@@ -35,6 +35,10 @@ install_cli_tools_linux() {
         ensure_atuin
         continue
         ;;
+      lazygit|btop|gh)
+        # Instalados via PPA, snap ou método especial no segundo loop
+        continue
+        ;;
       starship)
         # starship também pode ser instalado via tema; aqui só respeita a seleção
         ;;
@@ -149,8 +153,13 @@ install_cli_tools_linux() {
         ;;
       lazygit)
         if ! cli_tool_installed "$tool"; then
-          msg "  📦 Instalando lazygit via snap..."
-          if has_cmd snap; then
+          if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]] && has_cmd add-apt-repository; then
+            msg "  📦 Instalando lazygit via PPA..."
+            run_with_sudo add-apt-repository -y ppa:lazygit-team/release >/dev/null 2>&1
+            run_with_sudo apt-get update -qq >/dev/null 2>&1
+            run_with_sudo apt-get install -qq -y lazygit >/dev/null 2>&1 && INSTALLED_MISC+=("apt: lazygit")
+          elif has_cmd snap; then
+            msg "  📦 Instalando lazygit via snap..."
             run_with_sudo snap install lazygit >/dev/null 2>&1 && INSTALLED_MISC+=("snap: lazygit")
           fi
         fi

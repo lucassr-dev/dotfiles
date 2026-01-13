@@ -1237,7 +1237,7 @@ ensure_rust_cargo() {
 
   msg "▶ Rust/Cargo não encontrado. Instalando..."
 
-  if download_and_run_script "https://sh.rustup.rs" "Rust" "bash" "--proto '=https' --tlsv1.2" "-y --no-modify-path"; then
+  if download_and_run_script "https://sh.rustup.rs" "Rust" "bash" "--proto=https --tlsv1.2" "-y --no-modify-path"; then
     export PATH="$HOME/.cargo/bin:$PATH"
     INSTALLED_MISC+=("rustup: installer script")
     msg "  ✅ Rust/Cargo instalado com sucesso"
@@ -1456,7 +1456,7 @@ ensure_atuin() {
 
   msg "▶ Atuin (Better Shell History) não encontrado. Instalando..."
 
-  if download_and_run_script "https://setup.atuin.sh" "Atuin" "sh" "--proto '=https' --tlsv1.2" "--yes"; then
+  if download_and_run_script "https://setup.atuin.sh" "Atuin" "sh" "--proto=https --tlsv1.2" "--yes"; then
     export PATH="$HOME/.atuin/bin:$PATH"
     export PATH="$HOME/.local/bin:$PATH"
     INSTALLED_MISC+=("atuin: installer script")
@@ -1493,7 +1493,7 @@ ensure_atuin() {
 
     return 0
   else
-    record_failure "critical" "Falha ao instalar Atuin. Tente manualmente: curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh"
+    record_failure "critical" "Falha ao instalar Atuin. Tente manualmente: curl --proto=https --tlsv1.2 -LsSf https://setup.atuin.sh | sh"
     return 1
   fi
 }
