@@ -25,7 +25,6 @@ get_term_width() {
   tput cols 2>/dev/null || echo 80
 }
 
-# Centraliza texto baseado na largura do terminal
 center_text() {
   local text="$1"
   local width="${2:-$(get_term_width)}"
@@ -35,7 +34,6 @@ center_text() {
   echo "$text"
 }
 
-# Centraliza texto com cores (remove códigos ANSI para calcular)
 center_colored() {
   local text="$1"
   local width="${2:-$(get_term_width)}"
@@ -73,7 +71,7 @@ show_ascii_banner_responsive() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# BANNER GRANDE (≥100 cols) - LUCASSR-DEV completo
+# BANNER GRANDE (≥100 cols) - LUCASSR-DEV
 # ══════════════════════════════════════════════════════════════════════════════
 show_banner_large() {
   local width="$1"
@@ -92,7 +90,7 @@ show_banner_large() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# BANNER MÉDIO (65-99 cols) - LUCASSR-DEV completo (compacto)
+# BANNER MÉDIO (65-99 cols) - LUCASSR-DEV
 # ══════════════════════════════════════════════════════════════════════════════
 show_banner_medium() {
   local width="$1"
@@ -111,7 +109,7 @@ show_banner_medium() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# BANNER PEQUENO (<65 cols) - Texto simples estilizado
+# BANNER PEQUENO (<65 cols)
 # ══════════════════════════════════════════════════════════════════════════════
 show_banner_small() {
   local width="$1"

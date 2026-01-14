@@ -129,12 +129,6 @@ ui_select_multi_fzf() {
   shift 2
   local options=("$@")
 
-  local header="$title
-─────────────────────────────────────────────────────
-  Tab: selecionar    Shift+Tab: deselecionar
-  Ctrl+A: todos      Enter: confirmar    Esc: nenhum
-─────────────────────────────────────────────────────"
-
   local selected
   selected=$(printf '%s\n' "${options[@]}" | fzf \
     --multi \
@@ -142,10 +136,11 @@ ui_select_multi_fzf() {
     --reverse \
     --height=60% \
     --border=rounded \
-    --header="$header" \
+    --header="📦 $title" \
     --prompt="Buscar: " \
     --pointer="▶" \
     --marker="✓" \
+    --no-mouse \
     --bind='ctrl-a:toggle-all' \
     --bind='tab:toggle+down' \
     --bind='shift-tab:toggle+up' \
@@ -355,6 +350,7 @@ ui_select_single_fzf() {
     --header="$title" \
     --prompt="Buscar: " \
     --pointer="▶" \
+    --no-mouse \
     --color='header:cyan,pointer:green,prompt:yellow' \
   ) || true
 

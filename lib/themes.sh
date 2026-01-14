@@ -47,10 +47,11 @@ _terminal_supports_iterm_protocol() {
 _terminal_supports_sixel() {
   [[ "${TERM:-}" == *"sixel"* ]] && return 0
   [[ "${TERM_PROGRAM:-}" == "ghostty" ]] && return 0
+  [[ "${TERM:-}" == "xterm-ghostty" ]] && return 0
+  [[ "${GHOSTTY_RESOURCES_DIR:-}" ]] && return 0
   [[ "${TERM_PROGRAM:-}" == "foot" ]] && return 0
   [[ "${TERM_PROGRAM:-}" == "mlterm" ]] && return 0
   [[ "${TERM_PROGRAM:-}" == "contour" ]] && return 0
-  has_cmd img2sixel && return 0
   return 1
 }
 
