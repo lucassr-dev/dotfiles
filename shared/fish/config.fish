@@ -491,6 +491,16 @@ end
 fish_add_path ~/.local/bin
 fish_add_path ~/bin
 
+# fzf (instalado via git)
+if test -d ~/.fzf/bin
+    fish_add_path ~/.fzf/bin
+end
+
+# mise shims (runtime manager)
+if test -d ~/.local/share/mise/shims
+    fish_add_path ~/.local/share/mise/shims
+end
+
 # Cargo (Rust)
 if test -d ~/.cargo/bin
     fish_add_path ~/.cargo/bin

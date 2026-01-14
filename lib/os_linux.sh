@@ -124,7 +124,6 @@ install_linux_base_dependencies() {
         fontconfig
         imagemagick
         chafa
-        fzf
       )
       ;;
     dnf)
@@ -143,7 +142,6 @@ install_linux_base_dependencies() {
         fontconfig
         ImageMagick
         chafa
-        fzf
       )
       ;;
     pacman)
@@ -160,7 +158,6 @@ install_linux_base_dependencies() {
         fontconfig
         imagemagick
         chafa
-        fzf
       )
       ;;
     zypper)
@@ -179,7 +176,6 @@ install_linux_base_dependencies() {
         fontconfig
         ImageMagick
         chafa
-        fzf
       )
       ;;
   esac
@@ -187,6 +183,61 @@ install_linux_base_dependencies() {
   if [[ ${#base_packages[@]} -gt 0 ]]; then
     msg "  📦 Instalando dependências base..."
     install_linux_packages "critical" "${base_packages[@]}"
+  fi
+
+  # Instalar fzf via git (versão mais recente)
+  install_fzf_latest
+}
+
+# ═══════════════════════════════════════════════════════════
+# Instalação do fzf (versão mais recente via git)
+# ═══════════════════════════════════════════════════════════
+
+install_fzf_latest() {
+  local fzf_dir="$HOME/.fzf"
+  local min_version="0.48"
+
+  # Verificar se já tem fzf com versão adequada
+  if has_cmd fzf; then
+    local current_version
+    current_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+    if [[ -n "$current_version" ]]; then
+      # Comparar versões (0.48+ suporta --zsh)
+      if awk "BEGIN {exit !($current_version >= $min_version)}"; then
+        msg "  ✅ fzf $current_version já instalado (>= $min_version)"
+        return 0
+      else
+        msg "  🔄 fzf $current_version encontrado, atualizando para versão mais recente..."
+      fi
+    fi
+  fi
+
+  msg "  📦 Instalando fzf (versão mais recente via git)..."
+
+  # Remover instalação antiga via git se existir
+  [[ -d "$fzf_dir" ]] && rm -rf "$fzf_dir"
+
+  # Clonar repositório oficial
+  if ! git clone --depth 1 https://github.com/junegunn/fzf.git "$fzf_dir" >/dev/null 2>&1; then
+    record_failure "optional" "Falha ao clonar repositório do fzf"
+    # Fallback: tentar instalar via package manager
+    msg "  ⚠️  Tentando fallback via package manager..."
+    install_linux_packages "optional" fzf
+    return 0
+  fi
+
+  # Executar script de instalação (--all instala key-bindings e completion)
+  # --no-update-rc evita modificar .bashrc/.zshrc (já temos nossa config)
+  if "$fzf_dir/install" --all --no-update-rc --no-bash --no-fish >/dev/null 2>&1; then
+    INSTALLED_MISC+=("fzf (git): latest")
+    local installed_version
+    installed_version=$("$fzf_dir/bin/fzf" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    msg "  ✅ fzf $installed_version instalado com sucesso"
+  else
+    record_failure "optional" "Falha ao instalar fzf via git"
+    # Fallback: tentar instalar via package manager
+    msg "  ⚠️  Tentando fallback via package manager..."
+    install_linux_packages "optional" fzf
   fi
 }
 
