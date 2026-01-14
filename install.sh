@@ -24,6 +24,7 @@ FAIL_FAST=1
 DRY_RUN="${DRY_RUN:-0}"
 INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_FISH="${INSTALL_FISH:-1}"
+INSTALL_NUSHELL="${INSTALL_NUSHELL:-0}"
 INSTALL_BASE_DEPS=1  # Dependências base (pode ser desativado pelo usuário)
 INSTALL_VSCODE_EXTENSIONS=0
 BASE_DEPS_INSTALLED=0
@@ -427,6 +428,91 @@ ask_vscode_extensions() {
   msg ""
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# FUNÇÕES AUXILIARES PARA RESUMO RESPONSIVO
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Trunca array para caber na largura especificada
+_truncate_items() {
+  local max_width="$1"
+  shift
+  local items=("$@")
+  local result=""
+  local count=0
+  local remaining=0
+
+  for item in "${items[@]}"; do
+    local test_str
+    if [[ -z "$result" ]]; then
+      test_str="$item"
+    else
+      test_str="$result, $item"
+    fi
+    if [[ ${#test_str} -le $max_width ]]; then
+      result="$test_str"
+      ((count++))
+    else
+      remaining=$((${#items[@]} - count))
+      break
+    fi
+  done
+
+  if [[ $remaining -gt 0 ]]; then
+    echo "$result +$remaining"
+  elif [[ -n "$result" ]]; then
+    echo "$result"
+  else
+    echo "(nenhum)"
+  fi
+}
+
+# Imprime linha formatada com label e valor
+_print_row() {
+  local label="$1"
+  local value="$2"
+  local label_width="${3:-14}"
+  local value_color="${4:-$BANNER_WHITE}"
+
+  printf "  ${BANNER_DIM}%-${label_width}s${BANNER_RESET} ${value_color}%s${BANNER_RESET}\n" "$label" "$value"
+}
+
+# Imprime cabeçalho de seção
+_print_section() {
+  local title="$1"
+  local icon="$2"
+  local width="${3:-60}"
+
+  echo ""
+  echo -e "  ${BANNER_CYAN}${BANNER_BOLD}${icon} ${title}${BANNER_RESET}"
+  local line_len=$((width > 50 ? 50 : width - 10))
+  printf "  ${BANNER_DIM}"
+  printf '─%.0s' $(seq 1 "$line_len")
+  printf "${BANNER_RESET}\n"
+}
+
+# Desenha caixa responsiva
+_draw_box() {
+  local title="$1"
+  local width="$2"
+  local box_width=$((width > 70 ? 70 : width - 4))
+
+  local line
+  line=$(printf '═%.0s' $(seq 1 $((box_width - 2))))
+
+  echo -e "${BANNER_CYAN}╔${line}╗${BANNER_RESET}"
+  local title_pad=$(( (box_width - 2 - ${#title}) / 2 ))
+  printf "${BANNER_CYAN}║${BANNER_RESET}"
+  printf "%${title_pad}s" ""
+  printf "${BANNER_BOLD}%s${BANNER_RESET}" "$title"
+  printf "%$((box_width - 2 - title_pad - ${#title}))s" ""
+  printf "${BANNER_CYAN}║${BANNER_RESET}\n"
+  echo -e "${BANNER_CYAN}╚${line}╝${BANNER_RESET}"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RESUMO DE SELEÇÕES - LAYOUT RESPONSIVO
+# ══════════════════════════════════════════════════════════════════════════════
+
 review_selections() {
   local choice=""
   while true; do
@@ -435,122 +521,256 @@ review_selections() {
     else
       clear
     fi
-    echo ""
-    echo "┌──────────────────────────────────────────────────────────┐"
-    echo "│           RESUMO FINAL DAS SELEÇÕES                      │"
-    echo "└──────────────────────────────────────────────────────────┘"
-    echo ""
-    echo "  SHELL E APARÊNCIA"
-    echo "  ────────────────────────────────────────────────────────"
 
-    # Shells
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo 80)
+    local content_width=$((term_width > 100 ? 90 : term_width - 4))
+    local item_width=$((content_width - 18))
+
+    echo ""
+
+    # Título centralizado
+    if [[ $term_width -ge 80 ]]; then
+      _draw_box "RESUMO FINAL DAS SELEÇÕES" "$term_width"
+    else
+      echo -e "  ${BANNER_CYAN}${BANNER_BOLD}═══ RESUMO DAS SELEÇÕES ═══${BANNER_RESET}"
+    fi
+
+    # Coleta dados
     local selected_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
     [[ ${INSTALL_FISH:-0} -eq 1 ]] && selected_shells+=("fish")
-    if [[ ${#selected_shells[@]} -gt 0 ]]; then
-      echo "    Shells:      ${selected_shells[*]}"
-    else
-      echo "    Shells:      (nenhum)"
-    fi
+    [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && selected_shells+=("nushell")
 
-    # Temas
     local themes_selected=()
-    [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && themes_selected+=("Oh My Zsh + P10k")
-    [[ $INSTALL_STARSHIP -eq 1 ]] && themes_selected+=("Starship")
-    [[ $INSTALL_OH_MY_POSH -eq 1 ]] && themes_selected+=("Oh My Posh")
-    if [[ ${#themes_selected[@]} -gt 0 ]]; then
-      echo "    Temas:       ${themes_selected[*]}"
-      if [[ $INSTALL_STARSHIP -eq 1 ]] && [[ -n "${SELECTED_STARSHIP_PRESET:-}" ]]; then
-        local starship_detail="$SELECTED_STARSHIP_PRESET"
-        [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]] && starship_detail+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
-        echo "                 └─ Starship: $starship_detail"
-      fi
-      [[ $INSTALL_OH_MY_POSH -eq 1 ]] && echo "                 └─ Oh My Posh: ${SELECTED_OMP_THEME:-padrão}"
-    else
-      echo "    Temas:       (nenhum)"
-    fi
+    [[ ${INSTALL_OH_MY_ZSH:-0} -eq 1 ]] && themes_selected+=("OMZ+P10k")
+    [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && themes_selected+=("Starship")
+    [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && themes_selected+=("OMP")
 
-    # Nerd Fonts
-    if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
-      echo "    Nerd Fonts:  ${SELECTED_NERD_FONTS[*]}"
-    else
-      echo "    Nerd Fonts:  (nenhuma)"
-    fi
-
-    # Terminais
-    if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
-      echo "    Terminais:   ${SELECTED_TERMINALS[*]}"
-    else
-      echo "    Terminais:   (nenhum)"
-    fi
-
-    echo ""
-    echo "  FERRAMENTAS DE DESENVOLVIMENTO"
-    echo "  ────────────────────────────────────────────────────────"
-
-    # CLI Tools
-    if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
-      echo "    CLI Tools:   ${SELECTED_CLI_TOOLS[*]}"
-    else
-      echo "    CLI Tools:   (nenhuma)"
-    fi
-
-    # IA Tools
-    if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
-      echo "    IA Tools:    ${SELECTED_IA_TOOLS[*]}"
-    else
-      echo "    IA Tools:    (nenhuma)"
-    fi
-
-    # Runtimes
-    if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
-      echo "    Runtimes:    ${SELECTED_RUNTIMES[*]}"
-    else
-      echo "    Runtimes:    (nenhum)"
-    fi
-
-    echo ""
-    echo "  APLICATIVOS GUI"
-    echo "  ────────────────────────────────────────────────────────"
-
-    # GUI Apps detalhados
     local gui_total=0
     gui_total=$((${#SELECTED_IDES[@]} + ${#SELECTED_BROWSERS[@]} + ${#SELECTED_DEV_TOOLS[@]} + \
                  ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
                  ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
 
-    if [[ $gui_total -gt 0 ]]; then
-      echo "    GUI Apps:    $gui_total selecionados"
-      [[ ${#SELECTED_IDES[@]} -gt 0 ]] && echo "      IDEs:        ${SELECTED_IDES[*]}"
-      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && echo "      Navegadores: ${SELECTED_BROWSERS[*]}"
-      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && echo "      Dev Tools:   ${SELECTED_DEV_TOOLS[*]}"
-      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && echo "      Bancos:      ${SELECTED_DATABASES[*]}"
-      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && echo "      Produtiv.:   ${SELECTED_PRODUCTIVITY[*]}"
-      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && echo "      Comunic.:    ${SELECTED_COMMUNICATION[*]}"
-      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && echo "      Midia:       ${SELECTED_MEDIA[*]}"
-      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && echo "      Utilit.:     ${SELECTED_UTILITIES[*]}"
+    # ═══════════════════════════════════════════════════════════════════════════
+    # LAYOUT RESPONSIVO: 2 colunas (≥100) ou 1 coluna (<100)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    if [[ $term_width -ge 100 ]]; then
+      # ═══════════════════════════════════════════════════════════════════════
+      # LAYOUT 2 COLUNAS
+      # ═══════════════════════════════════════════════════════════════════════
+      local col_width=42
+      local col_item_width=26
+
+      echo ""
+      # Cabeçalhos das colunas
+      printf "  ${BANNER_CYAN}${BANNER_BOLD}🐚 SHELL & APARÊNCIA${BANNER_RESET}"
+      printf "%$((col_width - 19))s"
+      printf "${BANNER_CYAN}${BANNER_BOLD}🔧 FERRAMENTAS${BANNER_RESET}\n"
+
+      printf "  ${BANNER_DIM}"
+      printf '─%.0s' $(seq 1 36)
+      printf "${BANNER_RESET}    ${BANNER_DIM}"
+      printf '─%.0s' $(seq 1 36)
+      printf "${BANNER_RESET}\n"
+
+      # Linha 1: Shells | CLI Tools
+      local shells_str
+      if [[ ${#selected_shells[@]} -gt 0 ]]; then
+        shells_str="${selected_shells[*]}"
+      else
+        shells_str="(nenhum)"
+      fi
+      local cli_str
+      if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
+        cli_str=$(_truncate_items $col_item_width "${SELECTED_CLI_TOOLS[@]}")
+      else
+        cli_str="(nenhuma)"
+      fi
+      printf "  ${BANNER_DIM}Shells:${BANNER_RESET}       %-${col_item_width}s  ${BANNER_DIM}CLI Tools:${BANNER_RESET}  %s\n" "$shells_str" "$cli_str"
+
+      # Linha 2: Temas | IA Tools
+      local themes_str
+      if [[ ${#themes_selected[@]} -gt 0 ]]; then
+        themes_str="${themes_selected[*]}"
+      else
+        themes_str="(nenhum)"
+      fi
+      local ia_str
+      if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
+        ia_str=$(_truncate_items $col_item_width "${SELECTED_IA_TOOLS[@]}")
+      else
+        ia_str="(nenhuma)"
+      fi
+      printf "  ${BANNER_DIM}Temas:${BANNER_RESET}        %-${col_item_width}s  ${BANNER_DIM}IA Tools:${BANNER_RESET}   %s\n" "$themes_str" "$ia_str"
+
+      # Linha 3: Fontes | Runtimes
+      local fonts_str
+      if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
+        fonts_str=$(_truncate_items $col_item_width "${SELECTED_NERD_FONTS[@]}")
+      else
+        fonts_str="(nenhuma)"
+      fi
+      local rt_str
+      if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
+        rt_str=$(_truncate_items $col_item_width "${SELECTED_RUNTIMES[@]}")
+      else
+        rt_str="(nenhum)"
+      fi
+      printf "  ${BANNER_DIM}Nerd Fonts:${BANNER_RESET}   %-${col_item_width}s  ${BANNER_DIM}Runtimes:${BANNER_RESET}   %s\n" "$fonts_str" "$rt_str"
+
+      # Linha 4: Terminais | GUI Apps
+      local term_str
+      if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
+        term_str=$(_truncate_items $col_item_width "${SELECTED_TERMINALS[@]}")
+      else
+        term_str="(nenhum)"
+      fi
+      local gui_str="$gui_total apps"
+      [[ $gui_total -eq 0 ]] && gui_str="(nenhum)"
+      printf "  ${BANNER_DIM}Terminais:${BANNER_RESET}    %-${col_item_width}s  ${BANNER_DIM}GUI Apps:${BANNER_RESET}   %s\n" "$term_str" "$gui_str"
+
+      # Detalhes de temas (se houver)
+      if [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -n "${SELECTED_STARSHIP_PRESET:-}" ]]; then
+        local starship_detail="${SELECTED_STARSHIP_PRESET}"
+        [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]] && starship_detail+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
+        printf "  ${BANNER_DIM}  └─ Starship:${BANNER_RESET} ${BANNER_YELLOW}%s${BANNER_RESET}\n" "$starship_detail"
+      fi
+      [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && printf "  ${BANNER_DIM}  └─ OMP:${BANNER_RESET}      ${BANNER_YELLOW}%s${BANNER_RESET}\n" "${SELECTED_OMP_THEME:-padrão}"
+
+      # GUI Apps detalhados (se houver)
+      if [[ $gui_total -gt 0 ]]; then
+        echo ""
+        printf "  ${BANNER_CYAN}${BANNER_BOLD}📦 APPS GUI DETALHADOS${BANNER_RESET}\n"
+        printf "  ${BANNER_DIM}"
+        printf '─%.0s' $(seq 1 78)
+        printf "${BANNER_RESET}\n"
+
+        local detail_width=34
+        [[ ${#SELECTED_IDES[@]} -gt 0 ]] && printf "  ${BANNER_DIM}IDEs:${BANNER_RESET}         %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_IDES[@]}")"
+        [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Browsers:${BANNER_RESET}   %s" "$(_truncate_items $detail_width "${SELECTED_BROWSERS[@]}")"
+        [[ ${#SELECTED_IDES[@]} -gt 0 ]] || [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && echo ""
+
+        [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Dev Tools:${BANNER_RESET}    %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_DEV_TOOLS[@]}")"
+        [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Databases:${BANNER_RESET}  %s" "$(_truncate_items $detail_width "${SELECTED_DATABASES[@]}")"
+        [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] || [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && echo ""
+
+        [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Produtiv.:${BANNER_RESET}    %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_PRODUCTIVITY[@]}")"
+        [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Comunic.:${BANNER_RESET}   %s" "$(_truncate_items $detail_width "${SELECTED_COMMUNICATION[@]}")"
+        [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] || [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && echo ""
+
+        [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Mídia:${BANNER_RESET}        %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_MEDIA[@]}")"
+        [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Utilit.:${BANNER_RESET}    %s" "$(_truncate_items $detail_width "${SELECTED_UTILITIES[@]}")"
+        [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] || [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && echo ""
+      fi
+
     else
-      echo "    GUI Apps:    (nenhum)"
+      # ═══════════════════════════════════════════════════════════════════════
+      # LAYOUT 1 COLUNA (terminais menores)
+      # ═══════════════════════════════════════════════════════════════════════
+
+      _print_section "SHELL & APARÊNCIA" "🐚" "$term_width"
+
+      local shells_str="${selected_shells[*]:-}"
+      [[ -z "$shells_str" ]] && shells_str="(nenhum)"
+      _print_row "Shells:" "$shells_str"
+
+      local themes_str="${themes_selected[*]:-}"
+      [[ -z "$themes_str" ]] && themes_str="(nenhum)"
+      _print_row "Temas:" "$themes_str"
+
+      if [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -n "${SELECTED_STARSHIP_PRESET:-}" ]]; then
+        local starship_detail="${SELECTED_STARSHIP_PRESET}"
+        [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]] && starship_detail+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
+        echo -e "    ${BANNER_DIM}└─${BANNER_RESET} ${BANNER_YELLOW}$starship_detail${BANNER_RESET}"
+      fi
+      [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && echo -e "    ${BANNER_DIM}└─${BANNER_RESET} ${BANNER_YELLOW}OMP: ${SELECTED_OMP_THEME:-padrão}${BANNER_RESET}"
+
+      local fonts_str
+      if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
+        fonts_str=$(_truncate_items $item_width "${SELECTED_NERD_FONTS[@]}")
+      else
+        fonts_str="(nenhuma)"
+      fi
+      _print_row "Nerd Fonts:" "$fonts_str"
+
+      local term_str
+      if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
+        term_str=$(_truncate_items $item_width "${SELECTED_TERMINALS[@]}")
+      else
+        term_str="(nenhum)"
+      fi
+      _print_row "Terminais:" "$term_str"
+
+      _print_section "FERRAMENTAS" "🔧" "$term_width"
+
+      local cli_str
+      if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
+        cli_str=$(_truncate_items $item_width "${SELECTED_CLI_TOOLS[@]}")
+      else
+        cli_str="(nenhuma)"
+      fi
+      _print_row "CLI Tools:" "$cli_str"
+
+      local ia_str
+      if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
+        ia_str=$(_truncate_items $item_width "${SELECTED_IA_TOOLS[@]}")
+      else
+        ia_str="(nenhuma)"
+      fi
+      _print_row "IA Tools:" "$ia_str"
+
+      local rt_str
+      if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
+        rt_str=$(_truncate_items $item_width "${SELECTED_RUNTIMES[@]}")
+      else
+        rt_str="(nenhum)"
+      fi
+      _print_row "Runtimes:" "$rt_str"
+
+      _print_section "APPS GUI" "📦" "$term_width"
+
+      if [[ $gui_total -gt 0 ]]; then
+        _print_row "Total:" "$gui_total apps selecionados" 14 "$BANNER_GREEN"
+        [[ ${#SELECTED_IDES[@]} -gt 0 ]] && _print_row "  IDEs:" "$(_truncate_items $((item_width-4)) "${SELECTED_IDES[@]}")"
+        [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && _print_row "  Browsers:" "$(_truncate_items $((item_width-4)) "${SELECTED_BROWSERS[@]}")"
+        [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && _print_row "  Dev Tools:" "$(_truncate_items $((item_width-4)) "${SELECTED_DEV_TOOLS[@]}")"
+        [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && _print_row "  Databases:" "$(_truncate_items $((item_width-4)) "${SELECTED_DATABASES[@]}")"
+        [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && _print_row "  Produtiv.:" "$(_truncate_items $((item_width-4)) "${SELECTED_PRODUCTIVITY[@]}")"
+        [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _print_row "  Comunic.:" "$(_truncate_items $((item_width-4)) "${SELECTED_COMMUNICATION[@]}")"
+        [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && _print_row "  Mídia:" "$(_truncate_items $((item_width-4)) "${SELECTED_MEDIA[@]}")"
+        [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && _print_row "  Utilit.:" "$(_truncate_items $((item_width-4)) "${SELECTED_UTILITIES[@]}")"
+      else
+        _print_row "Total:" "(nenhum)"
+      fi
     fi
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    # CONFIGURAÇÕES (comum aos dois layouts)
+    # ═══════════════════════════════════════════════════════════════════════════
+
     echo ""
-    echo "  CONFIGURAÇÕES"
-    echo "  ────────────────────────────────────────────────────────"
+    printf "  ${BANNER_CYAN}${BANNER_BOLD}⚙️  CONFIGURAÇÕES${BANNER_RESET}\n"
+    local cfg_line_len=$((term_width > 80 ? 78 : term_width - 6))
+    printf "  ${BANNER_DIM}"
+    printf '─%.0s' $(seq 1 "$cfg_line_len")
+    printf "${BANNER_RESET}\n"
 
     # VS Code Extensions
     if [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
-      if [[ $INSTALL_VSCODE_EXTENSIONS -eq 1 ]]; then
-        local ext_count
-        ext_count=$(wc -l < "$CONFIG_SHARED/vscode/extensions.txt" 2>/dev/null || echo "?")
-        echo "    VS Code Ext: $ext_count extensões"
+      local ext_count
+      ext_count=$(wc -l < "$CONFIG_SHARED/vscode/extensions.txt" 2>/dev/null || echo "?")
+      if [[ ${INSTALL_VSCODE_EXTENSIONS:-0} -eq 1 ]]; then
+        _print_row "VS Code Ext:" "$ext_count extensões" 14 "$BANNER_GREEN"
       else
-        echo "    VS Code Ext: (não instalar)"
+        _print_row "VS Code Ext:" "(não instalar)"
       fi
     fi
 
     # Git
     if [[ -n "${GIT_USER_NAME:-}" ]] || [[ -n "${GIT_USER_EMAIL:-}" ]]; then
-      echo "    Git Config:  ${GIT_USER_NAME:-não definido} <${GIT_USER_EMAIL:-não definido}>"
+      _print_row "Git Config:" "${GIT_USER_NAME:-?} <${GIT_USER_EMAIL:-?}>"
     fi
 
     # SSH Keys
@@ -562,23 +782,39 @@ review_selections() {
     fi
     if [[ -n "$ssh_source" ]]; then
       echo ""
-      warn "Chaves SSH encontradas em $ssh_source (serão copiadas para ~/.ssh)"
+      echo -e "  ${BANNER_YELLOW}⚠ Chaves SSH serão copiadas de ${ssh_source}${BANNER_RESET}"
     fi
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MENU DE AÇÕES
+    # ═══════════════════════════════════════════════════════════════════════════
+
     echo ""
-    echo "┌──────────────────────────────────────────────────────────┐"
-    echo "│  AÇÕES DISPONÍVEIS                                       │"
-    echo "├──────────────────────────────────────────────────────────┤"
-    echo "│  [Enter/C] Iniciar instalação                            │"
-    echo "│  [S]       Sair sem instalar                             │"
-    echo "│                                                          │"
-    echo "│  Editar seção:                                           │"
-    echo "│  [1] Shells/temas   [4] CLI Tools    [7] Runtimes        │"
-    echo "│  [2] Nerd Fonts     [5] IA Tools     [8] Git             │"
-    echo "│  [3] Terminais      [6] GUI Apps     [9] VS Code Ext     │"
-    echo "└──────────────────────────────────────────────────────────┘"
+    local menu_width=$((term_width > 70 ? 66 : term_width - 4))
+    local menu_line
+    menu_line=$(printf '─%.0s' $(seq 1 $((menu_width - 2))))
+
+    echo -e "${BANNER_CYAN}┌${menu_line}┐${BANNER_RESET}"
+    echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_BOLD}AÇÕES${BANNER_RESET}$(printf '%*s' $((menu_width - 9)) '')${BANNER_CYAN}│${BANNER_RESET}"
+    echo -e "${BANNER_CYAN}├${menu_line}┤${BANNER_RESET}"
+
+    if [[ $term_width -ge 70 ]]; then
+      echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_GREEN}[Enter/C]${BANNER_RESET} Iniciar instalação    ${BANNER_YELLOW}[S]${BANNER_RESET} Sair sem instalar$(printf '%*s' $((menu_width - 54)) '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}├${menu_line}┤${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_DIM}Editar:${BANNER_RESET}$(printf '%*s' $((menu_width - 10)) '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET}  [1] Shells/temas   [4] CLI Tools   [7] Runtimes$(printf '%*s' $((menu_width - 51)) '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET}  [2] Nerd Fonts     [5] IA Tools    [8] Git$(printf '%*s' $((menu_width - 46)) '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET}  [3] Terminais      [6] GUI Apps    [9] VS Code$(printf '%*s' $((menu_width - 50)) '')${BANNER_CYAN}│${BANNER_RESET}"
+    else
+      echo -e "${BANNER_CYAN}│${BANNER_RESET} ${BANNER_GREEN}[C]${BANNER_RESET} Instalar  ${BANNER_YELLOW}[S]${BANNER_RESET} Sair$(printf '%*s' $((menu_width - 25)) '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}├${menu_line}┤${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET} [1-3] Shell  [4-6] Tools$(printf '%*s' $((menu_width - 26)) '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET} [7-9] Config$(printf '%*s' $((menu_width - 14)) '')${BANNER_CYAN}│${BANNER_RESET}"
+    fi
+
+    echo -e "${BANNER_CYAN}└${menu_line}┘${BANNER_RESET}"
     echo ""
-    read -r -p "Escolha uma opção: " choice
+    read -r -p "Escolha: " choice
     case "$choice" in
       ""|c|C)
         break
@@ -1619,6 +1855,17 @@ install_prerequisites() {
   esac
 }
 
+install_selected_shells() {
+  case "$TARGET_OS" in
+    linux|wsl2)
+      install_linux_shells
+      ;;
+    macos)
+      install_macos_shells
+      ;;
+  esac
+}
+
 install_selected_gui_apps() {
   case "$TARGET_OS" in
     linux|wsl2)
@@ -1657,6 +1904,17 @@ apply_shared_configs() {
     fi
   else
     msg "  ⚠️ Zsh não selecionado/encontrado, pulando .zshrc."
+  fi
+
+  if is_truthy "$INSTALL_NUSHELL" && has_cmd nu; then
+    mkdir -p "$HOME/.config/nushell"
+    copy_file "$CONFIG_SHARED/nushell/config.nu" "$HOME/.config/nushell/config.nu"
+    copy_file "$CONFIG_SHARED/nushell/env.nu" "$HOME/.config/nushell/env.nu"
+    mkdir -p "$HOME/.config/nushell/scripts"
+  else
+    if is_truthy "$INSTALL_NUSHELL"; then
+      msg "  ⚠️ Nushell não encontrado após instalação, pulando config."
+    fi
   fi
 
   if has_cmd git; then
@@ -2209,6 +2467,9 @@ main() {
 
   # Instalar dependências base (sempre necessário)
   install_prerequisites
+
+  # Instalar shells selecionados
+  install_selected_shells
 
   # Instalar CLI Tools PRIMEIRO (antes de tudo)
   install_selected_cli_tools

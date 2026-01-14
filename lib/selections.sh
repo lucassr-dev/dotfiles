@@ -366,71 +366,50 @@ ask_terminals() {
 # ═══════════════════════════════════════════════════════════
 
 ask_shells() {
-  show_section_header "🐚 SHELLS - Escolha seu Interpretador de Comandos"
+  show_section_header "🐚 SHELLS - Escolha seus Interpretadores de Comandos"
 
   msg "Shells são interpretadores de comandos que você usa no terminal."
   msg ""
-  msg "💡 Você pode instalar ambos e alternar quando quiser com:"
-  msg "   chsh -s \$(which zsh)  # ou \$(which fish)"
+  msg "💡 Você pode instalar múltiplos shells e alternar quando quiser com:"
+  msg "   chsh -s \$(which zsh)  # ou fish, nu"
+  msg ""
+  msg "⚠️  Nushell usa sintaxe própria (não POSIX). Scripts bash não funcionam nele."
   msg ""
 
-  local options=(
-    "Zsh    - Shell poderoso e altamente customizável (Recomendado)"
-    "Fish   - Sintaxe moderna e autosugestões nativas"
-    "Ambos  - Zsh + Fish (instalar os dois)"
-    "Nenhum - Manter shell atual"
+  local shell_options=(
+    "Zsh     - Shell poderoso e customizável (Recomendado)"
+    "Fish    - Sintaxe moderna e autosugestões nativas"
+    "Nushell - Shell moderno com dados estruturados (Rust)"
   )
+  INSTALL_ZSH=0
+  INSTALL_FISH=0
+  INSTALL_NUSHELL=0
 
-  local choice=""
-  if _has_modern_ui; then
-    ui_select_single "Qual shell você deseja instalar?" choice "${options[@]}"
-    case "$choice" in
-      "Zsh")    choice="1" ;;
-      "Fish")   choice="2" ;;
-      "Ambos")  choice="3" ;;
-      "Nenhum") choice="4" ;;
-      *)        choice="1" ;;
+  local selected_shells=()
+  select_multiple_items "🐚 Selecione os shells para instalar" selected_shells "${shell_options[@]}"
+
+  # Mapear seleções para variáveis
+  for item in "${selected_shells[@]}"; do
+    local shell_id
+    shell_id=$(echo "$item" | awk '{print $1}')
+    case "$shell_id" in
+      "Zsh")     INSTALL_ZSH=1 ;;
+      "Fish")    INSTALL_FISH=1 ;;
+      "Nushell") INSTALL_NUSHELL=1 ;;
     esac
-  else
-    menu_select_single "Qual(is) shell(s) você deseja instalar?" "Digite sua escolha" choice "${options[@]}"
-  fi
-
-  case "$choice" in
-    1)
-      INSTALL_ZSH=1
-      INSTALL_FISH=0
-      msg ""
-      msg "  ✅ Selecionado: Zsh"
-      ;;
-    2)
-      INSTALL_ZSH=0
-      INSTALL_FISH=1
-      msg ""
-      msg "  ✅ Selecionado: Fish"
-      ;;
-    3)
-      INSTALL_ZSH=1
-      INSTALL_FISH=1
-      msg ""
-      msg "  ✅ Selecionado: Zsh + Fish"
-      ;;
-    4|*)
-      INSTALL_ZSH=0
-      INSTALL_FISH=0
-      msg ""
-      msg "  ⏭️  Nenhum shell será instalado (mantendo shell atual)"
-      ;;
-  esac
+  done
 
   msg ""
   local shells_selected=()
   [[ $INSTALL_ZSH -eq 1 ]] && shells_selected+=("Zsh")
   [[ $INSTALL_FISH -eq 1 ]] && shells_selected+=("Fish")
+  [[ $INSTALL_NUSHELL -eq 1 ]] && shells_selected+=("Nushell")
 
   if [[ ${#shells_selected[@]} -gt 0 ]]; then
     print_selection_summary "🐚 Shells" "${shells_selected[@]}"
   else
     print_selection_summary "🐚 Shells" "(nenhum)"
+    msg "  ⏭️  Nenhum shell será instalado (mantendo shell atual)"
   fi
   msg ""
 }

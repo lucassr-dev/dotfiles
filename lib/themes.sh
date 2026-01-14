@@ -20,33 +20,82 @@ SELECTED_OMP_THEME=""
 
 # ═══════════════════════════════════════════════════════════
 # Prévia de temas (best-effort)
+# Suporte: Kitty, Ghostty, iTerm2, WezTerm, Sixel, Chafa
 # ═══════════════════════════════════════════════════════════
 
-THEME_PREVIEW_MAX_WIDTH=1280
-THEME_PREVIEW_MAX_HEIGHT=300
+THEME_PREVIEW_MAX_WIDTH=800
+THEME_PREVIEW_MAX_HEIGHT=400
 
 theme_preview_cache_dir() {
   local base="${XDG_CACHE_HOME:-$HOME/.cache}"
   echo "$base/dotfiles/theme-previews"
 }
 
+_terminal_supports_kitty_protocol() {
+  [[ -n "${KITTY_WINDOW_ID:-}" ]] && return 0
+  [[ "${TERM:-}" == "xterm-kitty" ]] && return 0
+  return 1
+}
+
+_terminal_supports_iterm_protocol() {
+  [[ "${TERM_PROGRAM:-}" == "iTerm.app" ]] && return 0
+  [[ "${TERM_PROGRAM:-}" == "WezTerm" ]] && return 0
+  [[ "${LC_TERMINAL:-}" == "iTerm2" ]] && return 0
+  return 1
+}
+
+_terminal_supports_sixel() {
+  [[ "${TERM:-}" == *"sixel"* ]] && return 0
+  [[ "${TERM_PROGRAM:-}" == "ghostty" ]] && return 0
+  [[ "${TERM_PROGRAM:-}" == "foot" ]] && return 0
+  [[ "${TERM_PROGRAM:-}" == "mlterm" ]] && return 0
+  [[ "${TERM_PROGRAM:-}" == "contour" ]] && return 0
+  has_cmd img2sixel && return 0
+  return 1
+}
+
+_terminal_no_inline_support() {
+  [[ "${TERM_PROGRAM:-}" == "vscode" ]] && return 0
+  [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]] && return 0
+  [[ -n "${WT_SESSION:-}" ]] && return 0
+  [[ "${TERM:-}" == "linux" ]] && return 0
+  [[ "${TERM:-}" == "dumb" ]] && return 0
+  return 1
+}
+
 theme_preview_renderer() {
-  if has_cmd kitty && { [[ -n "${KITTY_WINDOW_ID:-}" ]] || [[ "${TERM_PROGRAM:-}" == "ghostty" ]]; }; then
+  _terminal_no_inline_support && return 1
+
+  if _terminal_supports_kitty_protocol && has_cmd kitty; then
     echo "kitty"
     return 0
   fi
-  if [[ "${TERM_PROGRAM:-}" == "iTerm.app" ]] && has_cmd imgcat; then
-    echo "imgcat"
+
+  if _terminal_supports_iterm_protocol; then
+    echo "iterm"
     return 0
   fi
-  if has_cmd img2sixel; then
+
+  if _terminal_supports_sixel && has_cmd img2sixel; then
     echo "sixel"
     return 0
   fi
+
   if has_cmd chafa; then
     echo "chafa"
     return 0
   fi
+
+  if has_cmd catimg; then
+    echo "catimg"
+    return 0
+  fi
+
+  if has_cmd timg; then
+    echo "timg"
+    return 0
+  fi
+
   return 1
 }
 
@@ -56,17 +105,26 @@ theme_preview_resize_image() {
   local width="$THEME_PREVIEW_MAX_WIDTH"
   local height="$THEME_PREVIEW_MAX_HEIGHT"
 
-  if [[ -f "$dest" ]] && [[ "$dest" -nt "$src" ]]; then
-    return 0
-  fi
+  [[ -f "$dest" ]] && [[ "$dest" -nt "$src" ]] && return 0
 
   if has_cmd magick; then
     magick "$src" -strip -trim +repage -resize "${width}x${height}>" "$dest" 2>/dev/null && return 0
-  elif has_cmd convert; then
+  fi
+
+  if has_cmd convert; then
     convert "$src" -strip -trim +repage -resize "${width}x${height}>" "$dest" 2>/dev/null && return 0
   fi
 
-  return 1
+  if has_cmd sips && [[ "$OSTYPE" == darwin* ]]; then
+    sips --resampleHeightWidthMax "$height" "$src" --out "$dest" 2>/dev/null && return 0
+  fi
+
+  if has_cmd ffmpeg; then
+    ffmpeg -i "$src" -vf "scale='min($width,iw)':'min($height,ih)':force_original_aspect_ratio=decrease" "$dest" -y 2>/dev/null && return 0
+  fi
+
+  cp "$src" "$dest" 2>/dev/null
+  return 0
 }
 
 download_preview_image() {
@@ -74,18 +132,36 @@ download_preview_image() {
   shift
   local urls=("$@")
 
-  if [[ -s "$out" ]]; then
-    return 0
-  fi
+  [[ -s "$out" ]] && return 0
 
   mkdir -p "$(dirname "$out")"
   local url
   for url in "${urls[@]}"; do
     [[ -z "$url" ]] && continue
-    if curl -fsSL "$url" -o "$out" >/dev/null 2>&1; then
-      return 0
+    if curl -fsSL --connect-timeout 5 --max-time 15 "$url" -o "$out" 2>/dev/null; then
+      [[ -s "$out" ]] && return 0
     fi
+    rm -f "$out"
   done
+  return 1
+}
+
+_render_iterm_inline() {
+  local file="$1"
+  local name width_px
+  name="$(basename "$file")"
+
+  if has_cmd base64; then
+    width_px=$(tput cols 2>/dev/null || echo 80)
+    width_px=$((width_px * 8))
+    [[ $width_px -gt 600 ]] && width_px=600
+
+    printf '\033]1337;File=name=%s;inline=1;width=%spx;preserveAspectRatio=1:' \
+      "$(printf '%s' "$name" | base64)" "$width_px"
+    base64 < "$file"
+    printf '\a\n'
+    return 0
+  fi
   return 1
 }
 
@@ -104,29 +180,64 @@ show_theme_preview() {
   [[ -n "$link" ]] && msg "  🔗 $link"
   msg ""
 
-  if [[ -f "$image_path" ]]; then
-    local renderer
-    renderer="$(theme_preview_renderer || true)"
-    local render_path="$image_path"
-    local width="$THEME_PREVIEW_MAX_WIDTH"
-    local height="$THEME_PREVIEW_MAX_HEIGHT"
-    local resized_path="${image_path%.*}-preview-${width}x${height}.${image_path##*.}"
-    if theme_preview_resize_image "$image_path" "$resized_path"; then
-      render_path="$resized_path"
-    fi
-    case "$renderer" in
-      kitty) kitty +kitten icat --transfer-mode=stream --align=left "$render_path" 2>/dev/null ;;
-      imgcat) imgcat "$render_path" 2>/dev/null ;;
-      sixel) img2sixel "$render_path" 2>/dev/null ;;
-      chafa) chafa -s 70x12 "$render_path" 2>/dev/null ;;
-      *) ;;
-    esac
-    if [[ -z "$renderer" ]]; then
-      msg "  ℹ️  Prévia inline não suportada neste terminal."
-    fi
-  else
-    msg "  ℹ️  Prévia inline indisponível (sem imagem)."
+  if [[ ! -f "$image_path" ]]; then
+    msg "  ℹ️  Prévia indisponível (imagem não encontrada)."
+    msg ""
+    return
   fi
+
+  local renderer
+  renderer="$(theme_preview_renderer || true)"
+
+  if [[ -z "$renderer" ]]; then
+    msg "  ℹ️  Prévia inline não suportada neste terminal."
+    [[ -n "$link" ]] && msg "  💡 Acesse o link acima para ver a prévia."
+    msg ""
+    return
+  fi
+
+  local render_path="$image_path"
+  local resized_path="${image_path%.*}-preview.${image_path##*.}"
+
+  if theme_preview_resize_image "$image_path" "$resized_path"; then
+    render_path="$resized_path"
+  fi
+
+  local term_cols
+  term_cols=$(tput cols 2>/dev/null || echo 80)
+  local chafa_width=$((term_cols - 4))
+  [[ $chafa_width -gt 80 ]] && chafa_width=80
+  local chafa_height=$((chafa_width / 5))
+  [[ $chafa_height -lt 10 ]] && chafa_height=10
+  [[ $chafa_height -gt 20 ]] && chafa_height=20
+
+  case "$renderer" in
+    kitty)
+      kitty +kitten icat --transfer-mode=stream --align=left "$render_path" 2>/dev/null || \
+        msg "  ⚠️  Falha ao renderizar com kitty icat"
+      ;;
+    iterm)
+      _render_iterm_inline "$render_path" || \
+        msg "  ⚠️  Falha ao renderizar com protocolo iTerm"
+      ;;
+    sixel)
+      img2sixel -w "$((chafa_width * 10))" "$render_path" 2>/dev/null || \
+        msg "  ⚠️  Falha ao renderizar com sixel"
+      ;;
+    chafa)
+      chafa --format=symbols --size="${chafa_width}x${chafa_height}" "$render_path" 2>/dev/null || \
+        msg "  ⚠️  Falha ao renderizar com chafa"
+      ;;
+    catimg)
+      catimg -w "$chafa_width" "$render_path" 2>/dev/null || \
+        msg "  ⚠️  Falha ao renderizar com catimg"
+      ;;
+    timg)
+      timg -g "${chafa_width}x${chafa_height}" "$render_path" 2>/dev/null || \
+        msg "  ⚠️  Falha ao renderizar com timg"
+      ;;
+  esac
+
   msg ""
 }
 
@@ -248,10 +359,11 @@ ask_themes() {
   msg ""
 
   # Verificar quais shells foram selecionados
-  local has_zsh=$INSTALL_ZSH
-  local has_fish=$INSTALL_FISH
+  local has_zsh=${INSTALL_ZSH:-0}
+  local has_fish=${INSTALL_FISH:-0}
+  local has_nushell=${INSTALL_NUSHELL:-0}
 
-  if [[ $has_zsh -eq 0 ]] && [[ $has_fish -eq 0 ]]; then
+  if [[ $has_zsh -eq 0 ]] && [[ $has_fish -eq 0 ]] && [[ $has_nushell -eq 0 ]]; then
     msg "  ℹ️  Nenhum shell foi selecionado. Pulando seleção de temas."
     msg ""
     return 0
@@ -269,19 +381,21 @@ ask_themes() {
     theme_options_with_desc+=("OhMyZsh-P10k  - [zsh] Oh My Zsh + Powerlevel10k (framework completo)")
   fi
 
-  # Starship funciona em ambos
-  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]]; then
+  # Starship funciona em zsh, fish e nushell
+  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]] || [[ $has_nushell -eq 1 ]]; then
     local compat=""
     [[ $has_zsh -eq 1 ]] && compat="zsh"
-    [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
+    [[ $has_fish -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"; }
+    [[ $has_nushell -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/nu" || compat="nu"; }
     theme_options_with_desc+=("Starship      - [$compat] Prompt minimalista com presets prontos")
   fi
 
-  # Oh My Posh funciona em ambos
-  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]]; then
+  # Oh My Posh funciona em zsh, fish e nushell
+  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]] || [[ $has_nushell -eq 1 ]]; then
     local compat=""
     [[ $has_zsh -eq 1 ]] && compat="zsh"
-    [[ $has_fish -eq 1 ]] && [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"
+    [[ $has_fish -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"; }
+    [[ $has_nushell -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/nu" || compat="nu"; }
     theme_options_with_desc+=("OhMyPosh      - [$compat] Prompt configurável com centenas de temas")
   fi
 
@@ -1022,6 +1136,13 @@ install_oh_my_posh() {
           } >> "$fish_config"
           msg "  ✅ Oh My Posh configurado no config.fish"
         fi
+      fi
+
+      if [[ ${INSTALL_NUSHELL:-0} -eq 1 ]]; then
+        local nu_config_dir="$HOME/.config/nushell"
+        mkdir -p "$nu_config_dir"
+        cp "$theme_file" "$nu_config_dir/omp-theme.json"
+        msg "  ✅ Oh My Posh configurado para Nushell ($nu_config_dir/omp-theme.json)"
       fi
     else
       warn "Tema $SELECTED_OMP_THEME não encontrado em diretórios conhecidos"

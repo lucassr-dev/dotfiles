@@ -88,14 +88,12 @@ show_banner_large() {
   center_text "╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝      ╚═════╝ ╚══════╝  ╚═══╝  " "$width"
   echo -e "${BANNER_RESET}"
   echo ""
-  center_colored "${BANNER_MAGENTA}~ my dotfiles ~${BANNER_RESET}" "$width"
-  echo ""
   center_colored "${BANNER_BLUE}🌐${BANNER_RESET} ${BANNER_BOLD}https://lucassr.dev${BANNER_RESET}  ${BANNER_DIM}│${BANNER_RESET}  ${BANNER_GREEN}📦${BANNER_RESET} ${BANNER_BOLD}https://github.com/lucassr-dev/.config${BANNER_RESET}" "$width"
   echo ""
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# BANNER MÉDIO (65-99 cols) - LUCASSR apenas
+# BANNER MÉDIO (65-99 cols) - LUCASSR-DEV completo (compacto)
 # ══════════════════════════════════════════════════════════════════════════════
 show_banner_medium() {
   local width="$1"
@@ -109,9 +107,7 @@ show_banner_medium() {
   center_text "╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝" "$width"
   echo -e "${BANNER_RESET}"
   echo ""
-  center_colored "${BANNER_YELLOW}-dev${BANNER_RESET}  ${BANNER_MAGENTA}~ my dotfiles ~${BANNER_RESET}" "$width"
-  echo ""
-  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} lucassr.dev  ${BANNER_GREEN}📦${BANNER_RESET} github.com/lucassr-dev" "$width"
+  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} https://lucassr.dev  ${BANNER_GREEN}📦${BANNER_RESET} https://github.com/lucassr-dev/.config" "$width"
   echo ""
 }
 
@@ -122,12 +118,11 @@ show_banner_small() {
   local width="$1"
 
   echo ""
-  center_colored "${BANNER_CYAN}${BANNER_BOLD}╭─────────────────────────╮${BANNER_RESET}" "$width"
-  center_colored "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_WHITE}${BANNER_BOLD}LUCASSR-DEV${BANNER_RESET}           ${BANNER_CYAN}│${BANNER_RESET}" "$width"
-  center_colored "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_MAGENTA}~ my dotfiles ~${BANNER_RESET}       ${BANNER_CYAN}│${BANNER_RESET}" "$width"
-  center_colored "${BANNER_CYAN}╰─────────────────────────╯${BANNER_RESET}" "$width"
+  center_colored "${BANNER_CYAN}${BANNER_BOLD}╭───────────────╮${BANNER_RESET}" "$width"
+  center_colored "${BANNER_CYAN}│${BANNER_RESET} ${BANNER_WHITE}${BANNER_BOLD}LUCASSR-DEV${BANNER_RESET} ${BANNER_CYAN}│${BANNER_RESET}" "$width"
+  center_colored "${BANNER_CYAN}╰───────────────╯${BANNER_RESET}" "$width"
   echo ""
-  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} lucassr.dev" "$width"
+  center_colored "${BANNER_BLUE}🌐${BANNER_RESET} https://lucassr.dev" "$width"
   echo ""
 }
 

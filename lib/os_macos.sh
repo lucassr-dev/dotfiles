@@ -109,6 +109,24 @@ install_macos_base_dependencies() {
 }
 
 # ═══════════════════════════════════════════════════════════
+# Instalação de shells selecionados no macOS
+# ═══════════════════════════════════════════════════════════
+
+install_macos_shells() {
+  if [[ ${INSTALL_ZSH:-0} -eq 1 ]] && ! has_cmd zsh; then
+    brew_install_formula zsh optional
+  fi
+
+  if [[ ${INSTALL_FISH:-0} -eq 1 ]] && ! has_cmd fish; then
+    brew_install_formula fish optional
+  fi
+
+  if [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && ! has_cmd nu; then
+    brew_install_formula nushell optional
+  fi
+}
+
+# ═══════════════════════════════════════════════════════════
 # Geração dinâmica do Brewfile
 # ═══════════════════════════════════════════════════════════
 

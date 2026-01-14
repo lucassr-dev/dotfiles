@@ -187,6 +187,91 @@ install_linux_base_dependencies() {
 }
 
 # ═══════════════════════════════════════════════════════════
+# Instalação de shells selecionados no Linux
+# ═══════════════════════════════════════════════════════════
+
+install_linux_shells() {
+  detect_linux_pkg_manager
+
+  if [[ ${INSTALL_ZSH:-0} -eq 1 ]] && ! has_cmd zsh; then
+    msg "  📦 Instalando Zsh..."
+    install_linux_packages optional zsh
+  fi
+
+  if [[ ${INSTALL_FISH:-0} -eq 1 ]] && ! has_cmd fish; then
+    msg "  📦 Instalando Fish..."
+    install_linux_packages optional fish
+  fi
+
+  if [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && ! has_cmd nu; then
+    msg "  📦 Instalando Nushell..."
+    install_nushell_linux
+  fi
+}
+
+install_nushell_linux() {
+  case "$LINUX_PKG_MANAGER" in
+    pacman)
+      install_linux_packages optional nushell && return 0
+      ;;
+    dnf)
+      if dnf copr list 2>/dev/null | grep -q "nushell"; then
+        install_linux_packages optional nushell && return 0
+      fi
+      ;;
+  esac
+
+  if has_cmd cargo; then
+    msg "  📦 Instalando Nushell via cargo..."
+    if cargo_smart_install nu "nu"; then
+      INSTALLED_MISC+=("nushell: cargo")
+      return 0
+    fi
+  fi
+
+  msg "  📦 Instalando Nushell via GitHub release..."
+  local arch=""
+  case "$(uname -m)" in
+    x86_64)  arch="x86_64" ;;
+    aarch64) arch="aarch64" ;;
+    *)
+      warn "Arquitetura não suportada para Nushell"
+      return 1
+      ;;
+  esac
+
+  local nu_version
+  nu_version=$(curl -fsSL "https://api.github.com/repos/nushell/nushell/releases/latest" 2>/dev/null | grep -Po '"tag_name": "\K[^"]+' || echo "")
+
+  if [[ -z "$nu_version" ]]; then
+    warn "Não foi possível obter versão do Nushell"
+    return 1
+  fi
+
+  local download_url="https://github.com/nushell/nushell/releases/download/${nu_version}/nu-${nu_version}-${arch}-unknown-linux-gnu.tar.gz"
+  local temp_dir
+  temp_dir=$(mktemp -d)
+  trap 'rm -rf "$temp_dir"' RETURN
+
+  if curl -fsSL "$download_url" -o "$temp_dir/nu.tar.gz"; then
+    tar -xzf "$temp_dir/nu.tar.gz" -C "$temp_dir"
+    local nu_bin
+    nu_bin=$(find "$temp_dir" -name "nu" -type f -executable | head -n 1)
+    if [[ -n "$nu_bin" ]]; then
+      mkdir -p "$HOME/.local/bin"
+      cp "$nu_bin" "$HOME/.local/bin/nu"
+      chmod +x "$HOME/.local/bin/nu"
+      INSTALLED_MISC+=("nushell: github ${nu_version}")
+      msg "  ✅ Nushell ${nu_version} instalado"
+      return 0
+    fi
+  fi
+
+  record_failure "optional" "Falha ao instalar Nushell"
+  return 1
+}
+
+# ═══════════════════════════════════════════════════════════
 # Instalação de apps selecionados no Linux
 # ═══════════════════════════════════════════════════════════
 

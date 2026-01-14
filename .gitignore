@@ -15,3 +15,7 @@ lib/CLAUDE.md
 .aider*
 .continue/
 copilot-*
+shared/.ssh/
+.ssh/
+shared/git/.gitconfig-personal
+shared/git/.gitconfig-work
