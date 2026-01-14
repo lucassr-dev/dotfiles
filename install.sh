@@ -2366,18 +2366,6 @@ main() {
 
   # Modo INSTALL (padrão) - Repositório -> Sistema
   clear
-  msg "╔══════════════════════════════════════╗"
-  msg "║   Instalando configs do diretório    ║"
-  msg "╚══════════════════════════════════════╝"
-  msg "Origem: $SCRIPT_DIR"
-  msg "Destino: $HOME"
-  msg "Sistema: $TARGET_OS"
-
-  # Criar backup se necessário
-  if [[ -f "$HOME/.zshrc" ]] || [[ -d "$HOME/.config/fish" ]]; then
-    msg "📦 Backup será criado em: $BACKUP_DIR"
-  fi
-  msg ""
 
   # ══════════════════════════════════════════════════════════════
   # ETAPA 1: Seleções Essenciais
