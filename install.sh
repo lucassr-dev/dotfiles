@@ -388,6 +388,7 @@ INSTALL_BREWFILE=true
 [[ -f "$SCRIPT_DIR/lib/tools.sh" ]] && source "$SCRIPT_DIR/lib/tools.sh"
 [[ -f "$SCRIPT_DIR/lib/git_config.sh" ]] && source "$SCRIPT_DIR/lib/git_config.sh"
 [[ -f "$SCRIPT_DIR/lib/runtimes.sh" ]] && source "$SCRIPT_DIR/lib/runtimes.sh"
+[[ -f "$SCRIPT_DIR/lib/editors.sh" ]] && source "$SCRIPT_DIR/lib/editors.sh"
 [[ -f "$SCRIPT_DIR/lib/report.sh" ]] && source "$SCRIPT_DIR/lib/report.sh"
 
 print_selection_summary() {
@@ -779,6 +780,20 @@ review_selections() {
         _print_row "VS Code Ext:" "$ext_count extensões" 14 "$BANNER_GREEN"
       else
         _print_row "VS Code Ext:" "(não instalar)"
+      fi
+    fi
+
+    # Neovim & tmux
+    if [[ ${INSTALL_NEOVIM:-0} -eq 1 ]] || [[ ${INSTALL_TMUX:-0} -eq 1 ]]; then
+      local editor_str=""
+      [[ ${INSTALL_NEOVIM:-0} -eq 1 ]] && editor_str="Neovim (${SELECTED_NVIM_DISTRO:-custom})"
+      [[ ${INSTALL_TMUX:-0} -eq 1 ]] && editor_str="${editor_str:+$editor_str, }tmux (${SELECTED_TMUX_CONFIG:-custom})"
+      _print_row "Editor/IDE:" "$editor_str" 14 "$BANNER_GREEN"
+      if [[ ${#SELECTED_NVIM_AI[@]} -gt 0 ]]; then
+        _print_row "  └─ IA:" "${SELECTED_NVIM_AI[*]}"
+      fi
+      if [[ ${#SELECTED_NVIM_DEVOPS[@]} -gt 0 ]]; then
+        _print_row "  └─ DevOps:" "${SELECTED_NVIM_DEVOPS[*]}"
       fi
     fi
 
@@ -2412,6 +2427,9 @@ main() {
   # Runtimes (Node/Python/PHP/etc via mise)
   ask_runtimes
 
+  # Editor/IDE (Neovim distributions + tmux)
+  ask_editors
+
   # Git Configuration
   ask_git_configuration
 
@@ -2452,6 +2470,9 @@ main() {
 
   # Instalar runtimes selecionados após pré-requisitos + configs
   install_selected_runtimes
+
+  # Instalar Editor/IDE (Neovim + tmux)
+  install_selected_editors
 
   # Instalar Nerd Fonts selecionadas
   install_nerd_fonts

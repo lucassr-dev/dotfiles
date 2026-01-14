@@ -83,6 +83,11 @@ export EDITOR=nvim
 export VISUAL=nvim
 
 # ═══════════════════════════════════════════════════════════
+# PATH (definido antes dos tools para garantir que mise funcione)
+# ═══════════════════════════════════════════════════════════
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/bin:$PATH"
+
+# ═══════════════════════════════════════════════════════════
 # Tools
 # ═══════════════════════════════════════════════════════════
 
@@ -94,7 +99,17 @@ fi
 
 # FZF
 if command -v fzf >/dev/null 2>&1; then
-  eval "$(fzf --zsh)"
+  # fzf 0.48+ usa --zsh, versões antigas usam scripts separados
+  if fzf --zsh &>/dev/null; then
+    eval "$(fzf --zsh)"
+  else
+    # Fallback para versões antigas do fzf
+    [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+    [[ -f /usr/share/doc/fzf/examples/completion.zsh ]] && source /usr/share/doc/fzf/examples/completion.zsh
+    [[ -f /usr/share/fzf/key-bindings.zsh ]] && source /usr/share/fzf/key-bindings.zsh
+    [[ -f /usr/share/fzf/completion.zsh ]] && source /usr/share/fzf/completion.zsh
+    [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
+  fi
 
   if command -v fd >/dev/null 2>&1; then
     export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
@@ -153,11 +168,6 @@ gcom() {
   git add .
   git commit -m "$*"
 }
-
-# ═══════════════════════════════════════════════════════════
-# PATH
-# ═══════════════════════════════════════════════════════════
-export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
 # ═══════════════════════════════════════════════════════════
 # History
