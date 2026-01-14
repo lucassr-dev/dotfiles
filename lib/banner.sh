@@ -63,13 +63,32 @@ _strip_ansi() {
   printf '%s' "$text" | sed -E 's/\x1b\[[0-9;]*[a-zA-Z]//g; s/\x1b\][^\\]*\\//g; s/\x1b\([A-Z]//g'
 }
 
+# Calcula largura visual de uma string (emojis = 2 colunas)
+_display_width() {
+  local text="$1"
+  local clean
+  clean=$(_strip_ansi "$text")
+
+  # Usa wc -L se disponível (conta largura visual real)
+  if command -v wc &>/dev/null; then
+    local visual_width
+    visual_width=$(printf '%s' "$clean" | wc -L 2>/dev/null)
+    if [[ "$visual_width" =~ ^[0-9]+$ && "$visual_width" -gt 0 ]]; then
+      echo "$visual_width"
+      return
+    fi
+  fi
+
+  # Fallback: conta caracteres normalmente
+  echo "${#clean}"
+}
+
 # Centraliza texto com cores (remove códigos ANSI para calcular)
 center_colored() {
   local text="$1"
   local width="${2:-$(get_term_width)}"
-  local clean_text
-  clean_text=$(_strip_ansi "$text")
-  local text_len=${#clean_text}
+  local text_len
+  text_len=$(_display_width "$text")
   local padding=$(( (width - text_len) / 2 ))
   [[ $padding -gt 0 ]] && printf "%${padding}s" ""
   printf '%b\n' "$text"
