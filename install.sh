@@ -354,6 +354,148 @@ download_file() {
 }
 
 # ═══════════════════════════════════════════════════════════
+# Preservação de PATH e configurações existentes
+# ═══════════════════════════════════════════════════════════
+
+# Extrai configurações de PATH do .zshrc existente que devem ser preservadas
+# Captura: NVM, Android Studio, SDKMAN, pyenv, rbenv, yarn, JAVA_HOME, GOPATH, etc.
+extract_user_path_config_zsh() {
+  local zshrc="$HOME/.zshrc"
+  [[ -f "$zshrc" ]] || return
+
+  local preserved_lines=()
+  local in_block=0
+  local block_name=""
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Detectar início de blocos conhecidos
+    case "$line" in
+      *"NVM_DIR"*|*"nvm.sh"*|*"nvm bash_completion"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"android"*"/tools"*|*"android"*"/platform-tools"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"SDKMAN_DIR"*|*"sdkman-init.sh"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"pyenv"*"init"*|*"PYENV_ROOT"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"rbenv"*"init"*|*"RBENV_ROOT"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"JAVA_HOME"*|*"JDK_HOME"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"GOPATH"*|*"GOROOT"*|*"go/bin"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"yarn global"*|*".yarn/bin"*|*".config/yarn"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"pnpm"*"PNPM_HOME"*|*".local/share/pnpm"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"cargo"*"env"*|*"CARGO_HOME"*|*"RUSTUP_HOME"*)
+        # Não preservar - nosso script já configura Rust via mise
+        continue
+        ;;
+      *"flutter"*"/bin"*|*"FLUTTER_HOME"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"dotnet"*|*"DOTNET_ROOT"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+    esac
+  done < "$zshrc"
+
+  # Retornar linhas preservadas (se houver)
+  if [[ ${#preserved_lines[@]} -gt 0 ]]; then
+    printf '%s\n' "" "# ═══════════════════════════════════════════════════════════"
+    printf '%s\n' "# Configurações preservadas do .zshrc anterior"
+    printf '%s\n' "# ═══════════════════════════════════════════════════════════"
+    printf '%s\n' "${preserved_lines[@]}"
+  fi
+}
+
+# Extrai configurações de PATH do config.fish existente que devem ser preservadas
+extract_user_path_config_fish() {
+  local fishrc="$HOME/.config/fish/config.fish"
+  [[ -f "$fishrc" ]] || return
+
+  local preserved_lines=()
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      *"NVM_DIR"*|*"nvm.fish"*|*"bass source"*"nvm"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"android"*"/tools"*|*"android"*"/platform-tools"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"SDKMAN_DIR"*|*"sdkman"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"pyenv"*"init"*|*"PYENV_ROOT"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"rbenv"*"init"*|*"RBENV_ROOT"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"JAVA_HOME"*|*"JDK_HOME"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"GOPATH"*|*"GOROOT"*|*"go/bin"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"yarn"*"global"*|*".yarn/bin"*|*".config/yarn"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"pnpm"*|*"PNPM_HOME"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"flutter"*"/bin"*|*"FLUTTER_HOME"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+      *"dotnet"*|*"DOTNET_ROOT"*)
+        preserved_lines+=("$line")
+        continue
+        ;;
+    esac
+  done < "$fishrc"
+
+  # Retornar linhas preservadas (se houver)
+  if [[ ${#preserved_lines[@]} -gt 0 ]]; then
+    printf '%s\n' "" "# ═══════════════════════════════════════════════════════════"
+    printf '%s\n' "# Configurações preservadas do config.fish anterior"
+    printf '%s\n' "# ═══════════════════════════════════════════════════════════"
+    printf '%s\n' "${preserved_lines[@]}"
+  fi
+}
+
+# ═══════════════════════════════════════════════════════════
 # Seleção Interativa de Apps GUI
 # ═══════════════════════════════════════════════════════════
 
@@ -1899,16 +2041,40 @@ install_selected_gui_apps() {
 }
 apply_shared_configs() {
   msg "▶ Copiando configs compartilhadas"
+
+  # Fish config
   if is_truthy "$INSTALL_FISH" && has_cmd fish; then
+    # Preservar configurações de PATH do config.fish existente
+    local preserved_fish_config=""
+    preserved_fish_config="$(extract_user_path_config_fish)"
+
     copy_dir "$CONFIG_SHARED/fish" "$HOME/.config/fish"
     normalize_crlf_to_lf "$HOME/.config/fish/config.fish"
+
+    # Append configurações preservadas ao novo config.fish
+    if [[ -n "$preserved_fish_config" ]]; then
+      msg "  🔄 Preservando configurações de PATH existentes (NVM, Android, etc.)..."
+      echo "$preserved_fish_config" >> "$HOME/.config/fish/config.fish"
+    fi
   else
     msg "  ⚠️ Fish não selecionado/encontrado, pulando config."
   fi
 
+  # Zsh config
   if is_truthy "$INSTALL_ZSH" && has_cmd zsh; then
+    # Preservar configurações de PATH do .zshrc existente
+    local preserved_zsh_config=""
+    preserved_zsh_config="$(extract_user_path_config_zsh)"
+
     copy_file "$CONFIG_SHARED/zsh/.zshrc" "$HOME/.zshrc"
     normalize_crlf_to_lf "$HOME/.zshrc"
+
+    # Append configurações preservadas ao novo .zshrc
+    if [[ -n "$preserved_zsh_config" ]]; then
+      msg "  🔄 Preservando configurações de PATH existentes (NVM, Android, etc.)..."
+      echo "$preserved_zsh_config" >> "$HOME/.zshrc"
+    fi
+
     if [[ -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" || -d "$HOME/.oh-my-zsh/themes/powerlevel10k" ]]; then
       copy_file "$CONFIG_SHARED/zsh/.p10k.zsh" "$HOME/.p10k.zsh"
     else
@@ -1984,6 +2150,9 @@ apply_shared_configs() {
 
 
 copy_vscode_settings() {
+  # Só copiar settings se o usuário escolheu instalar VS Code extensions
+  [[ "${INSTALL_VSCODE_EXTENSIONS:-0}" -eq 1 ]] || return
+
   local settings_file="$CONFIG_SHARED/vscode/settings.json"
   [[ -f "$settings_file" ]] || return
 
