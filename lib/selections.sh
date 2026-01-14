@@ -366,15 +366,7 @@ ask_terminals() {
 # ═══════════════════════════════════════════════════════════
 
 ask_shells() {
-  show_section_header "🐚 SHELLS - Escolha seus Interpretadores de Comandos"
-
-  msg "Shells são interpretadores de comandos que você usa no terminal."
-  msg ""
-  msg "💡 Você pode instalar múltiplos shells e alternar quando quiser com:"
-  msg "   chsh -s \$(which zsh)  # ou fish, nu"
-  msg ""
-  msg "⚠️  Nushell usa sintaxe própria (não POSIX). Scripts bash não funcionam nele."
-  msg ""
+  show_section_header "🐚 SHELLS"
 
   local shell_options=(
     "Zsh     - Shell poderoso e customizável (Recomendado)"

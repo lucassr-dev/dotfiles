@@ -129,12 +129,18 @@ ui_select_multi_fzf() {
   shift 2
   local options=("$@")
 
+  # Calcular altura dinâmica (itens + header + prompt + margem)
+  local num_items=${#options[@]}
+  local height=$((num_items + 5))
+  [[ $height -lt 8 ]] && height=8
+  [[ $height -gt 20 ]] && height=20
+
   local selected
   selected=$(printf '%s\n' "${options[@]}" | fzf \
     --multi \
     --ansi \
     --reverse \
-    --height=60% \
+    --height="$height" \
     --border=rounded \
     --header="📦 $title" \
     --prompt="Buscar: " \
@@ -341,11 +347,17 @@ ui_select_single_fzf() {
   shift 2
   local options=("$@")
 
+  # Calcular altura dinâmica
+  local num_items=${#options[@]}
+  local height=$((num_items + 4))
+  [[ $height -lt 7 ]] && height=7
+  [[ $height -gt 15 ]] && height=15
+
   local selected
   selected=$(printf '%s\n' "${options[@]}" | fzf \
     --ansi \
     --reverse \
-    --height=40% \
+    --height="$height" \
     --border=rounded \
     --header="$title" \
     --prompt="Buscar: " \

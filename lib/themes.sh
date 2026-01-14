@@ -473,9 +473,6 @@ ask_oh_my_zsh_plugins() {
 
     show_section_header "🔌 PLUGINS - Oh My Zsh"
 
-    msg "Plugins adicionam funcionalidades extras ao seu shell."
-    msg ""
-
     local omz_plugins_desc=(
       "git - Aliases úteis para Git (gst, gco, gp, etc)"
       "docker - Autocomplete e aliases para Docker"

@@ -2365,7 +2365,7 @@ main() {
   fi
 
   # Modo INSTALL (padrão) - Repositório -> Sistema
-  clear
+  clear_screen
 
   # ══════════════════════════════════════════════════════════════
   # ETAPA 1: Seleções Essenciais
@@ -2377,12 +2377,12 @@ main() {
   install_prerequisites
 
   # Shells (obrigatório - Zsh/Fish/Ambos)
-  clear
+  clear_screen
   ask_shells
   pause_before_next_section
 
   # Temas (baseado nos shells) + Plugins/Presets (SEM pause entre eles)
-  clear
+  clear_screen
   ask_themes
 
   # Plugins e Presets (IMEDIATAMENTE após selecionar os temas, na mesma sessão)
@@ -2405,7 +2405,7 @@ main() {
   pause_before_next_section
 
   # Nerd Fonts (essenciais para temas funcionarem corretamente)
-  clear
+  clear_screen
   ask_nerd_fonts
   pause_before_next_section
 
@@ -2414,22 +2414,22 @@ main() {
   # ══════════════════════════════════════════════════════════════
 
   # Terminais
-  clear
+  clear_screen
   ask_terminals
   pause_before_next_section
 
   # CLI Tools (ferramentas modernas de linha de comando)
-  clear
+  clear_screen
   ask_cli_tools
   pause_before_next_section
 
   # IA Tools
-  clear
+  clear_screen
   ask_ia_tools
   pause_before_next_section
 
   # GUI Apps
-  clear
+  clear_screen
   ask_gui_apps
 
   # VS Code Extensions
@@ -2440,12 +2440,12 @@ main() {
   fi
 
   # Runtimes (Node/Python/PHP/etc via mise)
-  clear
+  clear_screen
   ask_runtimes
   pause_before_next_section
 
   # Git Configuration
-  clear
+  clear_screen
   ask_git_configuration
 
   # ══════════════════════════════════════════════════════════════
