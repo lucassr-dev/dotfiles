@@ -74,6 +74,7 @@ brew "mysql"                # MySQL database
 # ════════════════════════════════════════════════════════════════
 brew "ffmpeg"               # Media converter
 brew "imagemagick"          # Image manipulation
+brew "chafa"                # Terminal image viewer (auto-detects protocol)
 brew "youtube-dl"           # Download videos from YouTube
 
 # ════════════════════════════════════════════════════════════════

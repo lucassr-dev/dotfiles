@@ -410,22 +410,36 @@ ask_vscode_extensions() {
     return 0
   fi
 
-  show_section_header "🧩 VS Code - Extensões"
-  msg "Este script pode aplicar automaticamente suas configurações do VS Code:"
-  msg "  • Settings: shared/vscode/settings.json"
-  msg "  • Extensões: shared/vscode/extensions.txt"
-  msg ""
-  msg "Se quiser usar suas próprias configs, edite esses arquivos antes de continuar."
-  msg "Dica: você pode abrir e ajustar agora, e depois voltar para esta tela."
-  msg ""
+  while true; do
+    clear_screen
+    show_section_header "🧩 VS Code - Extensões"
+    msg "Este script pode aplicar automaticamente suas configurações do VS Code:"
+    msg "  • Settings: shared/vscode/settings.json"
+    msg "  • Extensões: shared/vscode/extensions.txt"
+    msg ""
+    msg "Se quiser usar suas próprias configs, edite esses arquivos antes de continuar."
+    msg "Dica: você pode abrir e ajustar agora, e depois voltar para esta tela."
+    msg ""
 
-  if ask_yes_no "Deseja instalar as extensões do VS Code?"; then
-    INSTALL_VSCODE_EXTENSIONS=1
-    print_selection_summary "🧩 VS Code Extensions" "instalar"
-  else
-    print_selection_summary "🧩 VS Code Extensions" "não instalar"
-  fi
-  msg ""
+    if ask_yes_no "Deseja instalar as extensões do VS Code?"; then
+      INSTALL_VSCODE_EXTENSIONS=1
+      print_selection_summary "🧩 VS Code Extensions" "instalar"
+    else
+      print_selection_summary "🧩 VS Code Extensions" "não instalar"
+    fi
+
+    echo ""
+    echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
+    echo ""
+
+    local choice
+    read -r -p "  → " choice
+
+    case "${choice,,}" in
+      b|back|voltar|v) continue ;;
+      *) break ;;
+    esac
+  done
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -826,53 +840,36 @@ review_selections() {
         exit 0
         ;;
       1)
-        clear
         ask_shells
-        clear
         ask_themes
-        ask_oh_my_zsh_plugins
-        ask_starship_preset
-        ask_oh_my_posh_theme
-        ask_fish_plugins
-        pause_before_next_section
+        [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
+        [[ $INSTALL_STARSHIP -eq 1 ]] && ask_starship_preset
+        [[ $INSTALL_OH_MY_POSH -eq 1 ]] && ask_oh_my_posh_theme
+        [[ $INSTALL_FISH -eq 1 ]] && ask_fish_plugins
         ;;
       2)
-        clear
         ask_nerd_fonts
-        pause_before_next_section
         ;;
       3)
-        clear
         ask_terminals
-        pause_before_next_section
         ;;
       4)
-        clear
         ask_cli_tools
-        pause_before_next_section
         ;;
       5)
-        clear
         ask_ia_tools
-        pause_before_next_section
         ;;
       6)
-        clear
         ask_gui_apps
         ;;
       7)
-        clear
         ask_runtimes
-        pause_before_next_section
         ;;
       8)
-        clear
         ask_git_configuration
         ;;
       9)
-        clear
         ask_vscode_extensions
-        pause_before_next_section
         ;;
       *)
         msg "  ⚠️ Opção inválida."
@@ -2361,7 +2358,7 @@ main() {
   # Mostrar banner de boas-vindas (apenas no modo install/sync)
   if [[ "$MODE" == "install" || "$MODE" == "sync" ]]; then
     show_banner
-    pause_before_next_section "Pressione Enter para começar a configuração..."
+    pause_before_next_section "Pressione Enter para começar a configuração..." "true"
   fi
 
   # Modo INSTALL (padrão) - Repositório -> Sistema
@@ -2377,81 +2374,54 @@ main() {
   install_prerequisites
 
   # Shells (obrigatório - Zsh/Fish/Ambos)
-  clear_screen
   ask_shells
-  pause_before_next_section
 
   # Temas (baseado nos shells) + Plugins/Presets (SEM pause entre eles)
-  clear_screen
   ask_themes
 
-  # Plugins e Presets (IMEDIATAMENTE após selecionar os temas, na mesma sessão)
-  if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
-    clear
-    ask_oh_my_zsh_plugins
-  fi
-  if [[ $INSTALL_STARSHIP -eq 1 ]]; then
-    clear
-    ask_starship_preset
-  fi
-  if [[ $INSTALL_OH_MY_POSH -eq 1 ]]; then
-    clear
-    ask_oh_my_posh_theme
-  fi
-  if [[ $INSTALL_FISH -eq 1 ]]; then
-    clear
-    ask_fish_plugins
-  fi
-  pause_before_next_section
+  # Plugins e Presets
+  [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
+  [[ $INSTALL_STARSHIP -eq 1 ]] && ask_starship_preset
+  [[ $INSTALL_OH_MY_POSH -eq 1 ]] && ask_oh_my_posh_theme
+  [[ $INSTALL_FISH -eq 1 ]] && ask_fish_plugins
 
   # Nerd Fonts (essenciais para temas funcionarem corretamente)
-  clear_screen
   ask_nerd_fonts
-  pause_before_next_section
 
   # ══════════════════════════════════════════════════════════════
   # ETAPA 2: Apps e Ferramentas
   # ══════════════════════════════════════════════════════════════
 
   # Terminais
-  clear_screen
   ask_terminals
-  pause_before_next_section
 
   # CLI Tools (ferramentas modernas de linha de comando)
-  clear_screen
   ask_cli_tools
-  pause_before_next_section
 
   # IA Tools
-  clear_screen
   ask_ia_tools
-  pause_before_next_section
 
   # GUI Apps
-  clear_screen
   ask_gui_apps
 
   # VS Code Extensions
   if [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
-    clear
     ask_vscode_extensions
-    pause_before_next_section
   fi
 
   # Runtimes (Node/Python/PHP/etc via mise)
-  clear_screen
   ask_runtimes
-  pause_before_next_section
 
   # Git Configuration
-  clear_screen
   ask_git_configuration
 
   # ══════════════════════════════════════════════════════════════
   # Confirmação Final
   # ══════════════════════════════════════════════════════════════
   review_selections
+
+  # Limpar tela antes de iniciar instalação
+  clear_screen
 
   # Instalar dependências base (sempre necessário)
   install_prerequisites
@@ -2488,6 +2458,9 @@ main() {
 
   # Instalar temas selecionados
   install_selected_themes
+
+  # Limpar tela antes de mostrar resumo final
+  clear_screen
 
   print_post_install_report
 

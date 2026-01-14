@@ -250,70 +250,67 @@ show_nerd_fonts_info() {
 # ═══════════════════════════════════════════════════════════
 
 ask_nerd_fonts() {
-  SELECTED_NERD_FONTS=()
-
-  show_nerd_fonts_info
-
-  msg ""
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg "  🎯 ESCOLHA SUAS FONTES"
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg ""
-  msg "Escolha uma das opções:"
-  msg ""
-  msg "  1) Instalar apenas fontes recomendadas (5 fontes mais populares)"
-  msg "  2) Escolher fontes manualmente (lista completa)"
-  msg "  3) Instalar todas as fontes disponíveis (~2GB)"
-  msg ""
-
-  local choice=""
   while true; do
-    read -r -p "  Digite 1, 2 ou 3: " choice
-    case "$choice" in
-      1)
-        msg ""
-        msg "  ✅ Instalando fontes recomendadas..."
-        SELECTED_NERD_FONTS=(
-          "FiraCode"
-          "JetBrainsMono"
-          "Hack"
-          "Meslo"
-          "CascadiaCode"
-        )
-        break
-        ;;
-      2)
-        msg ""
-        select_multiple_items "🔤 Selecione as Nerd Fonts que deseja instalar" SELECTED_NERD_FONTS "${NERD_FONTS_ALL[@]}"
-        break
-        ;;
-      3)
-        msg ""
-        msg "  ⚠️  AVISO: Instalar todas as fontes baixará ~2GB de dados!"
-        if ask_yes_no "Tem certeza que deseja instalar TODAS as ${#NERD_FONTS_ALL[@]} fontes?"; then
-          SELECTED_NERD_FONTS=("${NERD_FONTS_ALL[@]}")
-          break
-        else
-          msg "  ↩️  Voltando ao menu..."
+    SELECTED_NERD_FONTS=()
+    clear_screen
+    show_nerd_fonts_info
+
+    msg ""
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    msg "  🎯 ESCOLHA SUAS FONTES"
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    msg ""
+    msg "Escolha uma das opções:"
+    msg ""
+    msg "  1) Instalar apenas fontes recomendadas (5 fontes mais populares)"
+    msg "  2) Escolher fontes manualmente (lista completa)"
+    msg "  3) Instalar todas as fontes disponíveis (~2GB)"
+    msg "  4) Pular instalação de fontes"
+    msg ""
+
+    local choice=""
+    local selection_done=0
+    while [[ $selection_done -eq 0 ]]; do
+      read -r -p "  Digite 1, 2, 3 ou 4: " choice
+      case "$choice" in
+        1)
+          SELECTED_NERD_FONTS=("FiraCode" "JetBrainsMono" "Hack" "Meslo" "CascadiaCode")
+          selection_done=1
+          ;;
+        2)
           msg ""
-          continue
-        fi
-        ;;
-      *)
-        msg "  ⚠️  Opção inválida. Digite 1, 2 ou 3."
-        ;;
-    esac
+          select_multiple_items "🔤 Selecione as Nerd Fonts que deseja instalar" SELECTED_NERD_FONTS "${NERD_FONTS_ALL[@]}"
+          selection_done=1
+          ;;
+        3)
+          msg ""
+          msg "  ⚠️  AVISO: Instalar todas as fontes baixará ~2GB de dados!"
+          if ask_yes_no "Tem certeza que deseja instalar TODAS as ${#NERD_FONTS_ALL[@]} fontes?"; then
+            SELECTED_NERD_FONTS=("${NERD_FONTS_ALL[@]}")
+            selection_done=1
+          fi
+          ;;
+        4)
+          SELECTED_NERD_FONTS=()
+          selection_done=1
+          ;;
+        *)
+          msg "  ⚠️  Opção inválida. Digite 1, 2, 3 ou 4."
+          ;;
+      esac
+    done
+
+    local fonts_summary=()
+    if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
+      fonts_summary=("${SELECTED_NERD_FONTS[@]}")
+    else
+      fonts_summary=("(nenhuma)")
+    fi
+
+    if confirm_selection "🔤 Nerd Fonts" "${fonts_summary[@]}"; then
+      break
+    fi
   done
-
-  if [[ ${#SELECTED_NERD_FONTS[@]} -eq 0 ]]; then
-    warn "Nenhuma fonte selecionada"
-    return 0
-  fi
-
-  msg ""
-  msg "✅ Seleção de Nerd Fonts concluída"
-  print_selection_summary "🔤 Nerd Fonts" "${SELECTED_NERD_FONTS[@]}"
-  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════

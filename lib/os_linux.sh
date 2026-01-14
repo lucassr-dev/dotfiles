@@ -123,6 +123,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         imagemagick
+        chafa
         fzf
       )
       ;;
@@ -141,6 +142,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         ImageMagick
+        chafa
         fzf
       )
       ;;
@@ -157,6 +159,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         imagemagick
+        chafa
         fzf
       )
       ;;
@@ -175,6 +178,7 @@ install_linux_base_dependencies() {
         zip
         fontconfig
         ImageMagick
+        chafa
         fzf
       )
       ;;

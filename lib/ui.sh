@@ -131,9 +131,13 @@ ui_select_multi_fzf() {
 
   # Calcular altura dinâmica (itens + header + prompt + margem)
   local num_items=${#options[@]}
-  local height=$((num_items + 5))
-  [[ $height -lt 8 ]] && height=8
-  [[ $height -gt 20 ]] && height=20
+  local height=$((num_items + 6))
+  [[ $height -lt 10 ]] && height=10
+  [[ $height -gt 22 ]] && height=22
+
+  # Header com título e dica de uso
+  local header
+  header=$(printf '%s\n%s' "📦 $title" "Tab: selecionar │ Ctrl+A: todos │ ESC: nenhum │ Enter: confirmar")
 
   local selected
   selected=$(printf '%s\n' "${options[@]}" | fzf \
@@ -142,7 +146,7 @@ ui_select_multi_fzf() {
     --reverse \
     --height="$height" \
     --border=rounded \
-    --header="📦 $title" \
+    --header="$header" \
     --prompt="Buscar: " \
     --pointer="▶" \
     --marker="✓" \
@@ -343,62 +347,66 @@ ui_select_multi_bash() {
 
 ui_select_single_fzf() {
   local title="$1"
-  local out_var="$2"
+  local _out_var="$2"
   shift 2
   local options=("$@")
 
   # Calcular altura dinâmica
   local num_items=${#options[@]}
-  local height=$((num_items + 4))
-  [[ $height -lt 7 ]] && height=7
-  [[ $height -gt 15 ]] && height=15
+  local height=$((num_items + 5))
+  [[ $height -lt 9 ]] && height=9
+  [[ $height -gt 17 ]] && height=17
 
-  local selected
-  selected=$(printf '%s\n' "${options[@]}" | fzf \
+  # Header com título e dica de uso
+  local header
+  header=$(printf '%s\n%s' "$title" "↑↓: navegar │ ESC: cancelar │ Enter: confirmar")
+
+  local _fzf_selected
+  _fzf_selected=$(printf '%s\n' "${options[@]}" | fzf \
     --ansi \
     --reverse \
     --height="$height" \
     --border=rounded \
-    --header="$title" \
+    --header="$header" \
     --prompt="Buscar: " \
     --pointer="▶" \
     --no-mouse \
     --color='header:cyan,pointer:green,prompt:yellow' \
   ) || true
 
-  local result=""
-  [[ -n "$selected" ]] && result=$(echo "$selected" | awk '{print $1}')
+  local _fzf_result=""
+  [[ -n "$_fzf_selected" ]] && _fzf_result=$(echo "$_fzf_selected" | awk '{print $1}')
 
-  printf -v "$out_var" '%s' "$result"
+  printf -v "$_out_var" '%s' "$_fzf_result"
 }
 
 ui_select_single_gum() {
   local title="$1"
-  local out_var="$2"
+  local _out_var="$2"
   shift 2
   local options=("$@")
 
-  local selected
-  selected=$(gum choose \
+  local _gum_selected
+  _gum_selected=$(gum choose \
     --header="$title" \
     --cursor.foreground="cyan" \
     "${options[@]}" \
   ) || true
 
-  local result=""
-  [[ -n "$selected" ]] && result=$(echo "$selected" | awk '{print $1}')
+  local _gum_result=""
+  [[ -n "$_gum_selected" ]] && _gum_result=$(echo "$_gum_selected" | awk '{print $1}')
 
-  printf -v "$out_var" '%s' "$result"
+  printf -v "$_out_var" '%s' "$_gum_result"
 }
 
 ui_select_single_bash() {
   local title="$1"
-  local out_var="$2"
+  local _out_var="$2"
   shift 2
   local options=("$@")
 
   local total=${#options[@]}
-  local selection=""
+  local _bash_selection=""
 
   while true; do
     echo ""
@@ -412,13 +420,13 @@ ui_select_single_bash() {
     done
 
     echo ""
-    read -r -p "  Escolha (1-$total): " selection
+    read -r -p "  Escolha (1-$total): " _bash_selection
 
-    if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 )) && (( selection <= total )); then
-      local selected_item="${options[selection-1]}"
-      local result
-      result=$(echo "$selected_item" | awk '{print $1}')
-      printf -v "$out_var" '%s' "$result"
+    if [[ "$_bash_selection" =~ ^[0-9]+$ ]] && (( _bash_selection >= 1 )) && (( _bash_selection <= total )); then
+      local _bash_selected_item="${options[_bash_selection-1]}"
+      local _bash_result
+      _bash_result=$(echo "$_bash_selected_item" | awk '{print $1}')
+      printf -v "$_out_var" '%s' "$_bash_result"
       return 0
     fi
 

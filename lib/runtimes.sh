@@ -2,11 +2,8 @@
 # Seleção e instalação de runtimes (mise)
 
 ask_runtimes() {
-  msg ""
-  msg "════════════════════════════════════════════════════════════"
-  msg "  🧰 SELEÇÃO DE RUNTIMES (mise)"
-  msg "════════════════════════════════════════════════════════════"
-  msg ""
+  clear_screen
+  show_section_header "🧰 SELEÇÃO DE RUNTIMES (mise)"
   msg "Para gerenciar versões de Node, Python, PHP, etc., será usado o mise."
   msg ""
 
@@ -19,9 +16,11 @@ ask_runtimes() {
   fi
 
   while true; do
+    clear_screen
+    show_section_header "🧰 SELEÇÃO DE RUNTIMES (mise)"
+
     SELECTED_RUNTIMES=("${RUNTIMES_DEFAULT[@]:-node python php}")
 
-    msg ""
     msg "Padrão: Node, Python e PHP já serão instalados."
     msg "Você pode adicionar mais runtimes abaixo."
     msg "Você poderá usar versões específicas por projeto depois (mise no diretório do projeto)."
@@ -43,11 +42,9 @@ ask_runtimes() {
       fi
     done
 
-    msg ""
-    msg "Resumo dos runtimes selecionados:"
-    print_selection_summary "🧩 Runtimes" "${SELECTED_RUNTIMES[@]}"
-    msg ""
-    break
+    if confirm_selection "🧩 Runtimes" "${SELECTED_RUNTIMES[@]}"; then
+      break
+    fi
   done
 }
 

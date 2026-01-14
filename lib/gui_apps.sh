@@ -141,10 +141,8 @@ ask_gui_apps() {
     return 0
   fi
 
-  # Mostrar instruções de seleção
-  if declare -F show_section_header >/dev/null; then
-    show_section_header "🖥️  APLICATIVOS GUI"
-  fi
+  clear_screen
+  show_section_header "🖥️  APLICATIVOS GUI"
 
   msg "Selecione os aplicativos gráficos que você deseja instalar."
   if _gui_has_modern_ui && has_cmd fzf; then
@@ -309,10 +307,23 @@ ask_gui_apps() {
     fi
   fi
 
-  # Mostrar resumo da seleção
+  # Mostrar resumo e confirmar
   msg ""
-  msg "✅ Seleção de Apps GUI concluída"
   _show_gui_selection_summary
+  echo ""
+  echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
+  echo ""
+
+  local choice
+  read -r -p "  → " choice
+
+  case "${choice,,}" in
+    b|back|voltar|v)
+      clear_screen
+      ask_gui_apps
+      return
+      ;;
+  esac
 }
 
 # ═══════════════════════════════════════════════════════════

@@ -100,6 +100,7 @@ install_macos_base_dependencies() {
     curl
     wget
     imagemagick
+    chafa
     fzf
   )
 

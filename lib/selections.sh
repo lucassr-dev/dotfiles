@@ -168,21 +168,27 @@ select_multiple_items() {
   unset -n array_ref
 }
 
-# ═══════════════════════════════════════════════════════════
-# Seleção de CLI Tools
-# ═══════════════════════════════════════════════════════════
+confirm_selection() {
+  local title="$1"
+  shift
+  local items=("$@")
+
+  msg ""
+  print_selection_summary "$title" "${items[@]}"
+  echo ""
+  echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
+  echo ""
+
+  local choice
+  read -r -p "  → " choice
+
+  case "${choice,,}" in
+    b|back|voltar|v) return 1 ;;
+    *) return 0 ;;
+  esac
+}
 
 ask_cli_tools() {
-  SELECTED_CLI_TOOLS=()
-
-  show_section_header "🛠️  CLI TOOLS - Ferramentas de Linha de Comando"
-
-  msg "Ferramentas modernas para melhorar sua experiência na linha de comando."
-  if _has_modern_ui && has_cmd fzf; then
-    msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
-  fi
-  msg ""
-
   local tools_with_desc=()
   for tool in "${CLI_TOOLS[@]}"; do
     case "$tool" in
@@ -211,20 +217,30 @@ ask_cli_tools() {
     esac
   done
 
-  local selected_desc=()
-  select_multiple_items "🛠️  Selecione as CLI Tools" selected_desc "${tools_with_desc[@]}"
+  while true; do
+    SELECTED_CLI_TOOLS=()
+    clear_screen
+    show_section_header "🛠️  CLI TOOLS - Ferramentas de Linha de Comando"
 
-  # Mapear de volta para nomes sem descrição
-  for item in "${selected_desc[@]}"; do
-    local tool_name
-    tool_name="$(echo "$item" | awk '{print $1}')"
-    SELECTED_CLI_TOOLS+=("$tool_name")
+    msg "Ferramentas modernas para melhorar sua experiência na linha de comando."
+    if _has_modern_ui && has_cmd fzf; then
+      msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
+    fi
+    msg ""
+
+    local selected_desc=()
+    select_multiple_items "🛠️  Selecione as CLI Tools" selected_desc "${tools_with_desc[@]}"
+
+    for item in "${selected_desc[@]}"; do
+      local tool_name
+      tool_name="$(echo "$item" | awk '{print $1}')"
+      SELECTED_CLI_TOOLS+=("$tool_name")
+    done
+
+    if confirm_selection "🛠️  CLI Tools" "${SELECTED_CLI_TOOLS[@]}"; then
+      break
+    fi
   done
-
-  msg ""
-  msg "✅ Seleção de CLI Tools concluída"
-  print_selection_summary "🛠️  CLI Tools" "${SELECTED_CLI_TOOLS[@]}"
-  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -232,20 +248,6 @@ ask_cli_tools() {
 # ═══════════════════════════════════════════════════════════
 
 ask_ia_tools() {
-  SELECTED_IA_TOOLS=()
-
-  show_section_header "🤖 IA TOOLS - Ferramentas de Desenvolvimento com IA"
-
-  msg "Ferramentas que usam IA para auxiliar no desenvolvimento."
-  msg ""
-  msg "⚠️  Algumas ferramentas podem exigir configuração adicional"
-  msg "   (API keys, login, instalação manual)."
-  if _has_modern_ui && has_cmd fzf; then
-    msg ""
-    msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
-  fi
-  msg ""
-
   local tools_with_desc=()
   for tool in "${IA_TOOLS[@]}"; do
     case "$tool" in
@@ -260,19 +262,34 @@ ask_ia_tools() {
     esac
   done
 
-  local selected_desc=()
-  select_multiple_items "🤖 Selecione as IA Tools" selected_desc "${tools_with_desc[@]}"
+  while true; do
+    SELECTED_IA_TOOLS=()
+    clear_screen
+    show_section_header "🤖 IA TOOLS - Ferramentas de Desenvolvimento com IA"
 
-  for item in "${selected_desc[@]}"; do
-    local tool_name
-    tool_name="$(echo "$item" | awk '{print $1}')"
-    SELECTED_IA_TOOLS+=("$tool_name")
+    msg "Ferramentas que usam IA para auxiliar no desenvolvimento."
+    msg ""
+    msg "⚠️  Algumas ferramentas podem exigir configuração adicional"
+    msg "   (API keys, login, instalação manual)."
+    if _has_modern_ui && has_cmd fzf; then
+      msg ""
+      msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
+    fi
+    msg ""
+
+    local selected_desc=()
+    select_multiple_items "🤖 Selecione as IA Tools" selected_desc "${tools_with_desc[@]}"
+
+    for item in "${selected_desc[@]}"; do
+      local tool_name
+      tool_name="$(echo "$item" | awk '{print $1}')"
+      SELECTED_IA_TOOLS+=("$tool_name")
+    done
+
+    if confirm_selection "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"; then
+      break
+    fi
   done
-
-  msg ""
-  msg "✅ Seleção de IA Tools concluída"
-  print_selection_summary "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"
-  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -280,16 +297,6 @@ ask_ia_tools() {
 # ═══════════════════════════════════════════════════════════
 
 ask_terminals() {
-  SELECTED_TERMINALS=()
-
-  show_section_header "💻 TERMINAIS - Emuladores de Terminal"
-
-  msg "Escolha qual(is) emulador(es) de terminal você deseja instalar."
-  if _has_modern_ui && has_cmd fzf; then
-    msg "💡 Use Tab para selecionar, Enter para confirmar"
-  fi
-  msg ""
-
   local ghostty_desc="Terminal rápido e moderno em Zig"
   local kitty_desc="Terminal rico em recursos com GPU acceleration"
   local alacritty_desc="Terminal ultrarrápido focado em performance"
@@ -298,29 +305,20 @@ ask_terminals() {
   local gnome_desc="Terminal padrão do GNOME"
   local windows_desc="Terminal moderno da Microsoft"
 
-  # Filtrar terminais por OS
   local available_terminals=()
   for term in "${TERMINALS[@]}"; do
     case "$term" in
       iterm2)
-        if [[ "$TARGET_OS" == "macos" ]]; then
-          available_terminals+=("iTerm2     - $iterm_desc (recomendado macOS)")
-        fi
+        [[ "$TARGET_OS" == "macos" ]] && available_terminals+=("iTerm2     - $iterm_desc (recomendado macOS)")
         ;;
       windows-terminal)
-        if [[ "$TARGET_OS" == "windows" ]]; then
-          available_terminals+=("WindowsTerminal - $windows_desc (recomendado)")
-        fi
+        [[ "$TARGET_OS" == "windows" ]] && available_terminals+=("WindowsTerminal - $windows_desc (recomendado)")
         ;;
       gnome-terminal)
-        if [[ "$TARGET_OS" == "linux" || "$TARGET_OS" == "wsl2" ]]; then
-          available_terminals+=("gnome-terminal - $gnome_desc")
-        fi
+        [[ "$TARGET_OS" == "linux" || "$TARGET_OS" == "wsl2" ]] && available_terminals+=("gnome-terminal - $gnome_desc")
         ;;
       ghostty)
-        if [[ "$TARGET_OS" != "windows" ]]; then
-          available_terminals+=("Ghostty    - $ghostty_desc")
-        fi
+        [[ "$TARGET_OS" != "windows" ]] && available_terminals+=("Ghostty    - $ghostty_desc")
         ;;
       kitty)
         available_terminals+=("Kitty      - $kitty_desc")
@@ -339,26 +337,36 @@ ask_terminals() {
     return
   fi
 
-  local selected_desc=()
-  select_multiple_items "💻 Selecione os terminais" selected_desc "${available_terminals[@]}"
+  while true; do
+    SELECTED_TERMINALS=()
+    clear_screen
+    show_section_header "💻 TERMINAIS - Emuladores de Terminal"
 
-  # Mapear de volta para nomes padronizados
-  for item in "${selected_desc[@]}"; do
-    case "$item" in
-      "iTerm2"*)           SELECTED_TERMINALS+=("iterm2") ;;
-      "WindowsTerminal"*)  SELECTED_TERMINALS+=("windows-terminal") ;;
-      "gnome-terminal"*)   SELECTED_TERMINALS+=("gnome-terminal") ;;
-      "Ghostty"*)          SELECTED_TERMINALS+=("ghostty") ;;
-      "Kitty"*)            SELECTED_TERMINALS+=("kitty") ;;
-      "Alacritty"*)        SELECTED_TERMINALS+=("alacritty") ;;
-      "WezTerm"*)          SELECTED_TERMINALS+=("wezterm") ;;
-    esac
+    msg "Escolha qual(is) emulador(es) de terminal você deseja instalar."
+    if _has_modern_ui && has_cmd fzf; then
+      msg "💡 Use Tab para selecionar, Enter para confirmar"
+    fi
+    msg ""
+
+    local selected_desc=()
+    select_multiple_items "💻 Selecione os terminais" selected_desc "${available_terminals[@]}"
+
+    for item in "${selected_desc[@]}"; do
+      case "$item" in
+        "iTerm2"*)           SELECTED_TERMINALS+=("iterm2") ;;
+        "WindowsTerminal"*)  SELECTED_TERMINALS+=("windows-terminal") ;;
+        "gnome-terminal"*)   SELECTED_TERMINALS+=("gnome-terminal") ;;
+        "Ghostty"*)          SELECTED_TERMINALS+=("ghostty") ;;
+        "Kitty"*)            SELECTED_TERMINALS+=("kitty") ;;
+        "Alacritty"*)        SELECTED_TERMINALS+=("alacritty") ;;
+        "WezTerm"*)          SELECTED_TERMINALS+=("wezterm") ;;
+      esac
+    done
+
+    if confirm_selection "💻 Terminais" "${SELECTED_TERMINALS[@]}"; then
+      break
+    fi
   done
-
-  msg ""
-  msg "✅ Seleção de Terminais concluída"
-  print_selection_summary "💻 Terminais" "${SELECTED_TERMINALS[@]}"
-  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -366,44 +374,45 @@ ask_terminals() {
 # ═══════════════════════════════════════════════════════════
 
 ask_shells() {
-  show_section_header "🐚 SHELLS"
-
   local shell_options=(
     "Zsh     - Shell poderoso e customizável (Recomendado)"
     "Fish    - Sintaxe moderna e autosugestões nativas"
     "Nushell - Shell moderno com dados estruturados (Rust)"
   )
-  INSTALL_ZSH=0
-  INSTALL_FISH=0
-  INSTALL_NUSHELL=0
 
-  local selected_shells=()
-  select_multiple_items "🐚 Selecione os shells para instalar" selected_shells "${shell_options[@]}"
+  while true; do
+    INSTALL_ZSH=0
+    INSTALL_FISH=0
+    INSTALL_NUSHELL=0
+    clear_screen
+    show_section_header "🐚 SHELLS - Escolha seus Interpretadores de Comandos"
 
-  # Mapear seleções para variáveis
-  for item in "${selected_shells[@]}"; do
-    local shell_id
-    shell_id=$(echo "$item" | awk '{print $1}')
-    case "$shell_id" in
-      "Zsh")     INSTALL_ZSH=1 ;;
-      "Fish")    INSTALL_FISH=1 ;;
-      "Nushell") INSTALL_NUSHELL=1 ;;
-    esac
+    local selected_shells=()
+    select_multiple_items "🐚 Selecione os shells para instalar" selected_shells "${shell_options[@]}"
+
+    for item in "${selected_shells[@]}"; do
+      local shell_id
+      shell_id=$(echo "$item" | awk '{print $1}')
+      case "$shell_id" in
+        "Zsh")     INSTALL_ZSH=1 ;;
+        "Fish")    INSTALL_FISH=1 ;;
+        "Nushell") INSTALL_NUSHELL=1 ;;
+      esac
+    done
+
+    local shells_selected=()
+    [[ $INSTALL_ZSH -eq 1 ]] && shells_selected+=("Zsh")
+    [[ $INSTALL_FISH -eq 1 ]] && shells_selected+=("Fish")
+    [[ $INSTALL_NUSHELL -eq 1 ]] && shells_selected+=("Nushell")
+
+    if [[ ${#shells_selected[@]} -eq 0 ]]; then
+      shells_selected=("(nenhum - mantendo shell atual)")
+    fi
+
+    if confirm_selection "🐚 Shells" "${shells_selected[@]}"; then
+      break
+    fi
   done
-
-  msg ""
-  local shells_selected=()
-  [[ $INSTALL_ZSH -eq 1 ]] && shells_selected+=("Zsh")
-  [[ $INSTALL_FISH -eq 1 ]] && shells_selected+=("Fish")
-  [[ $INSTALL_NUSHELL -eq 1 ]] && shells_selected+=("Nushell")
-
-  if [[ ${#shells_selected[@]} -gt 0 ]]; then
-    print_selection_summary "🐚 Shells" "${shells_selected[@]}"
-  else
-    print_selection_summary "🐚 Shells" "(nenhum)"
-    msg "  ⏭️  Nenhum shell será instalado (mantendo shell atual)"
-  fi
-  msg ""
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -428,6 +437,7 @@ ask_base_dependencies() {
       msg "  • unzip/zip        - Compressão e descompressão de arquivos"
       msg "  • fontconfig       - Gerenciamento de fontes"
       msg "  • imagemagick      - Redimensionar prévias de imagem"
+      msg "  • chafa            - Preview de imagens no terminal (auto-detecta protocolo)"
       msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
       ;;
     macos)
@@ -435,6 +445,7 @@ ask_base_dependencies() {
       msg "  • curl             - Ferramenta para transferência de dados"
       msg "  • wget             - Download de arquivos"
       msg "  • imagemagick      - Redimensionar prévias de imagem"
+      msg "  • chafa            - Preview de imagens no terminal (auto-detecta protocolo)"
       msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
       msg ""
       msg "  ℹ️  Instalação via Homebrew"
@@ -443,6 +454,7 @@ ask_base_dependencies() {
       msg "  • Git              - Sistema de controle de versão"
       msg "  • Windows Terminal - Terminal moderno da Microsoft"
       msg "  • ImageMagick      - Redimensionar prévias de imagem"
+      msg "  • chafa            - Preview de imagens no terminal"
       msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
       msg ""
       msg "  ℹ️  Instalação via winget"

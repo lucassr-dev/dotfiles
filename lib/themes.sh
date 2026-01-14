@@ -31,72 +31,97 @@ theme_preview_cache_dir() {
   echo "$base/dotfiles/theme-previews"
 }
 
-_terminal_supports_kitty_protocol() {
-  [[ -n "${KITTY_WINDOW_ID:-}" ]] && return 0
-  [[ "${TERM:-}" == "xterm-kitty" ]] && return 0
-  return 1
-}
-
-_terminal_supports_iterm_protocol() {
-  [[ "${TERM_PROGRAM:-}" == "iTerm.app" ]] && return 0
-  [[ "${TERM_PROGRAM:-}" == "WezTerm" ]] && return 0
-  [[ "${LC_TERMINAL:-}" == "iTerm2" ]] && return 0
-  return 1
-}
-
-_terminal_supports_sixel() {
-  [[ "${TERM:-}" == *"sixel"* ]] && return 0
-  [[ "${TERM_PROGRAM:-}" == "ghostty" ]] && return 0
-  [[ "${TERM:-}" == "xterm-ghostty" ]] && return 0
-  [[ "${GHOSTTY_RESOURCES_DIR:-}" ]] && return 0
-  [[ "${TERM_PROGRAM:-}" == "foot" ]] && return 0
-  [[ "${TERM_PROGRAM:-}" == "mlterm" ]] && return 0
-  [[ "${TERM_PROGRAM:-}" == "contour" ]] && return 0
-  return 1
-}
+# ═══════════════════════════════════════════════════════════
+# Detecção de suporte a imagens em terminais
+# Baseado em: https://yazi-rs.github.io/docs/image-preview/
+# ═══════════════════════════════════════════════════════════
 
 _terminal_no_inline_support() {
-  [[ "${TERM_PROGRAM:-}" == "vscode" ]] && return 0
+  # Terminais que NÃO suportam imagens inline
   [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]] && return 0
-  [[ -n "${WT_SESSION:-}" ]] && return 0
   [[ "${TERM:-}" == "linux" ]] && return 0
   [[ "${TERM:-}" == "dumb" ]] && return 0
   return 1
 }
 
+# Detecta qual ferramenta usar para renderizar imagens
+# Prioridade: chafa (auto-detecta) > kitty icat > img2sixel > catimg > timg
 theme_preview_renderer() {
   _terminal_no_inline_support && return 1
 
-  if _terminal_supports_kitty_protocol && has_cmd kitty; then
-    echo "kitty"
-    return 0
-  fi
-
-  if _terminal_supports_iterm_protocol; then
-    echo "iterm"
-    return 0
-  fi
-
-  if _terminal_supports_sixel && has_cmd img2sixel; then
-    echo "sixel"
-    return 0
-  fi
-
+  # chafa é a melhor opção: auto-detecta terminal e suporta
+  # Kitty, iTerm2, Sixel e fallback para symbols (ASCII art)
+  # Funciona em: Ghostty, Kitty, iTerm2, WezTerm, foot, etc.
   if has_cmd chafa; then
     echo "chafa"
     return 0
   fi
 
-  if has_cmd catimg; then
-    echo "catimg"
+  # Fallback: kitty icat para terminais com protocolo Kitty
+  # (Kitty, Ghostty, WezTerm, Konsole)
+  if has_cmd kitty; then
+    local kitty_term=0
+    [[ -n "${KITTY_WINDOW_ID:-}" ]] && kitty_term=1
+    [[ "${TERM:-}" == "xterm-kitty" ]] && kitty_term=1
+    [[ "${TERM_PROGRAM:-}" == "ghostty" ]] && kitty_term=1
+    [[ "${TERM:-}" == "xterm-ghostty" ]] && kitty_term=1
+    [[ -n "${GHOSTTY_RESOURCES_DIR:-}" ]] && kitty_term=1
+    [[ "${TERM_PROGRAM:-}" == "WezTerm" ]] && kitty_term=1
+    [[ $kitty_term -eq 1 ]] && { echo "kitty"; return 0; }
+  fi
+
+  # Fallback: img2sixel para terminais com suporte Sixel
+  # (foot, mlterm, contour, Windows Terminal 1.22+)
+  if has_cmd img2sixel; then
+    local sixel_term=0
+    [[ "${TERM:-}" == *"sixel"* ]] && sixel_term=1
+    [[ "${TERM_PROGRAM:-}" == "foot" ]] && sixel_term=1
+    [[ "${TERM_PROGRAM:-}" == "mlterm" ]] && sixel_term=1
+    [[ "${TERM_PROGRAM:-}" == "contour" ]] && sixel_term=1
+    [[ -n "${WT_SESSION:-}" ]] && sixel_term=1  # Windows Terminal
+    [[ $sixel_term -eq 1 ]] && { echo "sixel"; return 0; }
+  fi
+
+  # Fallbacks ASCII art
+  has_cmd catimg && { echo "catimg"; return 0; }
+  has_cmd timg && { echo "timg"; return 0; }
+
+  return 1
+}
+
+# Verifica se o terminal suporta previews e sugere instalação se necessário
+check_preview_support() {
+  if _terminal_no_inline_support; then
+    return 1
+  fi
+
+  # chafa é a solução universal - auto-detecta e suporta todos os protocolos
+  if has_cmd chafa; then
     return 0
   fi
 
-  if has_cmd timg; then
-    echo "timg"
+  # Sem chafa, verificar se há alternativas
+  if has_cmd kitty || has_cmd img2sixel || has_cmd catimg || has_cmd timg; then
     return 0
   fi
 
+  # Nenhuma ferramenta disponível - sugerir instalação do chafa
+  warn "Nenhuma ferramenta de preview de imagens encontrada"
+  msg "  💡 Para habilitar previews de temas, instale o chafa:"
+  case "${TARGET_OS:-linux}" in
+    linux|wsl2)
+      msg "     sudo apt install chafa           # Debian/Ubuntu"
+      msg "     sudo dnf install chafa           # Fedora"
+      msg "     sudo pacman -S chafa             # Arch"
+      ;;
+    macos)
+      msg "     brew install chafa"
+      ;;
+  esac
+  msg ""
+  msg "  O chafa suporta automaticamente: Ghostty, Kitty, iTerm2, WezTerm,"
+  msg "  foot, Windows Terminal e muitos outros terminais modernos."
+  msg ""
   return 1
 }
 
@@ -191,7 +216,7 @@ show_theme_preview() {
   renderer="$(theme_preview_renderer || true)"
 
   if [[ -z "$renderer" ]]; then
-    msg "  ℹ️  Prévia inline não suportada neste terminal."
+    msg "  ℹ️  Prévia inline não disponível (instale chafa para habilitar)."
     [[ -n "$link" ]] && msg "  💡 Acesse o link acima para ver a prévia."
     msg ""
     return
@@ -213,21 +238,19 @@ show_theme_preview() {
   [[ $chafa_height -gt 20 ]] && chafa_height=20
 
   case "$renderer" in
+    chafa)
+      # chafa auto-detecta o protocolo correto (Kitty, iTerm2, Sixel, symbols)
+      # --animate=off evita problemas com GIFs animados
+      chafa --animate=off --size="${chafa_width}x${chafa_height}" "$render_path" 2>/dev/null || \
+        msg "  ⚠️  Falha ao renderizar com chafa"
+      ;;
     kitty)
       kitty +kitten icat --transfer-mode=stream --align=left "$render_path" 2>/dev/null || \
         msg "  ⚠️  Falha ao renderizar com kitty icat"
       ;;
-    iterm)
-      _render_iterm_inline "$render_path" || \
-        msg "  ⚠️  Falha ao renderizar com protocolo iTerm"
-      ;;
     sixel)
       img2sixel -w "$((chafa_width * 10))" "$render_path" 2>/dev/null || \
         msg "  ⚠️  Falha ao renderizar com sixel"
-      ;;
-    chafa)
-      chafa --format=symbols --size="${chafa_width}x${chafa_height}" "$render_path" 2>/dev/null || \
-        msg "  ⚠️  Falha ao renderizar com chafa"
       ;;
     catimg)
       catimg -w "$chafa_width" "$render_path" 2>/dev/null || \
@@ -349,40 +372,23 @@ preview_oh_my_posh() {
 # ═══════════════════════════════════════════════════════════
 
 ask_themes() {
-  INSTALL_OH_MY_ZSH=0
-  INSTALL_POWERLEVEL10K=0
-  INSTALL_OH_MY_POSH=0
-  INSTALL_STARSHIP=0
-
-  show_section_header "🎨 TEMAS - Personalize seu Shell"
-
-  msg "Temas deixam seu terminal bonito e informativo com ícones, cores e informações úteis."
-  msg ""
-
-  # Verificar quais shells foram selecionados
   local has_zsh=${INSTALL_ZSH:-0}
   local has_fish=${INSTALL_FISH:-0}
   local has_nushell=${INSTALL_NUSHELL:-0}
 
   if [[ $has_zsh -eq 0 ]] && [[ $has_fish -eq 0 ]] && [[ $has_nushell -eq 0 ]]; then
+    show_section_header "🎨 TEMAS - Personalize seu Shell"
     msg "  ℹ️  Nenhum shell foi selecionado. Pulando seleção de temas."
     msg ""
     return 0
   fi
 
-  msg "⚠️  IMPORTANTE:"
-  msg "  • Você pode instalar múltiplos temas e alterná-los depois"
-  msg "  • Todos os temas requerem Nerd Fonts instaladas"
-  msg ""
-
-  # Construir opções de temas baseadas nos shells selecionados
   local theme_options_with_desc=()
 
   if [[ $has_zsh -eq 1 ]]; then
     theme_options_with_desc+=("OhMyZsh-P10k  - [zsh] Oh My Zsh + Powerlevel10k (framework completo)")
   fi
 
-  # Starship funciona em zsh, fish e nushell
   if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]] || [[ $has_nushell -eq 1 ]]; then
     local compat=""
     [[ $has_zsh -eq 1 ]] && compat="zsh"
@@ -391,7 +397,6 @@ ask_themes() {
     theme_options_with_desc+=("Starship      - [$compat] Prompt minimalista com presets prontos")
   fi
 
-  # Oh My Posh funciona em zsh, fish e nushell
   if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]] || [[ $has_nushell -eq 1 ]]; then
     local compat=""
     [[ $has_zsh -eq 1 ]] && compat="zsh"
@@ -400,64 +405,67 @@ ask_themes() {
     theme_options_with_desc+=("OhMyPosh      - [$compat] Prompt configurável com centenas de temas")
   fi
 
-  # Usar seleção múltipla moderna
-  local selected_desc=()
-  select_multiple_items "🎨 Selecione os temas para instalar" selected_desc "${theme_options_with_desc[@]}"
+  while true; do
+    INSTALL_OH_MY_ZSH=0
+    INSTALL_POWERLEVEL10K=0
+    INSTALL_OH_MY_POSH=0
+    INSTALL_STARSHIP=0
+    clear_screen
+    show_section_header "🎨 TEMAS - Personalize seu Shell"
 
-  # Mapear seleções para variáveis
-  for item in "${selected_desc[@]}"; do
-    local theme_id
-    theme_id=$(echo "$item" | awk '{print $1}')
-    case "$theme_id" in
-      "OhMyZsh-P10k")
-        INSTALL_OH_MY_ZSH=1
-        INSTALL_POWERLEVEL10K=1
-        ;;
-      "Starship")
-        INSTALL_STARSHIP=1
-        ;;
-      "OhMyPosh")
-        INSTALL_OH_MY_POSH=1
-        ;;
-    esac
+    msg "Temas deixam seu terminal bonito e informativo com ícones, cores e informações úteis."
+    msg ""
+    msg "⚠️  IMPORTANTE:"
+    msg "  • Você pode instalar múltiplos temas e alterná-los depois"
+    msg "  • Todos os temas requerem Nerd Fonts instaladas"
+    msg ""
+
+    # Verificar e informar sobre suporte a previews
+    check_preview_support || true
+
+    local selected_desc=()
+    select_multiple_items "🎨 Selecione os temas para instalar" selected_desc "${theme_options_with_desc[@]}"
+
+    for item in "${selected_desc[@]}"; do
+      local theme_id
+      theme_id=$(echo "$item" | awk '{print $1}')
+      case "$theme_id" in
+        "OhMyZsh-P10k")
+          INSTALL_OH_MY_ZSH=1
+          INSTALL_POWERLEVEL10K=1
+          ;;
+        "Starship") INSTALL_STARSHIP=1 ;;
+        "OhMyPosh") INSTALL_OH_MY_POSH=1 ;;
+      esac
+    done
+
+    local selected_themes=()
+    [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && selected_themes+=("Oh My Zsh + Powerlevel10k")
+    [[ $INSTALL_STARSHIP -eq 1 ]] && selected_themes+=("Starship")
+    [[ $INSTALL_OH_MY_POSH -eq 1 ]] && selected_themes+=("Oh My Posh")
+
+    if [[ ${#selected_themes[@]} -eq 0 ]]; then
+      selected_themes=("(nenhum)")
+    fi
+
+    if confirm_selection "🎨 Temas" "${selected_themes[@]}"; then
+      if [[ $INSTALL_STARSHIP -eq 1 || $INSTALL_OH_MY_POSH -eq 1 ]]; then
+        msg "  ℹ️  As prévias de Starship e Oh My Posh aparecem nas próximas etapas."
+        msg ""
+      fi
+
+      if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
+        clear_screen
+        show_section_header "🖼️  PRÉVIA DO TEMA"
+        print_selection_summary "🎨 Temas" "${selected_themes[@]}"
+        msg ""
+        preview_powerlevel10k
+        msg ""
+        pause_before_next_section "Pressione Enter para continuar..."
+      fi
+      break
+    fi
   done
-
-  msg ""
-  msg "✅ Seleção de temas concluída"
-
-  # Construir lista de temas selecionados para resumo
-  local selected_themes=()
-  [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && selected_themes+=("Oh My Zsh + Powerlevel10k")
-  [[ $INSTALL_STARSHIP -eq 1 ]] && selected_themes+=("Starship")
-  [[ $INSTALL_OH_MY_POSH -eq 1 ]] && selected_themes+=("Oh My Posh")
-
-  if [[ ${#selected_themes[@]} -gt 0 ]]; then
-    print_selection_summary "🎨 Temas" "${selected_themes[@]}"
-  else
-    print_selection_summary "🎨 Temas" "(nenhum)"
-  fi
-
-  if [[ $INSTALL_STARSHIP -eq 1 || $INSTALL_OH_MY_POSH -eq 1 ]]; then
-    msg "  ℹ️  As prévias de Starship e Oh My Posh aparecem nas próximas etapas."
-    msg ""
-  fi
-
-  # Mostrar prévia do Powerlevel10k se selecionado
-  if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
-    if declare -F clear_screen >/dev/null; then
-      clear_screen
-    else
-      clear
-    fi
-    show_section_header "🖼️  PRÉVIA DO TEMA"
-    print_selection_summary "🎨 Temas" "${selected_themes[@]}"
-    msg ""
-    preview_powerlevel10k
-    msg ""
-    if declare -F pause_before_next_section >/dev/null; then
-      pause_before_next_section "Pressione Enter para continuar..."
-    fi
-  fi
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -470,7 +478,7 @@ ask_oh_my_zsh_plugins() {
   while true; do
     SELECTED_OMZ_PLUGINS=()
     SELECTED_OMZ_EXTERNAL_PLUGINS=()
-
+    clear_screen
     show_section_header "🔌 PLUGINS - Oh My Zsh"
 
     local omz_plugins_desc=(
@@ -523,20 +531,15 @@ ask_oh_my_zsh_plugins() {
       SELECTED_OMZ_EXTERNAL_PLUGINS+=("$plugin_name")
     done
 
-    msg ""
-    if [[ ${#SELECTED_OMZ_PLUGINS[@]} -gt 0 ]]; then
-      print_selection_summary "🔌 Plugins Built-in" "${SELECTED_OMZ_PLUGINS[@]}"
-    else
-      print_selection_summary "🔌 Plugins Built-in" "(nenhum)"
-    fi
+    local all_plugins=()
+    [[ ${#SELECTED_OMZ_PLUGINS[@]} -gt 0 ]] && all_plugins+=("Built-in: ${SELECTED_OMZ_PLUGINS[*]}")
+    [[ ${#SELECTED_OMZ_EXTERNAL_PLUGINS[@]} -gt 0 ]] && all_plugins+=("Externos: ${SELECTED_OMZ_EXTERNAL_PLUGINS[*]}")
+    [[ ${#all_plugins[@]} -eq 0 ]] && all_plugins=("(nenhum)")
 
-    if [[ ${#SELECTED_OMZ_EXTERNAL_PLUGINS[@]} -gt 0 ]]; then
-      print_selection_summary "📦 Plugins Externos" "${SELECTED_OMZ_EXTERNAL_PLUGINS[@]}"
-    else
-      print_selection_summary "📦 Plugins Externos" "(nenhum)"
+    if confirm_selection "🔌 Plugins Oh My Zsh" "${all_plugins[@]}"; then
+      break
     fi
-    msg ""
-    break
+    clear_screen
   done
 }
 
@@ -551,6 +554,7 @@ ask_starship_preset() {
   SELECTED_CATPPUCCIN_FLAVOR=""
 
   while true; do
+    clear_screen
     show_section_header "✨ PRESETS - Starship"
 
     msg "Starship oferece presets prontos para usar."
@@ -673,6 +677,7 @@ ask_oh_my_posh_theme() {
   SELECTED_OMP_THEME=""
 
   while true; do
+    clear_screen
     show_section_header "🎭 TEMAS - Oh My Posh"
 
     msg "Oh My Posh tem centenas de temas prontos."
@@ -757,7 +762,7 @@ ask_fish_plugins() {
   [[ $INSTALL_FISH -eq 0 ]] && return 0
   while true; do
     SELECTED_FISH_PLUGINS=()
-
+    clear_screen
     show_section_header "🐟 PLUGINS - Fish Shell"
 
     msg "Fish tem funcionalidades nativas (autosuggestions, syntax highlighting)"
@@ -798,14 +803,17 @@ ask_fish_plugins() {
       SELECTED_FISH_PLUGINS+=("$plugin_name")
     done
 
-    msg ""
+    local fish_summary=()
     if [[ ${#SELECTED_FISH_PLUGINS[@]} -gt 0 ]]; then
-      print_selection_summary "🐟 Plugins Fish" "${SELECTED_FISH_PLUGINS[@]}"
+      fish_summary=("${SELECTED_FISH_PLUGINS[@]}")
     else
-      print_selection_summary "🐟 Plugins Fish" "(nenhum - apenas funcionalidades nativas)"
+      fish_summary=("(nenhum - apenas funcionalidades nativas)")
     fi
-    msg ""
-    break
+
+    if confirm_selection "🐟 Plugins Fish" "${fish_summary[@]}"; then
+      break
+    fi
+    clear_screen
   done
 }
 

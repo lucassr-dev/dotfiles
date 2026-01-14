@@ -167,6 +167,16 @@ show_section_header() {
 
 pause_before_next_section() {
   local message="${1:-Pressione Enter para continuar...}"
+  local center="${2:-false}"
   echo ""
+  if [[ "$center" == "true" ]]; then
+    local width
+    width=$(get_term_width)
+    local full_msg="💡 $message "
+    # Calcular padding (emoji conta como 2 chars visuais)
+    local text_len=$((${#message} + 4))
+    local padding=$(( (width - text_len) / 2 ))
+    [[ $padding -gt 0 ]] && printf "%${padding}s" ""
+  fi
   read -r -p "💡 $message "
 }

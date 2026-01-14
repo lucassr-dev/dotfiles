@@ -62,6 +62,7 @@ show_git_multi_account_info() {
 ask_git_configuration() {
   GIT_CONFIGURE=0
 
+  clear_screen
   show_git_multi_account_info
 
   msg ""
@@ -297,12 +298,19 @@ ask_git_configuration() {
   msg "  • Pager: $GIT_PAGER"
   msg ""
 
-  if ! ask_yes_no "Confirmar configuração?"; then
-    msg ""
-    msg "  🔁 Reconfigurando..."
-    msg ""
-    ask_git_configuration
-  fi
+  echo ""
+  echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
+  echo ""
+
+  local choice
+  read -r -p "  → " choice
+
+  case "${choice,,}" in
+    b|back|voltar|v)
+      clear_screen
+      ask_git_configuration
+      ;;
+  esac
 }
 
 # ═══════════════════════════════════════════════════════════
