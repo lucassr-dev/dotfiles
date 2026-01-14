@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Instaladores de aplicativos modernos (2025)
 # shellcheck disable=SC2034,SC2329,SC1091
-
 # ═══════════════════════════════════════════════════════════
 # IDEs e Editores de Código
 # ═══════════════════════════════════════════════════════════

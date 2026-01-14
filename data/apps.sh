@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
-# ═══════════════════════════════════════════════════════════
-# Listas de apps por categoria (usadas na seleção interativa)
-# Atualizado: Janeiro 2026 - Fontes oficiais verificadas
-# ═══════════════════════════════════════════════════════════
-
 # ───────────────────────────────────────────────────────────
 # CLI Tools - Ferramentas de linha de comando modernas
 # ───────────────────────────────────────────────────────────

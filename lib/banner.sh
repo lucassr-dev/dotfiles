@@ -22,7 +22,28 @@ clear_screen() {
 }
 
 get_term_width() {
-  tput cols 2>/dev/null || echo 80
+  local width
+
+  # Método 1: Variável COLUMNS (set by shell)
+  if [[ -n "${COLUMNS:-}" && "${COLUMNS:-}" =~ ^[0-9]+$ ]]; then
+    width="$COLUMNS"
+  # Método 2: tput (mais confiável)
+  elif width=$(tput cols 2>/dev/null) && [[ "$width" =~ ^[0-9]+$ ]]; then
+    : # width já definido
+  # Método 3: stty (fallback)
+  elif width=$(stty size 2>/dev/null | cut -d' ' -f2) && [[ "$width" =~ ^[0-9]+$ ]]; then
+    : # width já definido
+  # Método 4: Escape sequence (último recurso)
+  elif [[ -t 1 ]]; then
+    # Salva posição, move para coluna 999, lê posição, restaura
+    local pos
+    printf '\033[s\033[999C\033[6n\033[u' >/dev/tty 2>/dev/null
+    IFS='[;' read -rs -t 1 -d 'R' _ _ width </dev/tty 2>/dev/null || width=""
+  fi
+
+  # Fallback final
+  [[ -z "$width" || ! "$width" =~ ^[0-9]+$ || "$width" -lt 20 ]] && width=80
+  echo "$width"
 }
 
 # Centraliza texto baseado na largura do terminal
@@ -32,20 +53,26 @@ center_text() {
   local text_len=${#text}
   local padding=$(( (width - text_len) / 2 ))
   [[ $padding -gt 0 ]] && printf "%${padding}s" ""
-  echo "$text"
+  printf '%s\n' "$text"
+}
+
+# Remove códigos ANSI de uma string (suporta cores 256 e RGB)
+_strip_ansi() {
+  local text="$1"
+  # Remove: CSI sequences, OSC sequences, e outros escapes comuns
+  printf '%s' "$text" | sed -E 's/\x1b\[[0-9;]*[a-zA-Z]//g; s/\x1b\][^\\]*\\//g; s/\x1b\([A-Z]//g'
 }
 
 # Centraliza texto com cores (remove códigos ANSI para calcular)
 center_colored() {
   local text="$1"
   local width="${2:-$(get_term_width)}"
-  # Remove códigos ANSI para calcular comprimento real
   local clean_text
-  clean_text=$(echo -e "$text" | sed 's/\x1b\[[0-9;]*m//g')
+  clean_text=$(_strip_ansi "$text")
   local text_len=${#clean_text}
   local padding=$(( (width - text_len) / 2 ))
   [[ $padding -gt 0 ]] && printf "%${padding}s" ""
-  echo -e "$text"
+  printf '%b\n' "$text"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
