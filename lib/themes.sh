@@ -1033,7 +1033,7 @@ install_starship() {
         fi
         msg "  🎨 Aplicando sabor Catppuccin: ${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_}"
         if [[ -f "$starship_config" ]]; then
-          sed -i "s/palette = 'catppuccin_mocha'/palette = '$SELECTED_CATPPUCCIN_FLAVOR'/" "$starship_config"
+          sed -i.bak "s/palette = 'catppuccin_mocha'/palette = '$SELECTED_CATPPUCCIN_FLAVOR'/" "$starship_config" && rm -f "${starship_config}.bak"
           msg "  ✅ Sabor ${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_} aplicado"
         fi
       fi

@@ -394,8 +394,10 @@ install_neovim_linux_modern() {
   # Verificar se AppImage funciona (pode precisar de FUSE)
   if ! "$nvim_appimage" --version >/dev/null 2>&1; then
     msg "    Extraindo AppImage (FUSE não disponível)..."
-    cd "$HOME/.local/bin" || return 1
-    "$nvim_appimage" --appimage-extract >/dev/null 2>&1 || {
+    (
+      cd "$HOME/.local/bin" || exit 1
+      "$nvim_appimage" --appimage-extract >/dev/null 2>&1 || exit 1
+    ) || {
       record_failure "optional" "Falha ao extrair Neovim AppImage"
       return 1
     }

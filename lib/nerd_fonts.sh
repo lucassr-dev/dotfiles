@@ -3,6 +3,23 @@
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
+# Helper: timeout portável (macOS não tem timeout por padrão)
+# ═══════════════════════════════════════════════════════════
+run_with_timeout() {
+  local seconds="$1"
+  shift
+  if has_cmd timeout; then
+    timeout "$seconds" "$@"
+  elif has_cmd gtimeout; then
+    # macOS com coreutils instalado
+    gtimeout "$seconds" "$@"
+  else
+    # Fallback: executar sem timeout
+    "$@"
+  fi
+}
+
+# ═══════════════════════════════════════════════════════════
 # Variáveis globais para Nerd Fonts
 # ═══════════════════════════════════════════════════════════
 
@@ -140,8 +157,8 @@ download_and_install_font() {
   rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
 
   # Download do arquivo zip com timeout de 120s
-  if ! timeout 120 curl -fsSL --max-time 120 "$download_url" -o "$temp_zip" 2>/dev/null; then
-    if ! timeout 120 curl -fsSL --max-time 120 "$latest_url" -o "$temp_zip" 2>/dev/null; then
+  if ! run_with_timeout 120 curl -fsSL --max-time 120 "$download_url" -o "$temp_zip" 2>/dev/null; then
+    if ! run_with_timeout 120 curl -fsSL --max-time 120 "$latest_url" -o "$temp_zip" 2>/dev/null; then
       warn "Falha ao baixar $font_name"
       rm -f "$temp_zip" 2>/dev/null
       return 1
@@ -159,7 +176,7 @@ download_and_install_font() {
   mkdir -p "$temp_dir"
 
   # Extrair apenas arquivos .ttf e .otf (com timeout para evitar travamento)
-  if timeout 60 unzip -q -o "$temp_zip" -d "$temp_dir" 2>/dev/null; then
+  if run_with_timeout 60 unzip -q -o "$temp_zip" -d "$temp_dir" 2>/dev/null; then
     # Copiar fontes para o diretório correto
     local font_count=0
     while IFS= read -r -d '' font_file; do
