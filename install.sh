@@ -357,6 +357,119 @@ download_file() {
 # Preservação de PATH e configurações existentes
 # ═══════════════════════════════════════════════════════════
 
+# Verifica se uma configuração de ferramenta já existe no arquivo
+# Usa padrões semânticos para detectar a mesma ferramenta em formatos diferentes
+tool_config_exists() {
+  local file="$1"
+  local line="$2"
+
+  [[ ! -f "$file" ]] && return 1
+
+  # Detectar qual ferramenta a linha configura e verificar se já existe
+  case "$line" in
+    *"NVM_DIR"*|*"nvm.sh"*|*'$NVM_DIR'*)
+      grep -q "NVM_DIR\|nvm\.sh" "$file" 2>/dev/null && return 0
+      ;;
+    *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*)
+      grep -q "ANDROID_HOME\|ANDROID_SDK_ROOT" "$file" 2>/dev/null && return 0
+      ;;
+    *"/Android/Sdk"*|*"/platform-tools"*)
+      grep -q "Android/Sdk\|platform-tools" "$file" 2>/dev/null && return 0
+      ;;
+    *"SDKMAN_DIR"*|*"sdkman-init"*)
+      grep -q "SDKMAN_DIR\|sdkman-init" "$file" 2>/dev/null && return 0
+      ;;
+    *"PYENV_ROOT"*|*"pyenv init"*)
+      grep -q "PYENV_ROOT\|pyenv init" "$file" 2>/dev/null && return 0
+      ;;
+    *"RBENV_ROOT"*|*"rbenv init"*)
+      grep -q "RBENV_ROOT\|rbenv init" "$file" 2>/dev/null && return 0
+      ;;
+    *"JAVA_HOME"*|*'$JAVA_HOME'*)
+      grep -q "JAVA_HOME" "$file" 2>/dev/null && return 0
+      ;;
+    *"GOPATH"*|*"GOROOT"*|*'$GOPATH'*|*'$GOROOT'*)
+      grep -q "GOPATH\|GOROOT" "$file" 2>/dev/null && return 0
+      ;;
+    *"/go/bin"*)
+      grep -q "/go/bin" "$file" 2>/dev/null && return 0
+      ;;
+    *".yarn/bin"*|*".config/yarn"*)
+      grep -q "\.yarn/bin\|\.config/yarn" "$file" 2>/dev/null && return 0
+      ;;
+    *"PNPM_HOME"*|*'$PNPM_HOME'*|*".local/share/pnpm"*)
+      grep -q "PNPM_HOME\|\.local/share/pnpm" "$file" 2>/dev/null && return 0
+      ;;
+    *"BUN_INSTALL"*|*".bun/bin"*)
+      grep -q "BUN_INSTALL\|\.bun/bin" "$file" 2>/dev/null && return 0
+      ;;
+    *"DENO_INSTALL"*|*".deno/bin"*)
+      grep -q "DENO_INSTALL\|\.deno/bin" "$file" 2>/dev/null && return 0
+      ;;
+    *"FLUTTER_HOME"*|*"flutter/bin"*)
+      grep -q "FLUTTER_HOME\|flutter/bin" "$file" 2>/dev/null && return 0
+      ;;
+    *"DOTNET_ROOT"*|*".dotnet"*)
+      grep -q "DOTNET_ROOT\|\.dotnet" "$file" 2>/dev/null && return 0
+      ;;
+    *"mise"*"activate"*|*"mise/shims"*)
+      grep -q "mise.*activate\|mise/shims" "$file" 2>/dev/null && return 0
+      ;;
+    *"HOMEBREW_PREFIX"*|*"/home/linuxbrew"*)
+      grep -q "HOMEBREW_PREFIX\|/home/linuxbrew" "$file" 2>/dev/null && return 0
+      ;;
+    *"/snap/bin"*)
+      grep -q "/snap/bin" "$file" 2>/dev/null && return 0
+      ;;
+  esac
+
+  return 1  # Não encontrado
+}
+
+# Adiciona bloco de configurações preservadas, evitando duplicação semântica
+append_preserved_config() {
+  local file="$1"
+  local preserved_config="$2"
+  local added_count=0
+  local skipped_count=0
+
+  [[ -z "$preserved_config" ]] && return 0
+  [[ ! -f "$file" ]] && return 1
+
+  local lines_to_add=()
+
+  # Primeira passagem: filtrar linhas que já existem semanticamente
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^#.*═ ]] && continue
+    [[ "$line" =~ ^#.*[Pp]reservad ]] && continue
+
+    # Verificar se a ferramenta já está configurada
+    if tool_config_exists "$file" "$line"; then
+      ((skipped_count++))
+    else
+      lines_to_add+=("$line")
+      ((added_count++))
+    fi
+  done <<< "$preserved_config"
+
+  # Se há linhas para adicionar, adicionar com cabeçalho
+  if [[ ${#lines_to_add[@]} -gt 0 ]]; then
+    {
+      echo ""
+      echo "# ═══════════════════════════════════════════════════════════"
+      echo "# Configurações preservadas do arquivo anterior"
+      echo "# (NVM, Android, SDKMAN, pyenv, Go, yarn, pnpm, etc.)"
+      echo "# ═══════════════════════════════════════════════════════════"
+      printf '%s\n' "${lines_to_add[@]}"
+    } >> "$file"
+    msg "    ✅ $added_count configurações preservadas"
+    [[ $skipped_count -gt 0 ]] && msg "    ℹ️  $skipped_count já existiam (ignoradas)"
+  else
+    msg "    ℹ️  Todas as configurações já existem no novo arquivo"
+  fi
+}
+
 # Extrai configurações de PATH do .zshrc existente que devem ser preservadas
 # Captura: NVM, Android Studio, SDKMAN, pyenv, rbenv, yarn, JAVA_HOME, GOPATH, etc.
 extract_user_path_config_zsh() {
@@ -2091,10 +2204,10 @@ apply_shared_configs() {
     copy_dir "$CONFIG_SHARED/fish" "$HOME/.config/fish"
     normalize_crlf_to_lf "$HOME/.config/fish/config.fish"
 
-    # Append configurações preservadas ao novo config.fish
+    # Append configurações preservadas ao novo config.fish (sem duplicação)
     if [[ -n "$preserved_fish_config" ]]; then
-      msg "  🔄 Preservando configurações de PATH existentes (NVM, Android, etc.)..."
-      echo "$preserved_fish_config" >> "$HOME/.config/fish/config.fish"
+      msg "  🔄 Verificando configurações de PATH para preservar..."
+      append_preserved_config "$HOME/.config/fish/config.fish" "$preserved_fish_config"
     fi
   else
     msg "  ⚠️ Fish não selecionado/encontrado, pulando config."
@@ -2109,10 +2222,10 @@ apply_shared_configs() {
     copy_file "$CONFIG_SHARED/zsh/.zshrc" "$HOME/.zshrc"
     normalize_crlf_to_lf "$HOME/.zshrc"
 
-    # Append configurações preservadas ao novo .zshrc
+    # Append configurações preservadas ao novo .zshrc (sem duplicação)
     if [[ -n "$preserved_zsh_config" ]]; then
-      msg "  🔄 Preservando configurações de PATH existentes (NVM, Android, etc.)..."
-      echo "$preserved_zsh_config" >> "$HOME/.zshrc"
+      msg "  🔄 Verificando configurações de PATH para preservar..."
+      append_preserved_config "$HOME/.zshrc" "$preserved_zsh_config"
     fi
 
     if [[ -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" || -d "$HOME/.oh-my-zsh/themes/powerlevel10k" ]]; then
