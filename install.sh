@@ -364,67 +364,87 @@ extract_user_path_config_zsh() {
   [[ -f "$zshrc" ]] || return
 
   local preserved_lines=()
-  local in_block=0
-  local block_name=""
+  local prev_line=""
 
   while IFS= read -r line || [[ -n "$line" ]]; do
-    # Detectar início de blocos conhecidos
+    # Pular linhas vazias e comentários simples (mas manter comentários de seção)
+    [[ -z "$line" ]] && continue
+
+    # Detectar configurações conhecidas que devem ser preservadas
     case "$line" in
-      *"NVM_DIR"*|*"nvm.sh"*|*"nvm bash_completion"*)
+      # NVM (Node Version Manager)
+      *"NVM_DIR"*|*"nvm.sh"*|*"nvm bash_completion"*|*'$NVM_DIR'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"android"*"/tools"*|*"android"*"/platform-tools"*)
+      # Android Studio / SDK
+      *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"/Android/Sdk"*|*"/android"*"/tools"*|*"/platform-tools"*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"SDKMAN_DIR"*|*"sdkman-init.sh"*)
+      # SDKMAN (Java/Kotlin/Gradle)
+      *"SDKMAN_DIR"*|*"sdkman-init.sh"*|*".sdkman"*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"pyenv"*"init"*|*"PYENV_ROOT"*)
+      # pyenv (Python)
+      *"PYENV_ROOT"*|*"pyenv init"*|*'$PYENV_ROOT'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"rbenv"*"init"*|*"RBENV_ROOT"*)
+      # rbenv (Ruby)
+      *"RBENV_ROOT"*|*"rbenv init"*|*'$RBENV_ROOT'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"JAVA_HOME"*|*"JDK_HOME"*)
+      # Java
+      *"JAVA_HOME"*|*"JDK_HOME"*|*'$JAVA_HOME'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"GOPATH"*|*"GOROOT"*|*"go/bin"*)
+      # Go
+      *"GOPATH"*|*"GOROOT"*|*"/go/bin"*|*'$GOPATH'*|*'$GOROOT'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"yarn global"*|*".yarn/bin"*|*".config/yarn"*)
+      # Yarn
+      *".yarn/bin"*|*".config/yarn"*|*"yarn global"*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"pnpm"*"PNPM_HOME"*|*".local/share/pnpm"*)
+      # PNPM
+      *"PNPM_HOME"*|*".local/share/pnpm"*|*'$PNPM_HOME'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"cargo"*"env"*|*"CARGO_HOME"*|*"RUSTUP_HOME"*)
-        # Não preservar - nosso script já configura Rust via mise
-        continue
-        ;;
-      *"flutter"*"/bin"*|*"FLUTTER_HOME"*)
+      # Bun
+      *"BUN_INSTALL"*|*".bun/bin"*|*'$BUN_INSTALL'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"dotnet"*|*"DOTNET_ROOT"*)
+      # Deno
+      *"DENO_INSTALL"*|*".deno/bin"*|*'$DENO_INSTALL'*)
         preserved_lines+=("$line")
-        continue
+        ;;
+      # Flutter
+      *"FLUTTER_HOME"*|*"flutter/bin"*|*'$FLUTTER_HOME'*)
+        preserved_lines+=("$line")
+        ;;
+      # .NET
+      *"DOTNET_ROOT"*|*".dotnet"*|*'$DOTNET_ROOT'*)
+        preserved_lines+=("$line")
+        ;;
+      # Rust/Cargo - NÃO preservar (nosso script já configura via mise)
+      *".cargo/env"*|*"CARGO_HOME"*|*"RUSTUP_HOME"*)
+        # Ignorar - já configuramos Rust
+        ;;
+      # Homebrew (linuxbrew)
+      *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*|*'$HOMEBREW_PREFIX'*)
+        preserved_lines+=("$line")
+        ;;
+      # Snap
+      *"/snap/bin"*)
+        preserved_lines+=("$line")
         ;;
     esac
   done < "$zshrc"
 
   # Retornar linhas preservadas (se houver)
   if [[ ${#preserved_lines[@]} -gt 0 ]]; then
-    printf '%s\n' "" "# ═══════════════════════════════════════════════════════════"
+    printf '%s\n' ""
+    printf '%s\n' "# ═══════════════════════════════════════════════════════════"
     printf '%s\n' "# Configurações preservadas do .zshrc anterior"
+    printf '%s\n' "# (NVM, Android, SDKMAN, pyenv, Go, yarn, pnpm, etc.)"
     printf '%s\n' "# ═══════════════════════════════════════════════════════════"
     printf '%s\n' "${preserved_lines[@]}"
   fi
@@ -438,58 +458,78 @@ extract_user_path_config_fish() {
   local preserved_lines=()
 
   while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+
     case "$line" in
-      *"NVM_DIR"*|*"nvm.fish"*|*"bass source"*"nvm"*)
+      # NVM (via nvm.fish ou bass)
+      *"NVM_DIR"*|*"nvm.fish"*|*"bass"*"nvm"*|*'$NVM_DIR'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"android"*"/tools"*|*"android"*"/platform-tools"*)
+      # Android Studio / SDK
+      *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"/Android/Sdk"*|*"/android"*"/tools"*|*"/platform-tools"*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"SDKMAN_DIR"*|*"sdkman"*)
+      # SDKMAN
+      *"SDKMAN_DIR"*|*"sdkman"*|*".sdkman"*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"pyenv"*"init"*|*"PYENV_ROOT"*)
+      # pyenv
+      *"PYENV_ROOT"*|*"pyenv init"*|*'$PYENV_ROOT'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"rbenv"*"init"*|*"RBENV_ROOT"*)
+      # rbenv
+      *"RBENV_ROOT"*|*"rbenv init"*|*'$RBENV_ROOT'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"JAVA_HOME"*|*"JDK_HOME"*)
+      # Java
+      *"JAVA_HOME"*|*"JDK_HOME"*|*'$JAVA_HOME'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"GOPATH"*|*"GOROOT"*|*"go/bin"*)
+      # Go
+      *"GOPATH"*|*"GOROOT"*|*"/go/bin"*|*'$GOPATH'*|*'$GOROOT'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"yarn"*"global"*|*".yarn/bin"*|*".config/yarn"*)
+      # Yarn
+      *".yarn/bin"*|*".config/yarn"*|*"yarn global"*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"pnpm"*|*"PNPM_HOME"*)
+      # PNPM
+      *"PNPM_HOME"*|*".local/share/pnpm"*|*'$PNPM_HOME'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"flutter"*"/bin"*|*"FLUTTER_HOME"*)
+      # Bun
+      *"BUN_INSTALL"*|*".bun/bin"*|*'$BUN_INSTALL'*)
         preserved_lines+=("$line")
-        continue
         ;;
-      *"dotnet"*|*"DOTNET_ROOT"*)
+      # Deno
+      *"DENO_INSTALL"*|*".deno/bin"*|*'$DENO_INSTALL'*)
         preserved_lines+=("$line")
-        continue
+        ;;
+      # Flutter
+      *"FLUTTER_HOME"*|*"flutter/bin"*|*'$FLUTTER_HOME'*)
+        preserved_lines+=("$line")
+        ;;
+      # .NET
+      *"DOTNET_ROOT"*|*".dotnet"*|*'$DOTNET_ROOT'*)
+        preserved_lines+=("$line")
+        ;;
+      # Homebrew (linuxbrew)
+      *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*|*'$HOMEBREW_PREFIX'*)
+        preserved_lines+=("$line")
+        ;;
+      # Snap
+      *"/snap/bin"*)
+        preserved_lines+=("$line")
         ;;
     esac
   done < "$fishrc"
 
   # Retornar linhas preservadas (se houver)
   if [[ ${#preserved_lines[@]} -gt 0 ]]; then
-    printf '%s\n' "" "# ═══════════════════════════════════════════════════════════"
+    printf '%s\n' ""
+    printf '%s\n' "# ═══════════════════════════════════════════════════════════"
     printf '%s\n' "# Configurações preservadas do config.fish anterior"
+    printf '%s\n' "# (NVM, Android, SDKMAN, pyenv, Go, yarn, pnpm, etc.)"
     printf '%s\n' "# ═══════════════════════════════════════════════════════════"
     printf '%s\n' "${preserved_lines[@]}"
   fi
