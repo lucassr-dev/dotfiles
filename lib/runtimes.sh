@@ -2,47 +2,38 @@
 # Seleção e instalação de runtimes (mise)
 
 ask_runtimes() {
-  clear_screen
-  show_section_header "🧰 SELEÇÃO DE RUNTIMES (mise)"
-  msg "Para gerenciar versões de Node, Python, PHP, etc., será usado o mise."
-  msg ""
-
-  if ! ask_yes_no "Deseja instalar runtimes via mise?"; then
-    SELECTED_RUNTIMES=()
-    msg ""
-    msg "  ⏭️  Pulando instalação de runtimes"
-    msg ""
-    return 0
-  fi
+  local runtime_options=(
+    "node      - Node.js LTS (JavaScript/TypeScript runtime)"
+    "python    - Python 3.12 (linguagem de propósito geral)"
+    "php       - PHP latest (desenvolvimento web)"
+    "rust      - Rust stable (sistemas e performance)"
+    "go        - Go latest (backend e cloud native)"
+    "bun       - Bun latest (runtime JS ultrarrápido)"
+    "deno      - Deno latest (runtime JS/TS seguro)"
+    "elixir    - Elixir latest (funcional e concorrente)"
+    "java      - Java latest (enterprise e Android)"
+    "ruby      - Ruby latest (Rails e scripts)"
+  )
 
   while true; do
+    SELECTED_RUNTIMES=()
     clear_screen
-    show_section_header "🧰 SELEÇÃO DE RUNTIMES (mise)"
+    show_section_header "🧰 RUNTIMES - Gerenciador de Versões (mise)"
 
-    SELECTED_RUNTIMES=("${RUNTIMES_DEFAULT[@]:-node python php}")
-
-    msg "Padrão: Node, Python e PHP já serão instalados."
-    msg "Você pode adicionar mais runtimes abaixo."
-    msg "Você poderá usar versões específicas por projeto depois (mise no diretório do projeto)."
+    msg "Selecione os runtimes/linguagens que deseja instalar."
+    msg "O mise gerencia versões por projeto (similar ao nvm, pyenv, etc.)"
     msg ""
 
-    for rt in "${RUNTIMES_OPTIONAL[@]:-rust go bun deno elixir java ruby}"; do
-      local label="$rt"
-      case "$rt" in
-        rust) label="Rust (stable)" ;;
-        go) label="Go (latest)" ;;
-        bun) label="Bun (latest)" ;;
-        deno) label="Deno (latest)" ;;
-        elixir) label="Elixir (latest)" ;;
-        java) label="Java (latest)" ;;
-        ruby) label="Ruby (latest)" ;;
-      esac
-      if ask_yes_no "  Adicionar ${label}?"; then
-        SELECTED_RUNTIMES+=("$rt")
-      fi
+    local selected_desc=()
+    select_multiple_items "🧰 Selecione os Runtimes" selected_desc "${runtime_options[@]}"
+
+    for item in "${selected_desc[@]}"; do
+      local runtime_name
+      runtime_name="$(echo "$item" | awk '{print $1}')"
+      SELECTED_RUNTIMES+=("$runtime_name")
     done
 
-    if confirm_selection "🧩 Runtimes" "${SELECTED_RUNTIMES[@]}"; then
+    if confirm_selection "🧰 Runtimes" "${SELECTED_RUNTIMES[@]}"; then
       break
     fi
   done

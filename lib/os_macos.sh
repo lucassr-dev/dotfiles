@@ -331,15 +331,11 @@ install_from_brewfile() {
   msg "▶ Instalando apps do Brewfile"
   msg "  ℹ️  Arquivo: $brewfile"
 
-  if ask_yes_no "Deseja instalar os apps listados no Brewfile?"; then
-    if brew bundle --file="$brewfile"; then
-      INSTALLED_MISC+=("brewfile: instalação completa")
-      msg "  ✅ Apps do Brewfile instalados com sucesso"
-    else
-      record_failure "optional" "Alguns apps do Brewfile falharam ao instalar"
-    fi
+  if brew bundle --file="$brewfile"; then
+    INSTALLED_MISC+=("brewfile: instalação completa")
+    msg "  ✅ Apps do Brewfile instalados com sucesso"
   else
-    msg "  ⏭️  Pulando instalação do Brewfile"
+    record_failure "optional" "Alguns apps do Brewfile falharam ao instalar"
   fi
 }
 

@@ -283,10 +283,6 @@ install_selected_ia_tools() {
   [[ ${#SELECTED_IA_TOOLS[@]} -eq 0 ]] && return 0
   msg "▶ Instalando IA Tools selecionadas"
   print_selection_summary "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"
-  if ! ask_yes_no "Confirmar instalação das IA Tools selecionadas?"; then
-    msg "  ⏭️  Pulando instalação das IA Tools"
-    return 0
-  fi
 
   local tool
   for tool in "${SELECTED_IA_TOOLS[@]}"; do

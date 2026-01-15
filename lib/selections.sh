@@ -71,6 +71,53 @@ menu_select_single() {
   done
 }
 
+# Seleção única (wrapper para ui_select_single)
+select_single_item() {
+  local title="$1"
+  local out_var="$2"
+  shift 2
+  local options=("$@")
+
+  # Usar UI moderna se disponível
+  if _has_modern_ui; then
+    local result=""
+    ui_select_single "$title" result "${options[@]}"
+    # Retornar a linha completa selecionada (não apenas a primeira palavra)
+    for opt in "${options[@]}"; do
+      local opt_name
+      opt_name=$(echo "$opt" | awk '{print $1}')
+      if [[ "$opt_name" == "$result" ]]; then
+        printf -v "$out_var" '%s' "$opt"
+        return 0
+      fi
+    done
+    # Se não encontrou, retornar primeira opção
+    printf -v "$out_var" '%s' "${options[0]}"
+    return 0
+  fi
+
+  # Fallback bash puro
+  local selection=""
+  while true; do
+    echo ""
+    echo -e "${UI_CYAN}╭─── ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ───╮${UI_RESET}"
+    echo ""
+    local idx=1
+    for opt in "${options[@]}"; do
+      echo -e "  ${UI_CYAN}$idx${UI_RESET}) $opt"
+      idx=$((idx + 1))
+    done
+    echo ""
+    read -r -p "  Escolha (1-${#options[@]}): " selection
+    if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 )) && (( selection <= ${#options[@]} )); then
+      printf -v "$out_var" '%s' "${options[selection-1]}"
+      return 0
+    fi
+    echo -e "  ${UI_YELLOW}⚠ Opção inválida${UI_RESET}"
+    sleep 0.5
+  done
+}
+
 # Fallback para seleção múltipla
 select_multiple_items() {
   local title="$1"
@@ -223,9 +270,6 @@ ask_cli_tools() {
     show_section_header "🛠️  CLI TOOLS - Ferramentas de Linha de Comando"
 
     msg "Ferramentas modernas para melhorar sua experiência na linha de comando."
-    if _has_modern_ui && has_cmd fzf; then
-      msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
-    fi
     msg ""
 
     local selected_desc=()
@@ -271,10 +315,6 @@ ask_ia_tools() {
     msg ""
     msg "⚠️  Algumas ferramentas podem exigir configuração adicional"
     msg "   (API keys, login, instalação manual)."
-    if _has_modern_ui && has_cmd fzf; then
-      msg ""
-      msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
-    fi
     msg ""
 
     local selected_desc=()
@@ -343,9 +383,6 @@ ask_terminals() {
     show_section_header "💻 TERMINAIS - Emuladores de Terminal"
 
     msg "Escolha qual(is) emulador(es) de terminal você deseja instalar."
-    if _has_modern_ui && has_cmd fzf; then
-      msg "💡 Use Tab para selecionar, Enter para confirmar"
-    fi
     msg ""
 
     local selected_desc=()

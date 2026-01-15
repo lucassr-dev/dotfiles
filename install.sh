@@ -28,6 +28,19 @@ INSTALL_NUSHELL="${INSTALL_NUSHELL:-0}"
 INSTALL_BASE_DEPS=1  # Dependências base (pode ser desativado pelo usuário)
 INSTALL_VSCODE_EXTENSIONS=0
 BASE_DEPS_INSTALLED=0
+
+# Controle de cópia de configurações (padrão: copiar se selecionado)
+COPY_ZSH_CONFIG=1
+COPY_FISH_CONFIG=1
+COPY_NUSHELL_CONFIG=1
+COPY_GIT_CONFIG=1
+COPY_NVIM_CONFIG=1
+COPY_TMUX_CONFIG=1
+COPY_TERMINAL_CONFIG=1
+COPY_MISE_CONFIG=1
+COPY_SSH_KEYS=0  # SSH keys desabilitado por padrão (sensível)
+COPY_VSCODE_SETTINGS=1
+
 PRIVATE_DIR="${DOTFILES_PRIVATE_DIR:-}"
 PRIVATE_SHARED=""
 
@@ -63,7 +76,8 @@ for arg in "$@"; do
 done
 
 msg() {
-  printf '%s\n' "$1"
+  # Usar %b para interpretar escape sequences (cores ANSI)
+  printf '%b\n' "$1"
 }
 
 warn() {
@@ -690,12 +704,13 @@ print_selection_summary() {
   local label="$1"
   shift
   local items=("$@")
-  local list="(nenhum)"
+  local list="${UI_DIM}(nenhum)${UI_RESET}"
   if [[ ${#items[@]} -gt 0 ]]; then
     list="$(printf "%s, " "${items[@]}")"
     list="${list%, }"
   fi
-  msg "  • $label: $list"
+  # Título com cor cyan e bold, items em texto normal
+  msg "  ${UI_CYAN}${UI_BOLD}$label${UI_RESET}: $list"
 }
 
 ask_vscode_extensions() {
@@ -714,33 +729,36 @@ ask_vscode_extensions() {
     msg "  • Extensões: shared/vscode/extensions.txt"
     msg ""
     msg "Se quiser usar suas próprias configs, edite esses arquivos antes de continuar."
-    msg "Dica: você pode abrir e ajustar agora, e depois voltar para esta tela."
     msg ""
 
-    if ask_yes_no "Deseja instalar as extensões do VS Code?"; then
+    if confirm_action "instalar extensões do VS Code"; then
       INSTALL_VSCODE_EXTENSIONS=1
-      print_selection_summary "🧩 VS Code Extensions" "instalar"
-    else
-      print_selection_summary "🧩 VS Code Extensions" "não instalar"
     fi
 
-    echo ""
-    echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
-    echo ""
+    local ext_status="não instalar"
+    [[ $INSTALL_VSCODE_EXTENSIONS -eq 1 ]] && ext_status="instalar"
 
-    local choice
-    read -r -p "  → " choice
-
-    case "${choice,,}" in
-      b|back|voltar|v) continue ;;
-      *) break ;;
-    esac
+    if confirm_selection "🧩 VS Code Extensions" "$ext_status"; then
+      break
+    fi
   done
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FUNÇÕES AUXILIARES PARA RESUMO RESPONSIVO
 # ══════════════════════════════════════════════════════════════════════════════
+
+# Junta array com vírgula + espaço (padronizado)
+_join_items() {
+  local items=("$@")
+  if [[ ${#items[@]} -eq 0 ]]; then
+    echo "(nenhum)"
+  else
+    local result
+    result=$(printf "%s, " "${items[@]}")
+    echo "${result%, }"
+  fi
+}
 
 # Trunca array para caber na largura especificada
 _truncate_items() {
@@ -776,14 +794,42 @@ _truncate_items() {
   fi
 }
 
-# Imprime linha formatada com label e valor
+# Imprime linha formatada com label colorido e valor
 _print_row() {
   local label="$1"
   local value="$2"
   local label_width="${3:-14}"
-  local value_color="${4:-$BANNER_WHITE}"
+  local value_color="${4:-}"
 
-  printf "  ${BANNER_DIM}%-${label_width}s${BANNER_RESET} ${value_color}%s${BANNER_RESET}\n" "$label" "$value"
+  # Label em cyan, valor em cor especificada ou padrão
+  printf "  ${BANNER_CYAN}%-${label_width}s${BANNER_RESET} ${value_color}%s${BANNER_RESET}\n" "$label" "$value"
+}
+
+# Formata array com contagem: "item1, item2 (3)"
+_format_with_count() {
+  local -n arr_ref=$1
+  local max_show="${2:-5}"
+
+  if [[ ${#arr_ref[@]} -eq 0 ]]; then
+    echo "${BANNER_DIM}(nenhum)${BANNER_RESET}"
+    return
+  fi
+
+  local result=""
+  local shown=0
+  for item in "${arr_ref[@]}"; do
+    [[ $shown -ge $max_show ]] && break
+    [[ -n "$result" ]] && result+=", "
+    result+="$item"
+    ((shown++))
+  done
+
+  local remaining=$((${#arr_ref[@]} - shown))
+  if [[ $remaining -gt 0 ]]; then
+    echo "$result ${BANNER_DIM}+$remaining${BANNER_RESET}"
+  else
+    echo "$result"
+  fi
 }
 
 # Imprime cabeçalho de seção
@@ -820,7 +866,54 @@ _draw_box() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# RESUMO DE SELEÇÕES - LAYOUT RESPONSIVO
+# FUNÇÕES PARA TABELAS COM BORDAS
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Desenha linha de tabela com duas colunas
+_table_row() {
+  local label="$1"
+  local value="$2"
+  local label_w="${3:-20}"
+  local value_w="${4:-40}"
+  local C="${BANNER_CYAN}"
+  local R="${BANNER_RESET}"
+
+  printf "${C}│${R} ${C}%-${label_w}s${R} ${C}│${R} %-${value_w}s ${C}│${R}\n" "$label" "$value"
+}
+
+# Desenha separador de tabela
+_table_sep() {
+  local label_w="${1:-20}"
+  local value_w="${2:-40}"
+  local left="$3"
+  local mid="$4"
+  local right="$5"
+  local C="${BANNER_CYAN}"
+  local R="${BANNER_RESET}"
+
+  local label_line value_line
+  label_line=$(printf '─%.0s' $(seq 1 $((label_w + 2))))
+  value_line=$(printf '─%.0s' $(seq 1 $((value_w + 2))))
+  printf "${C}${left}${label_line}${mid}${value_line}${right}${R}\n"
+}
+
+# Desenha cabeçalho de seção com ícone
+_section_header() {
+  local icon="$1"
+  local title="$2"
+  echo ""
+  echo -e "${BANNER_CYAN}${BANNER_BOLD}${icon} ${title}${BANNER_RESET}"
+}
+
+# Formata contagem: "Label (N)"
+_with_count() {
+  local label="$1"
+  local count="$2"
+  echo "${label} (${count})"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RESUMO DE SELEÇÕES - LAYOUT COM BORDAS
 # ══════════════════════════════════════════════════════════════════════════════
 
 review_selections() {
@@ -834,17 +927,29 @@ review_selections() {
 
     local term_width
     term_width=$(tput cols 2>/dev/null || echo 80)
-    local content_width=$((term_width > 100 ? 90 : term_width - 4))
-    local item_width=$((content_width - 18))
+
+    # Dimensões das tabelas
+    local label_w=20
+    local value_w=$((term_width > 80 ? 42 : term_width - 30))
+    [[ $value_w -lt 25 ]] && value_w=25
 
     echo ""
 
-    # Título centralizado
-    if [[ $term_width -ge 80 ]]; then
-      _draw_box "RESUMO FINAL DAS SELEÇÕES" "$term_width"
-    else
-      echo -e "  ${BANNER_CYAN}${BANNER_BOLD}═══ RESUMO DAS SELEÇÕES ═══${BANNER_RESET}"
-    fi
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TÍTULO PRINCIPAL
+    # ═══════════════════════════════════════════════════════════════════════════
+    local title_w=$((label_w + value_w + 5))
+    local title_line
+    title_line=$(printf '─%.0s' $(seq 1 $((title_w - 2))))
+    echo -e "${BANNER_CYAN}┌${title_line}┐${BANNER_RESET}"
+    local title="📋 RESUMO FINAL DAS SELEÇÕES"
+    local title_pad=$(( (title_w - 2 - ${#title} - 2) / 2 ))  # -2 para emoji
+    printf "${BANNER_CYAN}│${BANNER_RESET}"
+    printf "%${title_pad}s" ""
+    printf "${BANNER_BOLD}%s${BANNER_RESET}" "$title"
+    printf "%$((title_w - 2 - title_pad - ${#title} - 2))s" ""
+    printf "${BANNER_CYAN}│${BANNER_RESET}\n"
+    echo -e "${BANNER_CYAN}└${title_line}┘${BANNER_RESET}"
 
     # Coleta dados
     local selected_shells=()
@@ -863,280 +968,175 @@ review_selections() {
                  ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # LAYOUT RESPONSIVO: 2 colunas (≥100) ou 1 coluna (<100)
+    # SEÇÃO 1: AMBIENTE DE DESENVOLVIMENTO
     # ═══════════════════════════════════════════════════════════════════════════
+    _section_header "🐚" "AMBIENTE DE DESENVOLVIMENTO"
+    _table_sep "$label_w" "$value_w" "┌" "┬" "┐"
 
-    if [[ $term_width -ge 100 ]]; then
-      # ═══════════════════════════════════════════════════════════════════════
-      # LAYOUT 2 COLUNAS
-      # ═══════════════════════════════════════════════════════════════════════
-      local col_width=42
-      local col_item_width=26
+    local shells_str; shells_str=$(_truncate_items "$value_w" "${selected_shells[@]}")
+    _table_row "$(_with_count "Shells" "${#selected_shells[@]}")" "$shells_str" "$label_w" "$value_w"
 
-      echo ""
-      # Cabeçalhos das colunas
-      printf "  ${BANNER_CYAN}${BANNER_BOLD}🐚 SHELL & APARÊNCIA${BANNER_RESET}"
-      printf "%$((col_width - 19))s"
-      printf "${BANNER_CYAN}${BANNER_BOLD}🔧 FERRAMENTAS${BANNER_RESET}\n"
+    local themes_str; themes_str=$(_truncate_items "$value_w" "${themes_selected[@]}")
+    _table_row "$(_with_count "Temas" "${#themes_selected[@]}")" "$themes_str" "$label_w" "$value_w"
 
-      printf "  ${BANNER_DIM}"
-      printf '─%.0s' $(seq 1 36)
-      printf "${BANNER_RESET}    ${BANNER_DIM}"
-      printf '─%.0s' $(seq 1 36)
-      printf "${BANNER_RESET}\n"
-
-      # Linha 1: Shells | CLI Tools
-      local shells_str
-      if [[ ${#selected_shells[@]} -gt 0 ]]; then
-        shells_str="${selected_shells[*]}"
-      else
-        shells_str="(nenhum)"
-      fi
-      local cli_str
-      if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
-        cli_str=$(_truncate_items $col_item_width "${SELECTED_CLI_TOOLS[@]}")
-      else
-        cli_str="(nenhuma)"
-      fi
-      printf "  ${BANNER_DIM}Shells:${BANNER_RESET}       %-${col_item_width}s  ${BANNER_DIM}CLI Tools:${BANNER_RESET}  %s\n" "$shells_str" "$cli_str"
-
-      # Linha 2: Temas | IA Tools
-      local themes_str
-      if [[ ${#themes_selected[@]} -gt 0 ]]; then
-        themes_str="${themes_selected[*]}"
-      else
-        themes_str="(nenhum)"
-      fi
-      local ia_str
-      if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
-        ia_str=$(_truncate_items $col_item_width "${SELECTED_IA_TOOLS[@]}")
-      else
-        ia_str="(nenhuma)"
-      fi
-      printf "  ${BANNER_DIM}Temas:${BANNER_RESET}        %-${col_item_width}s  ${BANNER_DIM}IA Tools:${BANNER_RESET}   %s\n" "$themes_str" "$ia_str"
-
-      # Linha 3: Fontes | Runtimes
-      local fonts_str
-      if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
-        fonts_str=$(_truncate_items $col_item_width "${SELECTED_NERD_FONTS[@]}")
-      else
-        fonts_str="(nenhuma)"
-      fi
-      local rt_str
-      if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
-        rt_str=$(_truncate_items $col_item_width "${SELECTED_RUNTIMES[@]}")
-      else
-        rt_str="(nenhum)"
-      fi
-      printf "  ${BANNER_DIM}Nerd Fonts:${BANNER_RESET}   %-${col_item_width}s  ${BANNER_DIM}Runtimes:${BANNER_RESET}   %s\n" "$fonts_str" "$rt_str"
-
-      # Linha 4: Terminais | GUI Apps
-      local term_str
-      if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
-        term_str=$(_truncate_items $col_item_width "${SELECTED_TERMINALS[@]}")
-      else
-        term_str="(nenhum)"
-      fi
-      local gui_str="$gui_total apps"
-      [[ $gui_total -eq 0 ]] && gui_str="(nenhum)"
-      printf "  ${BANNER_DIM}Terminais:${BANNER_RESET}    %-${col_item_width}s  ${BANNER_DIM}GUI Apps:${BANNER_RESET}   %s\n" "$term_str" "$gui_str"
-
-      # Detalhes de temas (se houver)
-      if [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -n "${SELECTED_STARSHIP_PRESET:-}" ]]; then
-        local starship_detail="${SELECTED_STARSHIP_PRESET}"
-        [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]] && starship_detail+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
-        printf "  ${BANNER_DIM}  └─ Starship:${BANNER_RESET} ${BANNER_YELLOW}%s${BANNER_RESET}\n" "$starship_detail"
-      fi
-      [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && printf "  ${BANNER_DIM}  └─ OMP:${BANNER_RESET}      ${BANNER_YELLOW}%s${BANNER_RESET}\n" "${SELECTED_OMP_THEME:-padrão}"
-
-      # GUI Apps detalhados (se houver)
-      if [[ $gui_total -gt 0 ]]; then
-        echo ""
-        printf "  ${BANNER_CYAN}${BANNER_BOLD}📦 APPS GUI DETALHADOS${BANNER_RESET}\n"
-        printf "  ${BANNER_DIM}"
-        printf '─%.0s' $(seq 1 78)
-        printf "${BANNER_RESET}\n"
-
-        local detail_width=34
-        [[ ${#SELECTED_IDES[@]} -gt 0 ]] && printf "  ${BANNER_DIM}IDEs:${BANNER_RESET}         %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_IDES[@]}")"
-        [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Browsers:${BANNER_RESET}   %s" "$(_truncate_items $detail_width "${SELECTED_BROWSERS[@]}")"
-        [[ ${#SELECTED_IDES[@]} -gt 0 ]] || [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && echo ""
-
-        [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Dev Tools:${BANNER_RESET}    %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_DEV_TOOLS[@]}")"
-        [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Databases:${BANNER_RESET}  %s" "$(_truncate_items $detail_width "${SELECTED_DATABASES[@]}")"
-        [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] || [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && echo ""
-
-        [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Produtiv.:${BANNER_RESET}    %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_PRODUCTIVITY[@]}")"
-        [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Comunic.:${BANNER_RESET}   %s" "$(_truncate_items $detail_width "${SELECTED_COMMUNICATION[@]}")"
-        [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] || [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && echo ""
-
-        [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Mídia:${BANNER_RESET}        %-${detail_width}s" "$(_truncate_items $detail_width "${SELECTED_MEDIA[@]}")"
-        [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && printf "  ${BANNER_DIM}Utilit.:${BANNER_RESET}    %s" "$(_truncate_items $detail_width "${SELECTED_UTILITIES[@]}")"
-        [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] || [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && echo ""
-      fi
-
+    local term_str
+    if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
+      term_str=$(_truncate_items "$value_w" "${SELECTED_TERMINALS[@]}")
     else
-      # ═══════════════════════════════════════════════════════════════════════
-      # LAYOUT 1 COLUNA (terminais menores)
-      # ═══════════════════════════════════════════════════════════════════════
+      term_str="(nenhum)"
+    fi
+    _table_row "$(_with_count "Terminal" "${#SELECTED_TERMINALS[@]}")" "$term_str" "$label_w" "$value_w"
 
-      _print_section "SHELL & APARÊNCIA" "🐚" "$term_width"
+    local fonts_str
+    if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
+      fonts_str=$(_truncate_items "$value_w" "${SELECTED_NERD_FONTS[@]}")
+    else
+      fonts_str="(nenhuma)"
+    fi
+    _table_row "$(_with_count "Nerd Fonts" "${#SELECTED_NERD_FONTS[@]}")" "$fonts_str" "$label_w" "$value_w"
 
-      local shells_str="${selected_shells[*]:-}"
-      [[ -z "$shells_str" ]] && shells_str="(nenhum)"
-      _print_row "Shells:" "$shells_str"
+    _table_sep "$label_w" "$value_w" "└" "┴" "┘"
 
-      local themes_str="${themes_selected[*]:-}"
-      [[ -z "$themes_str" ]] && themes_str="(nenhum)"
-      _print_row "Temas:" "$themes_str"
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEÇÃO 2: FERRAMENTAS & RUNTIMES
+    # ═══════════════════════════════════════════════════════════════════════════
+    _section_header "🔧" "FERRAMENTAS & RUNTIMES"
+    _table_sep "$label_w" "$value_w" "┌" "┬" "┐"
 
-      if [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -n "${SELECTED_STARSHIP_PRESET:-}" ]]; then
-        local starship_detail="${SELECTED_STARSHIP_PRESET}"
-        [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]] && starship_detail+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
-        echo -e "    ${BANNER_DIM}└─${BANNER_RESET} ${BANNER_YELLOW}$starship_detail${BANNER_RESET}"
-      fi
-      [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && echo -e "    ${BANNER_DIM}└─${BANNER_RESET} ${BANNER_YELLOW}OMP: ${SELECTED_OMP_THEME:-padrão}${BANNER_RESET}"
+    local cli_str
+    if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
+      cli_str=$(_truncate_items "$value_w" "${SELECTED_CLI_TOOLS[@]}")
+    else
+      cli_str="(nenhuma)"
+    fi
+    _table_row "$(_with_count "CLI Tools" "${#SELECTED_CLI_TOOLS[@]}")" "$cli_str" "$label_w" "$value_w"
 
-      local fonts_str
-      if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
-        fonts_str=$(_truncate_items $item_width "${SELECTED_NERD_FONTS[@]}")
-      else
-        fonts_str="(nenhuma)"
-      fi
-      _print_row "Nerd Fonts:" "$fonts_str"
+    local ia_str
+    if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
+      ia_str=$(_truncate_items "$value_w" "${SELECTED_IA_TOOLS[@]}")
+    else
+      ia_str="(nenhuma)"
+    fi
+    _table_row "$(_with_count "IA Tools" "${#SELECTED_IA_TOOLS[@]}")" "$ia_str" "$label_w" "$value_w"
 
-      local term_str
-      if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
-        term_str=$(_truncate_items $item_width "${SELECTED_TERMINALS[@]}")
-      else
-        term_str="(nenhum)"
-      fi
-      _print_row "Terminais:" "$term_str"
+    local rt_str
+    if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
+      rt_str=$(_truncate_items "$value_w" "${SELECTED_RUNTIMES[@]}")
+    else
+      rt_str="(nenhum)"
+    fi
+    _table_row "$(_with_count "Runtimes" "${#SELECTED_RUNTIMES[@]}")" "$rt_str" "$label_w" "$value_w"
 
-      _print_section "FERRAMENTAS" "🔧" "$term_width"
+    _table_sep "$label_w" "$value_w" "└" "┴" "┘"
 
-      local cli_str
-      if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
-        cli_str=$(_truncate_items $item_width "${SELECTED_CLI_TOOLS[@]}")
-      else
-        cli_str="(nenhuma)"
-      fi
-      _print_row "CLI Tools:" "$cli_str"
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEÇÃO 3: APLICATIVOS GUI
+    # ═══════════════════════════════════════════════════════════════════════════
+    if [[ $gui_total -gt 0 ]]; then
+      _section_header "📦" "APLICATIVOS GUI ($gui_total apps)"
+      _table_sep "$label_w" "$value_w" "┌" "┬" "┐"
 
-      local ia_str
-      if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
-        ia_str=$(_truncate_items $item_width "${SELECTED_IA_TOOLS[@]}")
-      else
-        ia_str="(nenhuma)"
-      fi
-      _print_row "IA Tools:" "$ia_str"
+      [[ ${#SELECTED_IDES[@]} -gt 0 ]] && _table_row "IDEs" "$(_truncate_items "$value_w" "${SELECTED_IDES[@]}")" "$label_w" "$value_w"
+      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && _table_row "Navegadores" "$(_truncate_items "$value_w" "${SELECTED_BROWSERS[@]}")" "$label_w" "$value_w"
+      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && _table_row "Dev Tools" "$(_truncate_items "$value_w" "${SELECTED_DEV_TOOLS[@]}")" "$label_w" "$value_w"
+      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && _table_row "Bancos" "$(_truncate_items "$value_w" "${SELECTED_DATABASES[@]}")" "$label_w" "$value_w"
+      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && _table_row "Produtividade" "$(_truncate_items "$value_w" "${SELECTED_PRODUCTIVITY[@]}")" "$label_w" "$value_w"
+      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _table_row "Comunicação" "$(_truncate_items "$value_w" "${SELECTED_COMMUNICATION[@]}")" "$label_w" "$value_w"
+      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && _table_row "Mídia" "$(_truncate_items "$value_w" "${SELECTED_MEDIA[@]}")" "$label_w" "$value_w"
+      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && _table_row "Utilitários" "$(_truncate_items "$value_w" "${SELECTED_UTILITIES[@]}")" "$label_w" "$value_w"
 
-      local rt_str
-      if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
-        rt_str=$(_truncate_items $item_width "${SELECTED_RUNTIMES[@]}")
-      else
-        rt_str="(nenhum)"
-      fi
-      _print_row "Runtimes:" "$rt_str"
-
-      _print_section "APPS GUI" "📦" "$term_width"
-
-      if [[ $gui_total -gt 0 ]]; then
-        _print_row "Total:" "$gui_total apps selecionados" 14 "$BANNER_GREEN"
-        [[ ${#SELECTED_IDES[@]} -gt 0 ]] && _print_row "  IDEs:" "$(_truncate_items $((item_width-4)) "${SELECTED_IDES[@]}")"
-        [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && _print_row "  Browsers:" "$(_truncate_items $((item_width-4)) "${SELECTED_BROWSERS[@]}")"
-        [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && _print_row "  Dev Tools:" "$(_truncate_items $((item_width-4)) "${SELECTED_DEV_TOOLS[@]}")"
-        [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && _print_row "  Databases:" "$(_truncate_items $((item_width-4)) "${SELECTED_DATABASES[@]}")"
-        [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && _print_row "  Produtiv.:" "$(_truncate_items $((item_width-4)) "${SELECTED_PRODUCTIVITY[@]}")"
-        [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _print_row "  Comunic.:" "$(_truncate_items $((item_width-4)) "${SELECTED_COMMUNICATION[@]}")"
-        [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && _print_row "  Mídia:" "$(_truncate_items $((item_width-4)) "${SELECTED_MEDIA[@]}")"
-        [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && _print_row "  Utilit.:" "$(_truncate_items $((item_width-4)) "${SELECTED_UTILITIES[@]}")"
-      else
-        _print_row "Total:" "(nenhum)"
-      fi
+      _table_sep "$label_w" "$value_w" "└" "┴" "┘"
     fi
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # CONFIGURAÇÕES (comum aos dois layouts)
+    # SEÇÃO 4: CONFIGURAÇÕES A COPIAR
     # ═══════════════════════════════════════════════════════════════════════════
+    _section_header "📋" "CONFIGURAÇÕES A COPIAR"
 
-    echo ""
-    printf "  ${BANNER_CYAN}${BANNER_BOLD}⚙️  CONFIGURAÇÕES${BANNER_RESET}\n"
-    local cfg_line_len=$((term_width > 80 ? 78 : term_width - 6))
-    printf "  ${BANNER_DIM}"
-    printf '─%.0s' $(seq 1 "$cfg_line_len")
-    printf "${BANNER_RESET}\n"
+    local cfg_w=$((label_w + value_w + 5))
+    local cfg_line
+    cfg_line=$(printf '─%.0s' $(seq 1 $((cfg_w - 2))))
+    echo -e "${BANNER_CYAN}┌${cfg_line}┐${BANNER_RESET}"
 
-    # VS Code Extensions
-    if [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
-      local ext_count
-      ext_count=$(wc -l < "$CONFIG_SHARED/vscode/extensions.txt" 2>/dev/null || echo "?")
-      if [[ ${INSTALL_VSCODE_EXTENSIONS:-0} -eq 1 ]]; then
-        _print_row "VS Code Ext:" "$ext_count extensões" 14 "$BANNER_GREEN"
-      else
-        _print_row "VS Code Ext:" "(não instalar)"
-      fi
-    fi
+    # Grid horizontal de configs
+    local cfg_items=()
 
-    # Neovim & tmux
-    if [[ ${INSTALL_NEOVIM:-0} -eq 1 ]] || [[ ${INSTALL_TMUX:-0} -eq 1 ]]; then
-      local editor_str=""
-      [[ ${INSTALL_NEOVIM:-0} -eq 1 ]] && editor_str="Neovim (${SELECTED_NVIM_DISTRO:-custom})"
-      [[ ${INSTALL_TMUX:-0} -eq 1 ]] && editor_str="${editor_str:+$editor_str, }tmux (${SELECTED_TMUX_CONFIG:-custom})"
-      _print_row "Editor/IDE:" "$editor_str" 14 "$BANNER_GREEN"
-      if [[ ${#SELECTED_NVIM_AI[@]} -gt 0 ]]; then
-        _print_row "  └─ IA:" "${SELECTED_NVIM_AI[*]}"
-      fi
-      if [[ ${#SELECTED_NVIM_DEVOPS[@]} -gt 0 ]]; then
-        _print_row "  └─ DevOps:" "${SELECTED_NVIM_DEVOPS[*]}"
-      fi
-    fi
+    # Shells
+    [[ ${INSTALL_ZSH:-0} -eq 1 ]] && {
+      [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Zsh") || cfg_items+=("${BANNER_DIM}✗ Zsh${BANNER_RESET}")
+    }
+    [[ ${INSTALL_FISH:-0} -eq 1 ]] && {
+      [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Fish") || cfg_items+=("${BANNER_DIM}✗ Fish${BANNER_RESET}")
+    }
+    [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && {
+      [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Nushell") || cfg_items+=("${BANNER_DIM}✗ Nushell${BANNER_RESET}")
+    }
 
     # Git
-    if [[ -n "${GIT_USER_NAME:-}" ]] || [[ -n "${GIT_USER_EMAIL:-}" ]]; then
-      _print_row "Git Config:" "${GIT_USER_NAME:-?} <${GIT_USER_EMAIL:-?}>"
+    [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && {
+      [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Git") || cfg_items+=("${BANNER_DIM}✗ Git${BANNER_RESET}")
+    }
+
+    # Neovim (se selecionado em IDEs)
+    local has_neovim=0
+    for ide in "${SELECTED_IDES[@]}"; do [[ "$ide" == "neovim" ]] && has_neovim=1 && break; done
+    [[ $has_neovim -eq 1 ]] && {
+      [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Neovim") || cfg_items+=("${BANNER_DIM}✗ Neovim${BANNER_RESET}")
+    }
+
+    # tmux (se selecionado em CLI Tools)
+    local has_tmux=0
+    for tool in "${SELECTED_CLI_TOOLS[@]}"; do [[ "$tool" == "tmux" ]] && has_tmux=1 && break; done
+    [[ $has_tmux -eq 1 ]] && {
+      [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} tmux") || cfg_items+=("${BANNER_DIM}✗ tmux${BANNER_RESET}")
+    }
+
+    # VS Code
+    if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
+      [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} VS Code") || cfg_items+=("${BANNER_DIM}✗ VS Code${BANNER_RESET}")
     fi
 
-    # SSH Keys
-    local ssh_source=""
-    if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
-      ssh_source="$PRIVATE_SHARED/.ssh"
-    elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
-      ssh_source="$CONFIG_SHARED/.ssh"
-    fi
-    if [[ -n "$ssh_source" ]]; then
-      echo ""
-      echo -e "  ${BANNER_YELLOW}⚠ Chaves SSH serão copiadas de ${ssh_source}${BANNER_RESET}"
-    fi
+    # Mise
+    [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Mise")
+
+    # Imprimir configs em grid (3-4 por linha)
+    local line_content=""
+    local item_count=0
+    local items_per_line=4
+    [[ $term_width -lt 80 ]] && items_per_line=3
+
+    for cfg in "${cfg_items[@]}"; do
+      if [[ -n "$line_content" ]]; then
+        line_content+="   "
+      fi
+      line_content+="$cfg"
+      ((item_count++))
+
+      if [[ $item_count -ge $items_per_line ]]; then
+        printf "${BANNER_CYAN}│${BANNER_RESET} %-$((cfg_w - 3))b ${BANNER_CYAN}│${BANNER_RESET}\n" "$line_content"
+        line_content=""
+        item_count=0
+      fi
+    done
+
+    # Imprimir linha restante
+    [[ -n "$line_content" ]] && printf "${BANNER_CYAN}│${BANNER_RESET} %-$((cfg_w - 3))b ${BANNER_CYAN}│${BANNER_RESET}\n" "$line_content"
+
+    # Se não houver configs
+    [[ ${#cfg_items[@]} -eq 0 ]] && printf "${BANNER_CYAN}│${BANNER_RESET} ${BANNER_DIM}(nenhuma configuração selecionada)${BANNER_RESET}%*s${BANNER_CYAN}│${BANNER_RESET}\n" $((cfg_w - 37)) ""
+
+    echo -e "${BANNER_CYAN}└${cfg_line}┘${BANNER_RESET}"
+    echo -e "${BANNER_DIM}💾 Backup automático em ~/.bkp-YYYYMMDD-HHMM/${BANNER_RESET}"
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # MENU DE AÇÕES
+    # MENU SIMPLIFICADO
     # ═══════════════════════════════════════════════════════════════════════════
-
     echo ""
-    local menu_width=$((term_width > 70 ? 66 : term_width - 4))
     local menu_line
-    menu_line=$(printf '─%.0s' $(seq 1 $((menu_width - 2))))
-
-    echo -e "${BANNER_CYAN}┌${menu_line}┐${BANNER_RESET}"
-    echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_BOLD}AÇÕES${BANNER_RESET}$(printf '%*s' $((menu_width - 9)) '')${BANNER_CYAN}│${BANNER_RESET}"
-    echo -e "${BANNER_CYAN}├${menu_line}┤${BANNER_RESET}"
-
-    if [[ $term_width -ge 70 ]]; then
-      echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_GREEN}[Enter/C]${BANNER_RESET} Iniciar instalação    ${BANNER_YELLOW}[S]${BANNER_RESET} Sair sem instalar$(printf '%*s' $((menu_width - 54)) '')${BANNER_CYAN}│${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}├${menu_line}┤${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_DIM}Editar:${BANNER_RESET}$(printf '%*s' $((menu_width - 10)) '')${BANNER_CYAN}│${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}│${BANNER_RESET}  [1] Shells/temas   [4] CLI Tools   [7] Runtimes$(printf '%*s' $((menu_width - 51)) '')${BANNER_CYAN}│${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}│${BANNER_RESET}  [2] Nerd Fonts     [5] IA Tools    [8] Git$(printf '%*s' $((menu_width - 46)) '')${BANNER_CYAN}│${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}│${BANNER_RESET}  [3] Terminais      [6] GUI Apps    [9] VS Code$(printf '%*s' $((menu_width - 50)) '')${BANNER_CYAN}│${BANNER_RESET}"
-    else
-      echo -e "${BANNER_CYAN}│${BANNER_RESET} ${BANNER_GREEN}[C]${BANNER_RESET} Instalar  ${BANNER_YELLOW}[S]${BANNER_RESET} Sair$(printf '%*s' $((menu_width - 25)) '')${BANNER_CYAN}│${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}├${menu_line}┤${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}│${BANNER_RESET} [1-3] Shell  [4-6] Tools$(printf '%*s' $((menu_width - 26)) '')${BANNER_CYAN}│${BANNER_RESET}"
-      echo -e "${BANNER_CYAN}│${BANNER_RESET} [7-9] Config$(printf '%*s' $((menu_width - 14)) '')${BANNER_CYAN}│${BANNER_RESET}"
-    fi
-
-    echo -e "${BANNER_CYAN}└${menu_line}┘${BANNER_RESET}"
+    menu_line=$(printf '═%.0s' $(seq 1 $((cfg_w))))
+    echo -e "${BANNER_CYAN}${menu_line}${BANNER_RESET}"
+    echo -e "${BANNER_GREEN}[Enter/C]${BANNER_RESET} Instalar   ${BANNER_YELLOW}[S]${BANNER_RESET} Sair   ${BANNER_DIM}[1-8]${BANNER_RESET} Editar seção   ${BANNER_DIM}[0]${BANNER_RESET} Configs"
+    echo -e "${BANNER_CYAN}${menu_line}${BANNER_RESET}"
     echo ""
     read -r -p "Escolha: " choice
     case "$choice" in
@@ -1178,8 +1178,8 @@ review_selections() {
       8)
         ask_git_configuration
         ;;
-      9)
-        ask_vscode_extensions
+      0)
+        ask_configs_to_copy
         ;;
       *)
         msg "  ⚠️ Opção inválida."
@@ -1198,6 +1198,140 @@ ask_yes_no() {
       [SsYy]*) return 0 ;;
       [Nn]*) return 1 ;;
       *) msg "  ⚠️ Responda 's' para sim ou 'n' para não" ;;
+    esac
+  done
+}
+
+# Confirmação moderna com Enter/P (Pular)
+# Retorna 0 se confirmar (Enter), 1 se pular (P)
+confirm_action() {
+  local prompt="$1"
+  echo ""
+  echo -e "  ${UI_CYAN}Enter${UI_RESET} para $prompt  │  ${UI_YELLOW}P${UI_RESET} para pular"
+  echo ""
+  local choice
+  read -r -p "  → " choice
+  case "${choice,,}" in
+    p|pular|skip) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SELEÇÃO DE CONFIGURAÇÕES A COPIAR
+# ══════════════════════════════════════════════════════════════════════════════
+ask_configs_to_copy() {
+  local config_options=()
+  local config_keys=()
+
+  # Construir lista de opções disponíveis
+  if [[ ${INSTALL_ZSH:-0} -eq 1 ]]; then
+    config_options+=("zsh-config      - Zsh (~/.zshrc, .p10k.zsh)")
+    config_keys+=("COPY_ZSH_CONFIG")
+  fi
+
+  if [[ ${INSTALL_FISH:-0} -eq 1 ]]; then
+    config_options+=("fish-config     - Fish (~/.config/fish/)")
+    config_keys+=("COPY_FISH_CONFIG")
+  fi
+
+  if [[ ${INSTALL_NUSHELL:-0} -eq 1 ]]; then
+    config_options+=("nushell-config  - Nushell (~/.config/nushell/)")
+    config_keys+=("COPY_NUSHELL_CONFIG")
+  fi
+
+  if [[ ${GIT_CONFIGURE:-0} -eq 1 ]]; then
+    config_options+=("git-config      - Git (~/.gitconfig)")
+    config_keys+=("COPY_GIT_CONFIG")
+  fi
+
+  # Neovim config - mostrar se tem config salva E neovim selecionado em IDEs
+  if [[ -d "$CONFIG_SHARED/nvim" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/nvim" 2>/dev/null)" ]]; then
+    local has_neovim=0
+    for ide in "${SELECTED_IDES[@]}"; do
+      [[ "$ide" == "neovim" ]] && has_neovim=1 && break
+    done
+    if [[ $has_neovim -eq 1 ]]; then
+      config_options+=("nvim-config     - Neovim (~/.config/nvim/)")
+      config_keys+=("COPY_NVIM_CONFIG")
+    fi
+  fi
+
+  # Tmux config - mostrar se tem config salva E tmux selecionado em CLI Tools
+  if [[ -d "$CONFIG_SHARED/tmux" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/tmux" 2>/dev/null)" ]]; then
+    local has_tmux=0
+    for tool in "${SELECTED_CLI_TOOLS[@]}"; do
+      [[ "$tool" == "tmux" ]] && has_tmux=1 && break
+    done
+    if [[ $has_tmux -eq 1 ]]; then
+      config_options+=("tmux-config     - Tmux (~/.tmux.conf)")
+      config_keys+=("COPY_TMUX_CONFIG")
+    fi
+  fi
+
+  if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
+    config_options+=("terminal-config - Terminal (ghostty, kitty, etc)")
+    config_keys+=("COPY_TERMINAL_CONFIG")
+  fi
+
+  if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
+    config_options+=("mise-config     - Mise (~/.config/mise/)")
+    config_keys+=("COPY_MISE_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
+    config_options+=("vscode-config   - VS Code (settings + extensões)")
+    config_keys+=("COPY_VSCODE_SETTINGS")
+  fi
+
+  # SSH Keys - sempre mostrar se existir
+  local ssh_source=""
+  if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
+    ssh_source="$PRIVATE_SHARED/.ssh"
+  elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
+    ssh_source="$CONFIG_SHARED/.ssh"
+  fi
+  if [[ -n "$ssh_source" ]]; then
+    config_options+=("ssh-keys        - SSH Keys (~/.ssh/) ⚠️ SENSÍVEL")
+    config_keys+=("COPY_SSH_KEYS")
+  fi
+
+  if [[ ${#config_options[@]} -eq 0 ]]; then
+    msg "  ℹ️  Nenhuma configuração disponível para copiar."
+    msg ""
+    return 0
+  fi
+
+  # Resetar todas as variáveis COPY_* para 0 antes da seleção
+  for key in "${config_keys[@]}"; do
+    eval "$key=0"
+  done
+
+  clear_screen
+  show_section_header "📋 CONFIGURAÇÕES A COPIAR"
+
+  msg "Selecione quais configurações do repositório serão copiadas."
+  msg "💾 Um backup será criado automaticamente antes de sobrescrever."
+  msg ""
+
+  local selected_configs=()
+  select_multiple_items "📋 Selecione as Configs a Copiar" selected_configs "${config_options[@]}"
+
+  # Mapear seleções para variáveis COPY_*
+  for item in "${selected_configs[@]}"; do
+    local config_id
+    config_id="$(echo "$item" | awk '{print $1}')"
+    case "$config_id" in
+      "zsh-config")      COPY_ZSH_CONFIG=1 ;;
+      "fish-config")     COPY_FISH_CONFIG=1 ;;
+      "nushell-config")  COPY_NUSHELL_CONFIG=1 ;;
+      "git-config")      COPY_GIT_CONFIG=1 ;;
+      "nvim-config")     COPY_NVIM_CONFIG=1 ;;
+      "tmux-config")     COPY_TMUX_CONFIG=1 ;;
+      "terminal-config") COPY_TERMINAL_CONFIG=1 ;;
+      "mise-config")     COPY_MISE_CONFIG=1 ;;
+      "vscode-config")   COPY_VSCODE_SETTINGS=1 ;;
+      "ssh-keys")        COPY_SSH_KEYS=1 ;;
     esac
   done
 }
@@ -2196,7 +2330,7 @@ apply_shared_configs() {
   msg "▶ Copiando configs compartilhadas"
 
   # Fish config
-  if is_truthy "$INSTALL_FISH" && has_cmd fish; then
+  if is_truthy "$INSTALL_FISH" && has_cmd fish && [[ ${COPY_FISH_CONFIG:-1} -eq 1 ]]; then
     # Preservar configurações de PATH do config.fish existente
     local preserved_fish_config=""
     preserved_fish_config="$(extract_user_path_config_fish)"
@@ -2209,12 +2343,14 @@ apply_shared_configs() {
       msg "  🔄 Verificando configurações de PATH para preservar..."
       append_preserved_config "$HOME/.config/fish/config.fish" "$preserved_fish_config"
     fi
-  else
-    msg "  ⚠️ Fish não selecionado/encontrado, pulando config."
+  elif is_truthy "$INSTALL_FISH" && [[ ${COPY_FISH_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Fish config: usuário optou por não copiar"
+  elif is_truthy "$INSTALL_FISH" && ! has_cmd fish; then
+    msg "  ⚠️ Fish não encontrado, pulando config."
   fi
 
   # Zsh config
-  if is_truthy "$INSTALL_ZSH" && has_cmd zsh; then
+  if is_truthy "$INSTALL_ZSH" && has_cmd zsh && [[ ${COPY_ZSH_CONFIG:-1} -eq 1 ]]; then
     # Preservar configurações de PATH do .zshrc existente
     local preserved_zsh_config=""
     preserved_zsh_config="$(extract_user_path_config_zsh)"
@@ -2233,22 +2369,26 @@ apply_shared_configs() {
     else
       msg "  ⚠️ Powerlevel10k não encontrado em ~/.oh-my-zsh, pulando .p10k.zsh."
     fi
-  else
-    msg "  ⚠️ Zsh não selecionado/encontrado, pulando .zshrc."
+  elif is_truthy "$INSTALL_ZSH" && [[ ${COPY_ZSH_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Zsh config: usuário optou por não copiar"
+  elif is_truthy "$INSTALL_ZSH" && ! has_cmd zsh; then
+    msg "  ⚠️ Zsh não encontrado, pulando .zshrc."
   fi
 
-  if is_truthy "$INSTALL_NUSHELL" && has_cmd nu; then
+  # Nushell config
+  if is_truthy "$INSTALL_NUSHELL" && has_cmd nu && [[ ${COPY_NUSHELL_CONFIG:-1} -eq 1 ]]; then
     mkdir -p "$HOME/.config/nushell"
     copy_file "$CONFIG_SHARED/nushell/config.nu" "$HOME/.config/nushell/config.nu"
     copy_file "$CONFIG_SHARED/nushell/env.nu" "$HOME/.config/nushell/env.nu"
     mkdir -p "$HOME/.config/nushell/scripts"
-  else
-    if is_truthy "$INSTALL_NUSHELL"; then
-      msg "  ⚠️ Nushell não encontrado após instalação, pulando config."
-    fi
+  elif is_truthy "$INSTALL_NUSHELL" && [[ ${COPY_NUSHELL_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Nushell config: usuário optou por não copiar"
+  elif is_truthy "$INSTALL_NUSHELL" && ! has_cmd nu; then
+    msg "  ⚠️ Nushell não encontrado após instalação, pulando config."
   fi
 
-  if has_cmd git; then
+  # Git config
+  if has_cmd git && [[ ${COPY_GIT_CONFIG:-1} -eq 1 ]]; then
     local git_base="$CONFIG_SHARED/git/.gitconfig"
     local git_personal="$CONFIG_SHARED/git/.gitconfig-personal"
     local git_work="$CONFIG_SHARED/git/.gitconfig-work"
@@ -2262,50 +2402,69 @@ apply_shared_configs() {
     copy_file "$git_base" "$HOME/.gitconfig"
     [[ -f "$git_personal" ]] && copy_file "$git_personal" "$HOME/.gitconfig-personal"
     [[ -f "$git_work" ]] && copy_file "$git_work" "$HOME/.gitconfig-work"
-  else
+  elif [[ ${COPY_GIT_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Git config: usuário optou por não copiar"
+  elif ! has_cmd git; then
     msg "  ⚠️ Git não encontrado, pulando .gitconfig."
   fi
 
-  if has_cmd mise; then
+  # Mise config
+  if has_cmd mise && [[ ${COPY_MISE_CONFIG:-1} -eq 1 ]]; then
     copy_dir "$CONFIG_SHARED/mise" "$HOME/.config/mise"
-  else
+  elif [[ ${COPY_MISE_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Mise config: usuário optou por não copiar"
+  elif ! has_cmd mise; then
     msg "  ⚠️ Mise não encontrado, pulando config."
   fi
 
-  if has_cmd nvim; then
+  # Neovim config
+  if has_cmd nvim && [[ ${COPY_NVIM_CONFIG:-1} -eq 1 ]]; then
     copy_dir "$CONFIG_SHARED/nvim" "$HOME/.config/nvim"
-  else
+  elif [[ ${COPY_NVIM_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Neovim config: usuário optou por não copiar"
+  elif ! has_cmd nvim; then
     msg "  ⚠️ Neovim não encontrado, pulando config."
   fi
 
-  if has_cmd tmux; then
+  # Tmux config
+  if has_cmd tmux && [[ ${COPY_TMUX_CONFIG:-1} -eq 1 ]]; then
     copy_file "$CONFIG_SHARED/tmux/.tmux.conf" "$HOME/.tmux.conf"
-  else
+  elif [[ ${COPY_TMUX_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Tmux config: usuário optou por não copiar"
+  elif ! has_cmd tmux; then
     msg "  ⚠️ tmux não encontrado, pulando .tmux.conf."
   fi
 
-  copy_vscode_settings
-
-  local ssh_source=""
-  if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
-    ssh_source="$PRIVATE_SHARED/.ssh"
-  elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
-    ssh_source="$CONFIG_SHARED/.ssh"
+  # VS Code settings
+  if [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]]; then
+    copy_vscode_settings
+  else
+    msg "  ⏭️  VS Code settings: usuário optou por não copiar"
   fi
-  if [[ -n "$ssh_source" ]]; then
-    msg "  🔐 Copiando chaves SSH..."
-    copy_dir "$ssh_source" "$HOME/.ssh"
-    set_ssh_permissions
-    msg "  ✓ Chaves SSH copiadas com permissões corretas (700/600)"
+
+  # SSH Keys
+  if [[ ${COPY_SSH_KEYS:-0} -eq 1 ]]; then
+    local ssh_source=""
+    if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
+      ssh_source="$PRIVATE_SHARED/.ssh"
+    elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
+      ssh_source="$CONFIG_SHARED/.ssh"
+    fi
+    if [[ -n "$ssh_source" ]]; then
+      msg "  🔐 Copiando chaves SSH..."
+      copy_dir "$ssh_source" "$HOME/.ssh"
+      set_ssh_permissions
+      msg "  ✓ Chaves SSH copiadas com permissões corretas (700/600)"
+    fi
+  else
+    msg "  ⏭️  SSH Keys: usuário optou por não copiar (padrão por segurança)"
   fi
 }
 
 
 
 copy_vscode_settings() {
-  # Só copiar settings se o usuário escolheu instalar VS Code extensions
-  [[ "${INSTALL_VSCODE_EXTENSIONS:-0}" -eq 1 ]] || return
-
+  # COPY_VSCODE_SETTINGS já foi verificado pelo chamador (apply_shared_configs)
   local settings_file="$CONFIG_SHARED/vscode/settings.json"
   [[ -f "$settings_file" ]] || return
 
@@ -2349,7 +2508,11 @@ apply_linux_configs() {
   [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
   [[ -d "$source_dir" ]] || return
   msg "▶ Copiando configs Linux"
-  copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+    copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"
+  else
+    msg "  ⏭️  Terminal config: usuário optou por não copiar"
+  fi
 }
 
 apply_macos_configs() {
@@ -2359,7 +2522,11 @@ apply_macos_configs() {
   msg "▶ Copiando configs macOS"
 
   # Ghostty terminal
-  copy_dir "$source_dir/ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+    copy_dir "$source_dir/ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
+  else
+    msg "  ⏭️  Terminal config (Ghostty): usuário optou por não copiar"
+  fi
 
   # Rectangle window manager
   if [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
@@ -2383,8 +2550,12 @@ apply_macos_configs() {
 apply_windows_configs() {
   [[ -d "$CONFIG_WINDOWS" ]] || return
   msg "▶ Copiando configs Windows"
-  copy_windows_terminal_settings
-  copy_windows_powershell_profiles
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+    copy_windows_terminal_settings
+    copy_windows_powershell_profiles
+  else
+    msg "  ⏭️  Terminal config: usuário optou por não copiar"
+  fi
 }
 
 copy_windows_terminal_settings() {
@@ -2446,7 +2617,9 @@ export_vscode_extensions() {
 install_vscode_extensions() {
   local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
 
-  if [[ $INSTALL_VSCODE_EXTENSIONS -ne 1 ]]; then
+  # Instalar extensões se COPY_VSCODE_SETTINGS estiver habilitado
+  if [[ ${COPY_VSCODE_SETTINGS:-1} -ne 1 ]]; then
+    msg "  ⏭️  VS Code extensions: usuário optou por não copiar/instalar"
     return
   fi
 
@@ -2741,16 +2914,8 @@ main() {
   # GUI Apps
   ask_gui_apps
 
-  # VS Code Extensions
-  if [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
-    ask_vscode_extensions
-  fi
-
   # Runtimes (Node/Python/PHP/etc via mise)
   ask_runtimes
-
-  # Editor/IDE (Neovim distributions + tmux)
-  ask_editors
 
   # Git Configuration
   ask_git_configuration

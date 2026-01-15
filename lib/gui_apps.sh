@@ -120,15 +120,6 @@ select_apps() {
 }
 
 ask_gui_apps() {
-  SELECTED_IDES=()
-  SELECTED_BROWSERS=()
-  SELECTED_DEV_TOOLS=()
-  SELECTED_DATABASES=()
-  SELECTED_PRODUCTIVITY=()
-  SELECTED_COMMUNICATION=()
-  SELECTED_MEDIA=()
-  SELECTED_UTILITIES=()
-
   if [[ "$INTERACTIVE_GUI_APPS" != "true" ]]; then
     SELECTED_IDES=("${IDES[@]}")
     SELECTED_BROWSERS=("${BROWSERS[@]}")
@@ -141,13 +132,20 @@ ask_gui_apps() {
     return 0
   fi
 
-  clear_screen
-  show_section_header "🖥️  APLICATIVOS GUI"
+  while true; do
+    SELECTED_IDES=()
+    SELECTED_BROWSERS=()
+    SELECTED_DEV_TOOLS=()
+    SELECTED_DATABASES=()
+    SELECTED_PRODUCTIVITY=()
+    SELECTED_COMMUNICATION=()
+    SELECTED_MEDIA=()
+    SELECTED_UTILITIES=()
+
+    clear_screen
+    show_section_header "🖥️  APLICATIVOS GUI"
 
   msg "Selecione os aplicativos gráficos que você deseja instalar."
-  if _gui_has_modern_ui && has_cmd fzf; then
-    msg "💡 Use Tab para selecionar, Ctrl+A para todos, Enter para confirmar"
-  fi
   msg ""
 
   # ═══════════════════════════════════════════════════════════
@@ -300,30 +298,34 @@ ask_gui_apps() {
     msg "  🍺 BREWFILE (APENAS macOS)"
     msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     msg "  O Brewfile contém apps adicionais (Arc, iTerm2, Raycast, Rectangle, etc.)"
-    if ask_yes_no "  Instalar apps do Brewfile?"; then
+    msg ""
+    echo -e "  ${UI_GREEN}Enter${UI_RESET} para incluir Brewfile  │  ${UI_YELLOW}P${UI_RESET} para pular"
+    local brewfile_choice
+    read -r -p "  → " brewfile_choice
+    if [[ "${brewfile_choice,,}" != "p" ]]; then
       export INSTALL_BREWFILE=true
     else
       export INSTALL_BREWFILE=false
     fi
   fi
 
-  # Mostrar resumo e confirmar
-  msg ""
-  _show_gui_selection_summary
-  echo ""
-  echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
-  echo ""
+    # Mostrar resumo e confirmar
+    msg ""
+    _show_gui_selection_summary
 
-  local choice
-  read -r -p "  → " choice
+    # Calcular total de apps selecionados
+    local gui_total=0
+    gui_total=$((${#SELECTED_IDES[@]} + ${#SELECTED_BROWSERS[@]} + ${#SELECTED_DEV_TOOLS[@]} + \
+                 ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
+                 ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
 
-  case "${choice,,}" in
-    b|back|voltar|v)
-      clear_screen
-      ask_gui_apps
-      return
-      ;;
-  esac
+    local gui_summary="$gui_total apps selecionados"
+    [[ $gui_total -eq 0 ]] && gui_summary="(nenhum)"
+
+    if confirm_selection "🖥️  GUI Apps" "$gui_summary"; then
+      break
+    fi
+  done
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -331,47 +333,56 @@ ask_gui_apps() {
 # ═══════════════════════════════════════════════════════════
 
 # Mostra resumo das seleções de apps GUI
+# Título em cyan/bold, itens em texto normal, separados por vírgula
 _show_gui_selection_summary() {
   local has_any=0
 
   if [[ ${#SELECTED_IDES[@]} -gt 0 ]]; then
     has_any=1
-    msg "  ⌨️  IDEs: ${SELECTED_IDES[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_IDES[@]}"); items="${items%, }"
+    echo -e "  ⌨️  ${UI_CYAN}IDEs:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]; then
     has_any=1
-    msg "  🌐 Navegadores: ${SELECTED_BROWSERS[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_BROWSERS[@]}"); items="${items%, }"
+    echo -e "  🌐 ${UI_CYAN}Navegadores:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]; then
     has_any=1
-    msg "  💻 Dev Tools: ${SELECTED_DEV_TOOLS[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_DEV_TOOLS[@]}"); items="${items%, }"
+    echo -e "  💻 ${UI_CYAN}Dev Tools:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]; then
     has_any=1
-    msg "  🗄️  Bancos: ${SELECTED_DATABASES[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_DATABASES[@]}"); items="${items%, }"
+    echo -e "  🗄️  ${UI_CYAN}Bancos:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]; then
     has_any=1
-    msg "  📝 Produtividade: ${SELECTED_PRODUCTIVITY[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_PRODUCTIVITY[@]}"); items="${items%, }"
+    echo -e "  📝 ${UI_CYAN}Produtividade:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]]; then
     has_any=1
-    msg "  💬 Comunicação: ${SELECTED_COMMUNICATION[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_COMMUNICATION[@]}"); items="${items%, }"
+    echo -e "  💬 ${UI_CYAN}Comunicação:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]; then
     has_any=1
-    msg "  🎵 Mídia: ${SELECTED_MEDIA[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_MEDIA[@]}"); items="${items%, }"
+    echo -e "  🎵 ${UI_CYAN}Mídia:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]; then
     has_any=1
-    msg "  🛠️  Utilitários: ${SELECTED_UTILITIES[*]}"
+    local items; items=$(printf "%s, " "${SELECTED_UTILITIES[@]}"); items="${items%, }"
+    echo -e "  🛠️  ${UI_CYAN}Utilitários:${UI_RESET} $items"
   fi
 
   if [[ $has_any -eq 0 ]]; then

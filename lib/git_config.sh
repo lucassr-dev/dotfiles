@@ -60,25 +60,19 @@ show_git_multi_account_info() {
 # ═══════════════════════════════════════════════════════════
 
 ask_git_configuration() {
-  GIT_CONFIGURE=0
+  while true; do
+    GIT_CONFIGURE=0
 
-  clear_screen
-  show_git_multi_account_info
+    clear_screen
+    show_git_multi_account_info
 
-  msg ""
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg "  🔧 CONFIGURAÇÃO GIT"
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg ""
+    if ! confirm_action "configurar Git multi-conta"; then
+      msg ""
+      msg "  ⏭️  Pulando configuração Git"
+      return 0
+    fi
 
-  if ! ask_yes_no "Deseja configurar Git multi-conta?"; then
-    msg ""
-    msg "  ⏭️  Pulando configuração Git"
-    msg ""
-    return 0
-  fi
-
-  GIT_CONFIGURE=1
+    GIT_CONFIGURE=1
 
   # Perguntar diretórios para conta pessoal
   msg ""
@@ -273,44 +267,35 @@ ask_git_configuration() {
   read -r -p "  Pager para diffs (delta/less/cat) [delta]: " pager_input
   GIT_PAGER="${pager_input:-delta}"
 
-  # Resumo
-  msg ""
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg "  ✅ RESUMO DA CONFIGURAÇÃO GIT"
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg ""
-  msg "👤 CONTA PESSOAL:"
-  msg "  • Nome: $GIT_PERSONAL_NAME"
-  msg "  • Email: $GIT_PERSONAL_EMAIL"
-  [[ -n "$GIT_PERSONAL_USER" ]] && msg "  • Usuário: $GIT_PERSONAL_USER"
-  [[ -n "$GIT_PERSONAL_SSH_KEY" ]] && msg "  • Chave SSH: $GIT_PERSONAL_SSH_KEY"
-  msg "  • Diretórios: ${GIT_PERSONAL_DIRS[*]}"
-  msg ""
-  msg "💼 CONTA TRABALHO:"
-  msg "  • Nome: $GIT_WORK_NAME"
-  msg "  • Email: $GIT_WORK_EMAIL"
-  [[ -n "$GIT_WORK_USER" ]] && msg "  • Usuário: $GIT_WORK_USER"
-  [[ -n "$GIT_WORK_SSH_KEY" ]] && msg "  • Chave SSH: $GIT_WORK_SSH_KEY"
-  msg "  • Diretórios: ${GIT_WORK_DIRS[*]}"
-  msg ""
-  msg "⚙️  PREFERÊNCIAS:"
-  msg "  • Editor: $GIT_EDITOR"
-  msg "  • Pager: $GIT_PAGER"
-  msg ""
+    # Resumo
+    msg ""
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    msg "  ✅ RESUMO DA CONFIGURAÇÃO GIT"
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    msg ""
+    msg "👤 CONTA PESSOAL:"
+    msg "  • Nome: $GIT_PERSONAL_NAME"
+    msg "  • Email: $GIT_PERSONAL_EMAIL"
+    [[ -n "$GIT_PERSONAL_USER" ]] && msg "  • Usuário: $GIT_PERSONAL_USER"
+    [[ -n "$GIT_PERSONAL_SSH_KEY" ]] && msg "  • Chave SSH: $GIT_PERSONAL_SSH_KEY"
+    msg "  • Diretórios: ${GIT_PERSONAL_DIRS[*]}"
+    msg ""
+    msg "💼 CONTA TRABALHO:"
+    msg "  • Nome: $GIT_WORK_NAME"
+    msg "  • Email: $GIT_WORK_EMAIL"
+    [[ -n "$GIT_WORK_USER" ]] && msg "  • Usuário: $GIT_WORK_USER"
+    [[ -n "$GIT_WORK_SSH_KEY" ]] && msg "  • Chave SSH: $GIT_WORK_SSH_KEY"
+    msg "  • Diretórios: ${GIT_WORK_DIRS[*]}"
+    msg ""
+    msg "⚙️  PREFERÊNCIAS:"
+    msg "  • Editor: $GIT_EDITOR"
+    msg "  • Pager: $GIT_PAGER"
 
-  echo ""
-  echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
-  echo ""
-
-  local choice
-  read -r -p "  → " choice
-
-  case "${choice,,}" in
-    b|back|voltar|v)
-      clear_screen
-      ask_git_configuration
-      ;;
-  esac
+    local git_summary="$GIT_PERSONAL_NAME <$GIT_PERSONAL_EMAIL>"
+    if confirm_selection "🔧 Git Config" "$git_summary"; then
+      break
+    fi
+  done
 }
 
 # ═══════════════════════════════════════════════════════════

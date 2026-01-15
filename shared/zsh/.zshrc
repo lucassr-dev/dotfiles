@@ -1,6 +1,3 @@
-# Zsh Configuration
-# 🔥 Config gerenciada por dot-portable
-
 # ═══════════════════════════════════════════════════════════
 # Prompt Setup (Oh My Zsh + P10k ✨ ou Starship 🚀)
 # Use DEV_PROMPT_ZSH (ou DEV_PROMPT_PROVIDER) para escolher:
