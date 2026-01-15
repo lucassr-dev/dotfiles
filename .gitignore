@@ -19,3 +19,5 @@ shared/.ssh/
 .ssh/
 shared/git/.gitconfig-personal
 shared/git/.gitconfig-work
+CLAUDE.md
+**/CLAUDE.md
