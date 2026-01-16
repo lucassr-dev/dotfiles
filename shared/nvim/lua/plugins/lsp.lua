@@ -39,7 +39,7 @@ return {
       -- Servidores LSP
       servers = {
         -- TypeScript/JavaScript
-        tsserver = {
+        ts_ls = {
           settings = {
             typescript = {
               inlayHints = {
@@ -210,62 +210,4 @@ return {
     },
   },
 
-  -- ──────────────────────────────────────────────────────────────────────────────
-  -- NULL-LS / NONE-LS (FORMATAÇÃO E LINTING)
-  -- ──────────────────────────────────────────────────────────────────────────────
-  {
-    "nvimtools/none-ls.nvim",
-    opts = function(_, opts)
-      local null_ls = require("null-ls")
-      opts.sources = vim.list_extend(opts.sources or {}, {
-        -- Formatação
-        null_ls.builtins.formatting.prettier.with({
-          filetypes = {
-            "javascript",
-            "javascriptreact",
-            "typescript",
-            "typescriptreact",
-            "vue",
-            "css",
-            "scss",
-            "html",
-            "json",
-            "jsonc",
-            "yaml",
-            "markdown",
-            "graphql",
-          },
-        }),
-        null_ls.builtins.formatting.stylua,
-        null_ls.builtins.formatting.shfmt,
-        null_ls.builtins.formatting.black,
-        null_ls.builtins.formatting.isort,
-
-        -- Diagnósticos
-        null_ls.builtins.diagnostics.shellcheck,
-      })
-    end,
-  },
-
-  -- ──────────────────────────────────────────────────────────────────────────────
-  -- KEYMAPS LSP
-  -- ──────────────────────────────────────────────────────────────────────────────
-  {
-    "neovim/nvim-lspconfig",
-    opts = function()
-      local keys = require("lazyvim.plugins.lsp.keymaps").get()
-
-      -- Adicionar keymaps customizados
-      vim.list_extend(keys, {
-        { "gd", "<cmd>Telescope lsp_definitions<cr>", desc = "Ir para definição" },
-        { "gr", "<cmd>Telescope lsp_references<cr>", desc = "Referências" },
-        { "gI", "<cmd>Telescope lsp_implementations<cr>", desc = "Implementações" },
-        { "gy", "<cmd>Telescope lsp_type_definitions<cr>", desc = "Type Definition" },
-        { "K", vim.lsp.buf.hover, desc = "Hover" },
-        { "gK", vim.lsp.buf.signature_help, desc = "Signature Help" },
-        { "<leader>ca", vim.lsp.buf.code_action, desc = "Code Action", mode = { "n", "v" } },
-        { "<leader>cf", vim.lsp.buf.format, desc = "Formatar" },
-      })
-    end,
-  },
 }

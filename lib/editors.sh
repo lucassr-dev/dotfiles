@@ -9,16 +9,21 @@
 # Não redefinir aqui para não sobrescrever os valores padrão
 
 # ══════════════════════════════════════════════════════════════════════════════
-# INSTALAÇÃO DO NEOVIM (AppImage - sempre última versão)
+# INSTALAÇÃO DO NEOVIM (AppImage nightly - requerido pelo LazyVim >= 0.11)
 # ══════════════════════════════════════════════════════════════════════════════
 install_neovim_linux() {
-  local nvim_url="https://github.com/neovim/neovim/releases/latest/download/nvim.appimage"
+  local arch
+  arch=$(uname -m)
+  local nvim_arch="x86_64"
+  [[ "$arch" == "aarch64" || "$arch" == "arm64" ]] && nvim_arch="arm64"
+
+  local nvim_url="https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-${nvim_arch}.appimage"
   local install_dir="$HOME/.local/bin"
   local nvim_path="$install_dir/nvim"
 
   mkdir -p "$install_dir"
 
-  msg "  🔄 Baixando Neovim AppImage (última versão)..."
+  msg "  🔄 Baixando Neovim nightly (requerido pelo LazyVim)..."
   if curl -fsSL "$nvim_url" -o "$nvim_path" 2>/dev/null; then
     chmod +x "$nvim_path"
     if "$nvim_path" --version >/dev/null 2>&1; then
