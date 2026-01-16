@@ -108,8 +108,7 @@ BROWSERS=(
 # Ferramentas de Desenvolvimento
 # ───────────────────────────────────────────────────────────
 DEV_TOOLS=(
-  docker               # Containers
-  docker-compose       # Orquestração de containers
+  docker               # Containers (inclui docker-compose)
   podman               # Alternativa ao Docker (Linux)
   postman              # Teste de APIs (REST/GraphQL)
   insomnia             # Cliente REST/GraphQL

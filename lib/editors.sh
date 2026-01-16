@@ -3,10 +3,73 @@
 # As configs são copiadas de shared/ para o sistema
 
 # ══════════════════════════════════════════════════════════════════════════════
-# VARIÁVEIS GLOBAIS
+# VARIÁVEIS GLOBAIS (defaults definidos em install.sh)
 # ══════════════════════════════════════════════════════════════════════════════
-COPY_NVIM_CONFIG=0
-COPY_TMUX_CONFIG=0
+# COPY_NVIM_CONFIG e COPY_TMUX_CONFIG são definidos em install.sh
+# Não redefinir aqui para não sobrescrever os valores padrão
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INSTALAÇÃO DO NEOVIM (AppImage - sempre última versão)
+# ══════════════════════════════════════════════════════════════════════════════
+install_neovim_linux() {
+  local nvim_url="https://github.com/neovim/neovim/releases/latest/download/nvim.appimage"
+  local install_dir="$HOME/.local/bin"
+  local nvim_path="$install_dir/nvim"
+
+  mkdir -p "$install_dir"
+
+  msg "  🔄 Baixando Neovim AppImage (última versão)..."
+  if curl -fsSL "$nvim_url" -o "$nvim_path" 2>/dev/null; then
+    chmod +x "$nvim_path"
+    if "$nvim_path" --version >/dev/null 2>&1; then
+      local version
+      version=$("$nvim_path" --version 2>/dev/null | head -1 | awk '{print $2}')
+      msg "  ✅ Neovim $version instalado via AppImage"
+      INSTALLED_MISC+=("neovim: appimage $version")
+      return 0
+    else
+      msg "  ⚠️  AppImage não executável, tentando extrair..."
+      cd "$install_dir" || return 1
+      "$nvim_path" --appimage-extract >/dev/null 2>&1
+      if [[ -d "squashfs-root" ]]; then
+        rm -f "$nvim_path"
+        mv squashfs-root neovim-extracted
+        ln -sf "$install_dir/neovim-extracted/AppRun" "$nvim_path"
+        if "$nvim_path" --version >/dev/null 2>&1; then
+          local version
+          version=$("$nvim_path" --version 2>/dev/null | head -1 | awk '{print $2}')
+          msg "  ✅ Neovim $version instalado (extraído)"
+          INSTALLED_MISC+=("neovim: appimage-extracted $version")
+          return 0
+        fi
+      fi
+    fi
+  fi
+
+  msg "  ⚠️  AppImage falhou, usando pacote da distro..."
+  install_neovim_package
+}
+
+install_neovim_package() {
+  case "$LINUX_PKG_MANAGER" in
+    apt|apt-get)
+      if has_cmd add-apt-repository; then
+        run_with_sudo add-apt-repository -y ppa:neovim-ppa/unstable >/dev/null 2>&1 || true
+        run_with_sudo apt update >/dev/null 2>&1 || true
+      fi
+      run_with_sudo apt install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      ;;
+    dnf)
+      run_with_sudo dnf install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      ;;
+    pacman)
+      run_with_sudo pacman -S --noconfirm neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      ;;
+    zypper)
+      run_with_sudo zypper install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      ;;
+  esac
+}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # INSTALAÇÃO - Cópia de Configurações Salvas
@@ -33,25 +96,7 @@ install_nvim_config() {
     msg "  📦 Instalando Neovim..."
     case "$TARGET_OS" in
       linux|wsl2)
-        case "$LINUX_PKG_MANAGER" in
-          apt)
-            # Tentar PPA primeiro para versão mais recente
-            if has_cmd add-apt-repository; then
-              run_with_sudo add-apt-repository -y ppa:neovim-ppa/unstable >/dev/null 2>&1 || true
-              run_with_sudo apt update >/dev/null 2>&1 || true
-            fi
-            run_with_sudo apt install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
-            ;;
-          dnf)
-            run_with_sudo dnf install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
-            ;;
-          pacman)
-            run_with_sudo pacman -S --noconfirm neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
-            ;;
-          zypper)
-            run_with_sudo zypper install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
-            ;;
-        esac
+        install_neovim_linux
         ;;
       macos)
         brew install neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
