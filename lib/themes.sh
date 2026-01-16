@@ -484,21 +484,39 @@ ask_oh_my_zsh_plugins() {
     msg ""
 
     local omz_plugins_desc=(
-      "git - Aliases úteis para Git (gst, gco, gp, etc)"
+      "git - ⭐ Aliases para Git (gst, gco, gp, glog, etc)"
+      "sudo - ⭐ ESC 2x adiciona sudo ao comando anterior"
+      "extract - ⭐ Comando 'x' extrai qualquer arquivo compactado"
+      "z - ⭐ Jump rápido para diretórios frequentes"
+      "history - Aliases para busca no histórico (h, hs, hsi)"
+      "aliases - Comando 'acs' lista todos os aliases"
+      "copypath - Copia o path atual para clipboard"
+      "copyfile - Copia conteúdo de arquivo para clipboard"
+      "colored-man-pages - Man pages com cores"
+      "safe-paste - Previne execução acidental ao colar"
+      "jsontools - Ferramentas JSON (pp_json, is_json)"
+      "encode64 - Encode/decode base64 (e64, d64)"
+      "web-search - Buscar no Google/Bing do terminal"
       "docker - Autocomplete e aliases para Docker"
       "docker-compose - Autocomplete para docker-compose"
       "kubectl - Autocomplete para Kubernetes"
+      "terraform - Autocomplete para Terraform"
+      "aws - Autocomplete para AWS CLI"
+      "gh - Autocomplete para GitHub CLI"
+      "node - Autocomplete para Node.js"
       "npm - Autocomplete para npm"
       "yarn - Autocomplete para yarn"
-      "node - Autocomplete para node"
-      "python - Aliases para Python"
+      "python - Aliases para Python (pyfind, pygrep, pyclean)"
+      "pip - Autocomplete para pip"
       "golang - Aliases para Go"
       "rust - Autocomplete para Rust/Cargo"
-      "command-not-found - Sugere instalação de comandos não encontrados"
-      "sudo - Pressione ESC 2x para adicionar sudo"
-      "extract - Comando 'x' para extrair qualquer arquivo"
-      "z - Jump para diretórios frequentes"
-      "web-search - Buscar no Google/Bing direto do terminal"
+      "composer - Autocomplete para PHP Composer"
+      "laravel - Aliases para Laravel Artisan"
+      "fzf - Integração com fuzzy finder"
+      "tmux - Aliases para tmux (ta, ts, tl, etc)"
+      "systemd - Autocomplete para systemctl (Linux)"
+      "brew - Autocomplete para Homebrew (macOS)"
+      "command-not-found - Sugere pacotes para comandos não encontrados"
     )
 
     local selected_omz_desc=()
@@ -517,9 +535,11 @@ ask_oh_my_zsh_plugins() {
     local external_plugins_desc=(
       "zsh-autosuggestions - ⭐ Sugestões baseadas no histórico (ESSENCIAL)"
       "zsh-syntax-highlighting - ⭐ Colorir comandos válidos/inválidos (ESSENCIAL)"
-      "fast-syntax-highlighting - Alternativa mais rápida ao anterior"
-      "zsh-autocomplete - Autocomplete avançado com menu interativo"
+      "fast-syntax-highlighting - Alternativa mais rápida ao syntax-highlighting"
       "zsh-completions - Completions extras para vários comandos"
+      "you-should-use - ⭐ Lembra dos aliases disponíveis"
+      "fzf-tab - Usa fzf para completar com Tab"
+      "zsh-autocomplete - Autocomplete avançado com menu interativo"
     )
 
     local selected_external_desc=()
@@ -892,6 +912,24 @@ install_oh_my_zsh() {
             INSTALLED_MISC+=("omz-plugin: zsh-completions")
           else
             warn "Falha ao clonar zsh-completions"
+          fi
+          ;;
+        you-should-use)
+          msg "  📥 Baixando you-should-use..."
+          if git clone https://github.com/MichaelAquilina/zsh-you-should-use.git "$plugin_dir" 2>/dev/null; then
+            msg "  ✅ you-should-use instalado"
+            INSTALLED_MISC+=("omz-plugin: you-should-use")
+          else
+            warn "Falha ao clonar you-should-use"
+          fi
+          ;;
+        fzf-tab)
+          msg "  📥 Baixando fzf-tab..."
+          if git clone https://github.com/Aloxaf/fzf-tab.git "$plugin_dir" 2>/dev/null; then
+            msg "  ✅ fzf-tab instalado"
+            INSTALLED_MISC+=("omz-plugin: fzf-tab")
+          else
+            warn "Falha ao clonar fzf-tab"
           fi
           ;;
       esac
