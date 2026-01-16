@@ -754,126 +754,20 @@ _truncate_items() {
   fi
 }
 
-# Imprime linha formatada com label colorido e valor
-_print_row() {
-  local label="$1"
-  local value="$2"
-  local label_width="${3:-14}"
-  local value_color="${4:-}"
-
-  # Label em cyan, valor em cor especificada ou padrão
-  printf "  ${BANNER_CYAN}%-${label_width}s${BANNER_RESET} ${value_color}%s${BANNER_RESET}\n" "$label" "$value"
-}
-
-# Formata array com contagem: "item1, item2 (3)"
-_format_with_count() {
-  local -n arr_ref=$1
-  local max_show="${2:-5}"
-
-  if [[ ${#arr_ref[@]} -eq 0 ]]; then
-    echo "${BANNER_DIM}(nenhum)${BANNER_RESET}"
-    return
-  fi
-
-  local result=""
-  local shown=0
-  for item in "${arr_ref[@]}"; do
-    [[ $shown -ge $max_show ]] && break
-    [[ -n "$result" ]] && result+=", "
-    result+="$item"
-    ((shown++))
-  done
-
-  local remaining=$((${#arr_ref[@]} - shown))
-  if [[ $remaining -gt 0 ]]; then
-    echo "$result ${BANNER_DIM}+$remaining${BANNER_RESET}"
-  else
-    echo "$result"
-  fi
-}
-
-# Imprime cabeçalho de seção
-_print_section() {
-  local title="$1"
-  local icon="$2"
-  local width="${3:-60}"
-
-  echo ""
-  echo -e "  ${BANNER_CYAN}${BANNER_BOLD}${icon} ${title}${BANNER_RESET}"
-  local line_len=$((width > 50 ? 50 : width - 10))
-  printf "  ${BANNER_DIM}"
-  printf '─%.0s' $(seq 1 "$line_len")
-  printf "${BANNER_RESET}\n"
-}
-
-# Desenha caixa responsiva
-_draw_box() {
-  local title="$1"
-  local width="$2"
-  local box_width=$((width > 70 ? 70 : width - 4))
-
-  local line
-  line=$(printf '═%.0s' $(seq 1 $((box_width - 2))))
-
-  echo -e "${BANNER_CYAN}╔${line}╗${BANNER_RESET}"
-  local title_pad=$(( (box_width - 2 - ${#title}) / 2 ))
-  printf "${BANNER_CYAN}║${BANNER_RESET}"
-  printf "%${title_pad}s" ""
-  printf "${BANNER_BOLD}%s${BANNER_RESET}" "$title"
-  printf "%$((box_width - 2 - title_pad - ${#title}))s" ""
-  printf "${BANNER_CYAN}║${BANNER_RESET}\n"
-  echo -e "${BANNER_CYAN}╚${line}╝${BANNER_RESET}"
+_visible_len() {
+  local text="$1"
+  local clean
+  clean=$(printf '%s' "$text" | sed -E 's/\x1b\[[0-9;]*m//g')
+  # Contar emojis que ocupam 2 células visuais
+  local emoji_count=0
+  emoji_count=$(printf '%s' "$clean" | grep -oE '[📋📦🐚🔧💾🔌🎨🖼✨🎭🐟🔤🛠🤖💻📝🏠⚡💡📂🐧👤]' 2>/dev/null | wc -l || true)
+  emoji_count=${emoji_count//[[:space:]]/}
+  [[ -z "$emoji_count" ]] && emoji_count=0
+  echo $((${#clean} + emoji_count))
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FUNÇÕES PARA TABELAS COM BORDAS
-# ══════════════════════════════════════════════════════════════════════════════
-
-# Desenha linha de tabela com duas colunas
-_table_row() {
-  local label="$1"
-  local value="$2"
-  local label_w="${3:-20}"
-  local value_w="${4:-40}"
-  local C="${BANNER_CYAN}"
-  local R="${BANNER_RESET}"
-
-  printf "${C}│${R} ${C}%-${label_w}s${R} ${C}│${R} %-${value_w}s ${C}│${R}\n" "$label" "$value"
-}
-
-# Desenha separador de tabela
-_table_sep() {
-  local label_w="${1:-20}"
-  local value_w="${2:-40}"
-  local left="$3"
-  local mid="$4"
-  local right="$5"
-  local C="${BANNER_CYAN}"
-  local R="${BANNER_RESET}"
-
-  local label_line value_line
-  label_line=$(printf '─%.0s' $(seq 1 $((label_w + 2))))
-  value_line=$(printf '─%.0s' $(seq 1 $((value_w + 2))))
-  printf "${C}${left}${label_line}${mid}${value_line}${right}${R}\n"
-}
-
-# Desenha cabeçalho de seção com ícone
-_section_header() {
-  local icon="$1"
-  local title="$2"
-  echo ""
-  echo -e "${BANNER_CYAN}${BANNER_BOLD}${icon} ${title}${BANNER_RESET}"
-}
-
-# Formata contagem: "Label (N)"
-_with_count() {
-  local label="$1"
-  local count="$2"
-  echo "${label} (${count})"
-}
-
-# ══════════════════════════════════════════════════════════════════════════════
-# RESUMO DE SELEÇÕES - LAYOUT COM BORDAS
+# RESUMO DE SELEÇÕES - LAYOUT MODERNO COM ROUNDED CORNERS
 # ══════════════════════════════════════════════════════════════════════════════
 
 review_selections() {
@@ -888,28 +782,26 @@ review_selections() {
     local term_width
     term_width=$(tput cols 2>/dev/null || echo 80)
 
-    # Dimensões das tabelas
-    local label_w=20
-    local value_w=$((term_width > 80 ? 42 : term_width - 30))
-    [[ $value_w -lt 25 ]] && value_w=25
+    # Largura responsiva - IGUAL ao show_section_header para alinhamento
+    local w=$((term_width > 70 ? 70 : term_width - 4))
+    [[ $w -lt 40 ]] && w=40
 
     echo ""
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # TÍTULO PRINCIPAL
+    # TÍTULO PRINCIPAL - Rounded corners
     # ═══════════════════════════════════════════════════════════════════════════
-    local title_w=$((label_w + value_w + 5))
-    local title_line
-    title_line=$(printf '─%.0s' $(seq 1 $((title_w - 2))))
-    echo -e "${BANNER_CYAN}┌${title_line}┐${BANNER_RESET}"
-    local title="📋 RESUMO FINAL DAS SELEÇÕES"
-    local title_pad=$(( (title_w - 2 - ${#title} - 2) / 2 ))  # -2 para emoji
-    printf "${BANNER_CYAN}│${BANNER_RESET}"
-    printf "%${title_pad}s" ""
-    printf "${BANNER_BOLD}%s${BANNER_RESET}" "$title"
-    printf "%$((title_w - 2 - title_pad - ${#title} - 2))s" ""
-    printf "${BANNER_CYAN}│${BANNER_RESET}\n"
-    echo -e "${BANNER_CYAN}└${title_line}┘${BANNER_RESET}"
+    local inner_w=$((w - 2))
+    local h_line
+    h_line=$(printf '─%.0s' $(seq 1 "$inner_w"))
+    echo -e "${BANNER_CYAN}╭${h_line}╮${BANNER_RESET}"
+    local title="📋 RESUMO FINAL"
+    # Emoji 📋 = 2 visual width, mas ${#} conta como 1
+    local title_visual=$((${#title} + 1))
+    local title_pad=$(( (inner_w - title_visual) / 2 ))
+    local title_pad_r=$((inner_w - title_pad - title_visual))
+    printf "${BANNER_CYAN}│${BANNER_RESET}%*s${BANNER_BOLD}${BANNER_WHITE}%s${BANNER_RESET}%*s${BANNER_CYAN}│${BANNER_RESET}\n" "$title_pad" "" "$title" "$title_pad_r" ""
+    echo -e "${BANNER_CYAN}╰${h_line}╯${BANNER_RESET}"
 
     # Coleta dados
     local selected_shells=()
@@ -928,177 +820,189 @@ review_selections() {
                  ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # SEÇÃO 1: AMBIENTE DE DESENVOLVIMENTO
+    # LAYOUT 2 COLUNAS: AMBIENTE | FERRAMENTAS
     # ═══════════════════════════════════════════════════════════════════════════
-    _section_header "🐚" "AMBIENTE DE DESENVOLVIMENTO"
-    _table_sep "$label_w" "$value_w" "┌" "┬" "┐"
+    # Layout: " LABEL data│ LABEL data"
+    # col_w = largura de cada coluna (sem o │)
+    local col_w=$(( (w - 3) / 2 ))  # -3 para " │ "
+    local sep_line
+    sep_line=$(printf '─%.0s' $(seq 1 "$col_w"))
 
-    local shells_str; shells_str=$(_truncate_items "$value_w" "${selected_shells[@]}")
-    _table_row "$(_with_count "Shells" "${#selected_shells[@]}")" "$shells_str" "$label_w" "$value_w"
+    echo ""
+    # Títulos das colunas - calcular padding manualmente para emojis
+    local env_title="🐚 AMBIENTE"
+    local tool_title="🔧 FERRAMENTAS"
+    local env_visual=$((${#env_title} + 1))  # emoji = +1
+    local env_pad=$((col_w - 1 - env_visual))
+    [[ $env_pad -lt 0 ]] && env_pad=0
+    echo -e " ${BANNER_CYAN}${BANNER_BOLD}${env_title}${BANNER_RESET}$(printf '%*s' "$env_pad" '')${BANNER_CYAN}│${BANNER_RESET} ${BANNER_CYAN}${BANNER_BOLD}${tool_title}${BANNER_RESET}"
+    echo -e " ${BANNER_DIM}${sep_line}┼${sep_line}${BANNER_RESET}"
 
-    local themes_str; themes_str=$(_truncate_items "$value_w" "${themes_selected[@]}")
-    _table_row "$(_with_count "Temas" "${#themes_selected[@]}")" "$themes_str" "$label_w" "$value_w"
+    # Preparar dados das colunas
+    local data_w=$((col_w - 12))  # espaço para label + padding
+    local shells_str; shells_str=$(_truncate_items "$data_w" "${selected_shells[@]}")
+    local themes_str; themes_str=$(_truncate_items "$data_w" "${themes_selected[@]}")
+    local term_str="(nenhum)"
+    [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]] && term_str=$(_truncate_items "$data_w" "${SELECTED_TERMINALS[@]}")
+    local fonts_str="(nenhuma)"
+    [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]] && fonts_str=$(_truncate_items "$data_w" "${SELECTED_NERD_FONTS[@]}")
 
-    local term_str
-    if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
-      term_str=$(_truncate_items "$value_w" "${SELECTED_TERMINALS[@]}")
-    else
-      term_str="(nenhum)"
-    fi
-    _table_row "$(_with_count "Terminal" "${#SELECTED_TERMINALS[@]}")" "$term_str" "$label_w" "$value_w"
+    local cli_str="(nenhuma)"
+    [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]] && cli_str=$(_truncate_items "$data_w" "${SELECTED_CLI_TOOLS[@]}")
+    local ia_str="(nenhuma)"
+    [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]] && ia_str=$(_truncate_items "$data_w" "${SELECTED_IA_TOOLS[@]}")
+    local rt_str="(nenhum)"
+    [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && rt_str=$(_truncate_items "$data_w" "${SELECTED_RUNTIMES[@]}")
 
-    local fonts_str
-    if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
-      fonts_str=$(_truncate_items "$value_w" "${SELECTED_NERD_FONTS[@]}")
-    else
-      fonts_str="(nenhuma)"
-    fi
-    _table_row "$(_with_count "Nerd Fonts" "${#SELECTED_NERD_FONTS[@]}")" "$fonts_str" "$label_w" "$value_w"
+    # Função para imprimir linha de 2 colunas com alinhamento correto
+    _2col() {
+      local l1="$1" v1="$2" l2="$3" v2="$4"
+      local left="${l1} ${v1}"
+      local right="${l2} ${v2}"
+      local left_visual=${#left}
+      local left_pad=$((col_w - 1 - left_visual))
+      [[ $left_pad -lt 0 ]] && left_pad=0
+      echo -e " ${left}$(printf '%*s' "$left_pad" '')${BANNER_CYAN}│${BANNER_RESET} ${right}"
+    }
 
-    _table_sep "$label_w" "$value_w" "└" "┴" "┘"
-
-    # ═══════════════════════════════════════════════════════════════════════════
-    # SEÇÃO 2: FERRAMENTAS & RUNTIMES
-    # ═══════════════════════════════════════════════════════════════════════════
-    _section_header "🔧" "FERRAMENTAS & RUNTIMES"
-    _table_sep "$label_w" "$value_w" "┌" "┬" "┐"
-
-    local cli_str
-    if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
-      cli_str=$(_truncate_items "$value_w" "${SELECTED_CLI_TOOLS[@]}")
-    else
-      cli_str="(nenhuma)"
-    fi
-    _table_row "$(_with_count "CLI Tools" "${#SELECTED_CLI_TOOLS[@]}")" "$cli_str" "$label_w" "$value_w"
-
-    local ia_str
-    if [[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]]; then
-      ia_str=$(_truncate_items "$value_w" "${SELECTED_IA_TOOLS[@]}")
-    else
-      ia_str="(nenhuma)"
-    fi
-    _table_row "$(_with_count "IA Tools" "${#SELECTED_IA_TOOLS[@]}")" "$ia_str" "$label_w" "$value_w"
-
-    local rt_str
-    if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
-      rt_str=$(_truncate_items "$value_w" "${SELECTED_RUNTIMES[@]}")
-    else
-      rt_str="(nenhum)"
-    fi
-    _table_row "$(_with_count "Runtimes" "${#SELECTED_RUNTIMES[@]}")" "$rt_str" "$label_w" "$value_w"
-
-    _table_sep "$label_w" "$value_w" "└" "┴" "┘"
+    # Linhas lado a lado
+    _2col "Shells" "(${#selected_shells[@]}) $shells_str" "CLI Tools" "(${#SELECTED_CLI_TOOLS[@]}) $cli_str"
+    _2col "Temas" "(${#themes_selected[@]}) $themes_str" "IA Tools" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
+    _2col "Terminal" "$term_str" "Runtimes" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
+    # Linha fonts (só coluna esquerda)
+    local fonts_left="Fonts (${#SELECTED_NERD_FONTS[@]}) $fonts_str"
+    local fonts_visual=${#fonts_left}
+    local fonts_pad=$((col_w - 1 - fonts_visual))
+    [[ $fonts_pad -lt 0 ]] && fonts_pad=0
+    echo -e " ${fonts_left}$(printf '%*s' "$fonts_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # SEÇÃO 3: APLICATIVOS GUI
+    # APLICATIVOS GUI (se houver)
     # ═══════════════════════════════════════════════════════════════════════════
     if [[ $gui_total -gt 0 ]]; then
-      _section_header "📦" "APLICATIVOS GUI ($gui_total apps)"
-      _table_sep "$label_w" "$value_w" "┌" "┬" "┐"
+      echo ""
+      echo -e " ${BANNER_CYAN}${BANNER_BOLD}📦 APPS GUI${BANNER_RESET} ${BANNER_DIM}($gui_total selecionados)${BANNER_RESET}"
+      echo -e " ${BANNER_DIM}${sep_line}${sep_line}─${BANNER_RESET}"
 
-      [[ ${#SELECTED_IDES[@]} -gt 0 ]] && _table_row "IDEs" "$(_truncate_items "$value_w" "${SELECTED_IDES[@]}")" "$label_w" "$value_w"
-      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && _table_row "Navegadores" "$(_truncate_items "$value_w" "${SELECTED_BROWSERS[@]}")" "$label_w" "$value_w"
-      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && _table_row "Dev Tools" "$(_truncate_items "$value_w" "${SELECTED_DEV_TOOLS[@]}")" "$label_w" "$value_w"
-      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && _table_row "Bancos" "$(_truncate_items "$value_w" "${SELECTED_DATABASES[@]}")" "$label_w" "$value_w"
-      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && _table_row "Produtividade" "$(_truncate_items "$value_w" "${SELECTED_PRODUCTIVITY[@]}")" "$label_w" "$value_w"
-      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _table_row "Comunicação" "$(_truncate_items "$value_w" "${SELECTED_COMMUNICATION[@]}")" "$label_w" "$value_w"
-      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && _table_row "Mídia" "$(_truncate_items "$value_w" "${SELECTED_MEDIA[@]}")" "$label_w" "$value_w"
-      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && _table_row "Utilitários" "$(_truncate_items "$value_w" "${SELECTED_UTILITIES[@]}")" "$label_w" "$value_w"
-
-      _table_sep "$label_w" "$value_w" "└" "┴" "┘"
+      local gui_line=""
+      [[ ${#SELECTED_IDES[@]} -gt 0 ]] && gui_line+="IDEs(${#SELECTED_IDES[@]}) "
+      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]] && gui_line+="Browsers(${#SELECTED_BROWSERS[@]}) "
+      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]] && gui_line+="DevTools(${#SELECTED_DEV_TOOLS[@]}) "
+      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]] && gui_line+="DBs(${#SELECTED_DATABASES[@]}) "
+      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]] && gui_line+="Prod(${#SELECTED_PRODUCTIVITY[@]}) "
+      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && gui_line+="Comm(${#SELECTED_COMMUNICATION[@]}) "
+      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]] && gui_line+="Media(${#SELECTED_MEDIA[@]}) "
+      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]] && gui_line+="Utils(${#SELECTED_UTILITIES[@]})"
+      echo -e " ${BANNER_DIM}$gui_line${BANNER_RESET}"
     fi
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # SEÇÃO 4: CONFIGURAÇÕES A COPIAR
+    # CONFIGURAÇÕES A COPIAR - Card style
     # ═══════════════════════════════════════════════════════════════════════════
-    _section_header "📋" "CONFIGURAÇÕES A COPIAR"
-
-    local cfg_w=$((label_w + value_w + 5))
-    local cfg_line
-    cfg_line=$(printf '─%.0s' $(seq 1 $((cfg_w - 2))))
-    echo -e "${BANNER_CYAN}┌${cfg_line}┐${BANNER_RESET}"
+    echo ""
+    # Título com emoji (📋 = +1 visual width)
+    local cfg_title="📋 COPIAR CONFIGURAÇÕES"
+    local cfg_title_visual=$((${#cfg_title} + 1))  # emoji extra width
+    local cfg_fill=$((inner_w - cfg_title_visual - 2))
+    [[ $cfg_fill -lt 0 ]] && cfg_fill=0
+    local cfg_h_line
+    cfg_h_line=$(printf '─%.0s' $(seq 1 "$cfg_fill"))
+    echo -e "${BANNER_CYAN}╭─ ${UI_BOLD}${cfg_title}${UI_RESET}${BANNER_CYAN} ${cfg_h_line}╮${BANNER_RESET}"
 
     # Grid horizontal de configs
     local cfg_items=()
 
     # Shells
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && {
-      [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Zsh") || cfg_items+=("${BANNER_DIM}✗ Zsh${BANNER_RESET}")
+      [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Zsh") || cfg_items+=("${BANNER_DIM}○ Zsh${BANNER_RESET}")
     }
     [[ ${INSTALL_FISH:-0} -eq 1 ]] && {
-      [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Fish") || cfg_items+=("${BANNER_DIM}✗ Fish${BANNER_RESET}")
+      [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Fish") || cfg_items+=("${BANNER_DIM}○ Fish${BANNER_RESET}")
     }
     [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && {
-      [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Nushell") || cfg_items+=("${BANNER_DIM}✗ Nushell${BANNER_RESET}")
+      [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Nushell") || cfg_items+=("${BANNER_DIM}○ Nushell${BANNER_RESET}")
     }
 
     # Git
     [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && {
-      [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Git") || cfg_items+=("${BANNER_DIM}✗ Git${BANNER_RESET}")
+      [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Git") || cfg_items+=("${BANNER_DIM}○ Git${BANNER_RESET}")
     }
 
-    # Neovim (se selecionado em IDEs)
+    # Neovim
     local has_neovim=0
     for ide in "${SELECTED_IDES[@]}"; do [[ "$ide" == "neovim" ]] && has_neovim=1 && break; done
     [[ $has_neovim -eq 1 ]] && {
-      [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Neovim") || cfg_items+=("${BANNER_DIM}✗ Neovim${BANNER_RESET}")
+      [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Neovim") || cfg_items+=("${BANNER_DIM}○ Neovim${BANNER_RESET}")
     }
 
-    # tmux (se selecionado em CLI Tools)
+    # tmux
     local has_tmux=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do [[ "$tool" == "tmux" ]] && has_tmux=1 && break; done
     [[ $has_tmux -eq 1 ]] && {
-      [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} tmux") || cfg_items+=("${BANNER_DIM}✗ tmux${BANNER_RESET}")
+      [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} tmux") || cfg_items+=("${BANNER_DIM}○ tmux${BANNER_RESET}")
     }
 
     # VS Code
     if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
-      [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} VS Code") || cfg_items+=("${BANNER_DIM}✗ VS Code${BANNER_RESET}")
+      [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} VS Code") || cfg_items+=("${BANNER_DIM}○ VS Code${BANNER_RESET}")
     fi
 
     # Mise
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Mise")
 
-    # Imprimir configs em grid (3-4 por linha)
-    local line_content=""
-    local item_count=0
-    local items_per_line=4
-    [[ $term_width -lt 80 ]] && items_per_line=3
+    # Imprimir configs em grid
+    if [[ ${#cfg_items[@]} -gt 0 ]]; then
+      local line_content=""
+      local item_count=0
+      local items_per_line=$((w > 60 ? 5 : 4))
 
-    for cfg in "${cfg_items[@]}"; do
+      for cfg in "${cfg_items[@]}"; do
+        [[ -n "$line_content" ]] && line_content+="   "
+        line_content+="$cfg"
+        ((item_count++))
+
+        if [[ $item_count -ge $items_per_line ]]; then
+          local visible_len
+          visible_len=$(_visible_len "$line_content")
+          local pad=$((inner_w - 2 - visible_len))
+          [[ $pad -lt 0 ]] && pad=0
+          echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${line_content}$(printf '%*s' "$pad" '')${BANNER_CYAN}│${BANNER_RESET}"
+          line_content=""
+          item_count=0
+        fi
+      done
+
       if [[ -n "$line_content" ]]; then
-        line_content+="   "
+        local visible_len
+        visible_len=$(_visible_len "$line_content")
+        local pad=$((inner_w - 2 - visible_len))
+        [[ $pad -lt 0 ]] && pad=0
+        echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${line_content}$(printf '%*s' "$pad" '')${BANNER_CYAN}│${BANNER_RESET}"
       fi
-      line_content+="$cfg"
-      ((item_count++))
+    else
+      local empty_msg="(nenhuma configuração disponível)"
+      local empty_pad=$((inner_w - 2 - ${#empty_msg}))
+      [[ $empty_pad -lt 0 ]] && empty_pad=0
+      echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_DIM}${empty_msg}${BANNER_RESET}$(printf '%*s' "$empty_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
+    fi
 
-      if [[ $item_count -ge $items_per_line ]]; then
-        printf "${BANNER_CYAN}│${BANNER_RESET} %-$((cfg_w - 3))b ${BANNER_CYAN}│${BANNER_RESET}\n" "$line_content"
-        line_content=""
-        item_count=0
-      fi
-    done
-
-    # Imprimir linha restante
-    [[ -n "$line_content" ]] && printf "${BANNER_CYAN}│${BANNER_RESET} %-$((cfg_w - 3))b ${BANNER_CYAN}│${BANNER_RESET}\n" "$line_content"
-
-    # Se não houver configs
-    [[ ${#cfg_items[@]} -eq 0 ]] && printf "${BANNER_CYAN}│${BANNER_RESET} ${BANNER_DIM}(nenhuma configuração selecionada)${BANNER_RESET}%*s${BANNER_CYAN}│${BANNER_RESET}\n" $((cfg_w - 37)) ""
-
-    echo -e "${BANNER_CYAN}└${cfg_line}┘${BANNER_RESET}"
-    echo -e "${BANNER_DIM}💾 Backup automático em ~/.bkp-YYYYMMDD-HHMM/${BANNER_RESET}"
+    echo -e "${BANNER_CYAN}╰${h_line}╯${BANNER_RESET}"
+    echo -e " ${BANNER_DIM}💾 Backup automático em ~/.bkp-YYYYMMDD-HHMM/${BANNER_RESET}"
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # MENU SIMPLIFICADO
+    # MENU - Estilo card moderno
     # ═══════════════════════════════════════════════════════════════════════════
     echo ""
-    local menu_line
-    menu_line=$(printf '═%.0s' $(seq 1 $((cfg_w))))
-    echo -e "${BANNER_CYAN}${menu_line}${BANNER_RESET}"
-    echo -e "${BANNER_GREEN}[Enter/C]${BANNER_RESET} Instalar   ${BANNER_YELLOW}[S]${BANNER_RESET} Sair   ${BANNER_DIM}[1-8]${BANNER_RESET} Editar seção   ${BANNER_DIM}[0]${BANNER_RESET} Configs"
-    echo -e "${BANNER_CYAN}${menu_line}${BANNER_RESET}"
+    echo -e "${BANNER_CYAN}╭${h_line}╮${BANNER_RESET}"
+    # Texto visual: "  Enter Instalar  S Sair  1-8 Editar  0 Configs" = ~46 chars
+    local menu_text="Enter Instalar  S Sair  1-8 Editar  0 Configs"
+    local menu_pad=$((inner_w - 2 - ${#menu_text}))
+    [[ $menu_pad -lt 0 ]] && menu_pad=0
+    echo -e "${BANNER_CYAN}│${BANNER_RESET}  ${BANNER_GREEN}Enter${BANNER_RESET} Instalar  ${BANNER_YELLOW}S${BANNER_RESET} Sair  ${BANNER_DIM}1-8${BANNER_RESET} Editar  ${BANNER_DIM}0${BANNER_RESET} Configs$(printf '%*s' "$menu_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
+    echo -e "${BANNER_CYAN}╰${h_line}╯${BANNER_RESET}"
     echo ""
-    read -r -p "Escolha: " choice
+    read -r -p "  → " choice
+
     case "$choice" in
       ""|c|C)
         break
@@ -1244,7 +1148,6 @@ ask_configs_to_copy() {
     config_keys+=("COPY_VSCODE_SETTINGS")
   fi
 
-  # SSH Keys - sempre mostrar se existir
   local ssh_source=""
   if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
     ssh_source="$PRIVATE_SHARED/.ssh"
@@ -1262,7 +1165,6 @@ ask_configs_to_copy() {
     return 0
   fi
 
-  # Resetar todas as variáveis COPY_* para 0 antes da seleção
   for key in "${config_keys[@]}"; do
     eval "$key=0"
   done
@@ -1277,7 +1179,6 @@ ask_configs_to_copy() {
   local selected_configs=()
   select_multiple_items "📋 Selecione as Configs a Copiar" selected_configs "${config_options[@]}"
 
-  # Mapear seleções para variáveis COPY_*
   for item in "${selected_configs[@]}"; do
     local config_id
     config_id="$(echo "$item" | awk '{print $1}')"
@@ -1664,11 +1565,9 @@ install_vscode_linux() {
 }
 
 install_vscode_macos() {
-  # Objetivo: garantir VS Code Stable o mais recente possível no macOS.
   if has_cmd brew; then
     msg "  🍺 VS Code via Homebrew..."
     if brew list --cask visual-studio-code >/dev/null 2>&1; then
-      # Show version if already installed
       if has_cmd code; then
         local version=""
         version="$(code --version 2>/dev/null | head -n 1 || echo '')"
@@ -1698,13 +1597,11 @@ install_vscode_macos() {
 }
 
 install_vscode_windows() {
-  # Objetivo: garantir VS Code Stable o mais recente possível no Windows.
   if has_cmd winget; then
     local id="Microsoft.VisualStudioCode"
     local result=""
     result="$(winget list --id "$id" 2>/dev/null || true)"
     if [[ "$result" == *"$id"* ]]; then
-      # Show version if already installed
       if has_cmd code; then
         local version=""
         version="$(code --version 2>/dev/null | head -n 1 || echo '')"
@@ -1770,7 +1667,6 @@ install_vscode() {
 }
 
 install_docker_linux() {
-  # Objetivo: garantir Docker Engine + compose plugin pelo gerenciador nativo.
   if has_cmd docker; then
     local docker_version
     docker_version="$(docker --version 2>/dev/null | head -n 1 || echo '')"
@@ -1912,9 +1808,6 @@ install_composer_and_laravel() {
   fi
 }
 
-# Helper: Download and execute installer script
-# Usage: download_and_run_script <url> <friendly_name> [shell] [curl_extra_flags] [script_args]
-# Returns: 0 on success, 1 on failure (sets INSTALLER_ERROR with details)
 download_and_run_script() {
   local url="$1"
   local friendly="$2"

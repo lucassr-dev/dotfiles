@@ -8,6 +8,51 @@ declare -a SELECTED_CLI_TOOLS=()
 declare -a SELECTED_IA_TOOLS=()
 declare -a SELECTED_TERMINALS=()
 
+_strip_ansi() {
+  sed -E 's/\x1b\[[0-9;]*m//g'
+}
+
+_visible_len() {
+  local text="$1"
+  local clean
+  clean=$(printf '%s' "$text" | _strip_ansi)
+  echo "${#clean}"
+}
+
+_wrap_text() {
+  local text="$1"
+  local max="$2"
+  local -n out_ref="$3"
+  out_ref=()
+
+  local line=""
+  local word=""
+  for word in $text; do
+    if [[ -z "$line" ]]; then
+      if [[ ${#word} -le $max ]]; then
+        line="$word"
+      else
+        local chunk="$word"
+        while [[ ${#chunk} -gt $max ]]; do
+          out_ref+=("${chunk:0:$max}")
+          chunk="${chunk:$max}"
+        done
+        line="$chunk"
+      fi
+    else
+      local test="${line} ${word}"
+      if [[ ${#test} -le $max ]]; then
+        line="$test"
+      else
+        out_ref+=("$line")
+        line="$word"
+      fi
+    fi
+  done
+
+  [[ -n "$line" ]] && out_ref+=("$line")
+}
+
 # ═══════════════════════════════════════════════════════════
 # Funções de compatibilidade (fallback se ui.sh não carregou)
 # ═══════════════════════════════════════════════════════════
@@ -96,17 +141,27 @@ select_single_item() {
     return 0
   fi
 
-  # Fallback bash puro
+  # Fallback bash puro - estilo moderno
   local selection=""
+  local term_w
+  term_w=$(tput cols 2>/dev/null || echo 80)
+  local w=$((term_w > 60 ? 60 : term_w - 4))
+
   while true; do
     echo ""
-    echo -e "${UI_CYAN}╭─── ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ───╮${UI_RESET}"
-    echo ""
+    local line
+    line=$(printf '─%.0s' $(seq 1 $((w - ${#title} - 6))))
+    echo -e "${UI_CYAN}╭─ ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${line}╮${UI_RESET}"
+    echo -e "${UI_CYAN}│${UI_RESET}$(printf '%*s' $((w - 2)) '')${UI_CYAN}│${UI_RESET}"
+
     local idx=1
     for opt in "${options[@]}"; do
-      echo -e "  ${UI_CYAN}$idx${UI_RESET}) $opt"
+      printf "${UI_CYAN}│${UI_RESET}  ${UI_DIM}%d${UI_RESET}) %-$((w - 7))s${UI_CYAN}│${UI_RESET}\n" "$idx" "$opt"
       idx=$((idx + 1))
     done
+
+    echo -e "${UI_CYAN}│${UI_RESET}$(printf '%*s' $((w - 2)) '')${UI_CYAN}│${UI_RESET}"
+    echo -e "${UI_CYAN}╰$(printf '─%.0s' $(seq 1 $((w - 2))))╯${UI_RESET}"
     echo ""
     read -r -p "  Escolha (1-${#options[@]}): " selection
     if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 )) && (( selection <= ${#options[@]} )); then
@@ -220,10 +275,94 @@ confirm_selection() {
   shift
   local items=("$@")
 
-  msg ""
-  print_selection_summary "$title" "${items[@]}"
+  # Largura responsiva - IGUAL ao show_section_header para alinhamento
+  local term_w
+  term_w=$(tput cols 2>/dev/null || echo 80)
+  local box_w=$((term_w > 70 ? 70 : term_w - 4))
+  [[ $box_w -lt 40 ]] && box_w=40
+  local inner_w=$((box_w - 2))
+  local content_w=$((box_w - 6))  # Espaço para "│  ✓ " e margem
+
+  # Gerar linha horizontal
+  local h_line
+  h_line=$(printf '─%.0s' $(seq 1 "$inner_w"))
+
   echo ""
-  echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}B${UI_RESET} para voltar e alterar"
+
+  # Título com preenchimento correto (usa _visual_width para emojis)
+  local title_visual_w
+  if declare -F _visual_width >/dev/null; then
+    title_visual_w=$(_visual_width "$title")
+  else
+    title_visual_w=${#title}
+  fi
+  local fill_len=$((inner_w - title_visual_w - 2))
+  [[ $fill_len -lt 0 ]] && fill_len=0
+  local fill
+  fill=$(printf '─%.0s' $(seq 1 "$fill_len"))
+  echo -e "${UI_CYAN}╭─ ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${fill}╮${UI_RESET}"
+
+  # Mostrar items com word-wrap inteligente
+  if [[ ${#items[@]} -gt 0 ]]; then
+    for item in "${items[@]}"; do
+      # Se o item cabe na linha, mostrar direto
+      if [[ ${#item} -le $content_w ]]; then
+        local pad=$((inner_w - 4 - ${#item}))
+        [[ $pad -lt 0 ]] && pad=0
+        echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${item}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+      else
+        # Item longo - quebrar em palavras (espaços)
+        local current_line=""
+        local first_line=1
+        local words=()
+
+        # Dividir por espaços
+        read -ra words <<< "$item"
+
+        for word in "${words[@]}"; do
+          if [[ -z "$current_line" ]]; then
+            current_line="$word"
+          elif [[ $((${#current_line} + 1 + ${#word})) -le $content_w ]]; then
+            current_line="$current_line $word"
+          else
+            # Imprimir linha atual
+            local pad=$((inner_w - 4 - ${#current_line}))
+            [[ $pad -lt 0 ]] && pad=0
+            if [[ $first_line -eq 1 ]]; then
+              echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+              first_line=0
+            else
+              echo -e "${UI_CYAN}│${UI_RESET}    ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+            fi
+            current_line="$word"
+          fi
+        done
+
+        # Imprimir última linha
+        if [[ -n "$current_line" ]]; then
+          local pad=$((inner_w - 4 - ${#current_line}))
+          [[ $pad -lt 0 ]] && pad=0
+          if [[ $first_line -eq 1 ]]; then
+            echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+          else
+            echo -e "${UI_CYAN}│${UI_RESET}    ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+          fi
+        fi
+      fi
+    done
+  else
+    local empty_msg="(nenhum selecionado)"
+    local pad=$((inner_w - 2 - ${#empty_msg}))
+    [[ $pad -lt 0 ]] && pad=0
+    echo -e "${UI_CYAN}│${UI_RESET}  ${UI_DIM}${empty_msg}${UI_RESET}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+  fi
+
+  echo -e "${UI_CYAN}├${h_line}┤${UI_RESET}"
+  local action_text="Enter Continuar    B Voltar e editar"
+  local action_pad=$((inner_w - 2 - ${#action_text}))
+  [[ $action_pad -lt 0 ]] && action_pad=0
+  echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}Enter${UI_RESET} Continuar    ${UI_YELLOW}B${UI_RESET} Voltar e editar$(printf '%*s' "$action_pad" '')${UI_CYAN}│${UI_RESET}"
+  echo -e "${UI_CYAN}╰${h_line}╯${UI_RESET}"
   echo ""
 
   local choice

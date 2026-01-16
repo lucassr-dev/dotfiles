@@ -151,17 +151,44 @@ show_welcome_message() {
 # ══════════════════════════════════════════════════════════════════════════════
 # FUNÇÕES DE NAVEGAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
+
+# Calcula largura visual de texto (emojis = 2 cells, ANSI removido)
+_visual_width() {
+  local text="$1"
+  # Remove códigos ANSI
+  local clean
+  clean=$(printf '%s' "$text" | sed -E 's/\x1b\[[0-9;]*m//g')
+  # Conta emojis comuns (ocupam 2 células)
+  local emoji_count=0
+  # Padrão para emojis unicode comuns
+  emoji_count=$(printf '%s' "$clean" | grep -oE '[🔌🎨🖼✨🎭🐟🔤🛠🤖💻🐚📦🔐📋🖥🧰🌐📝🏠⚡💡📂🔧🐧👤]' 2>/dev/null | wc -l || echo 0)
+  local char_len=${#clean}
+  echo $((char_len + emoji_count))
+}
+
 show_section_header() {
   local title="$1"
   local width
   width=$(get_term_width)
-  local line_len=$((width > 70 ? 70 : width - 4))
+  local box_w=$((width > 70 ? 70 : width - 4))
+  [[ $box_w -lt 40 ]] && box_w=40
+  local inner=$((box_w - 2))
   local line
-  line=$(printf '═%.0s' $(seq 1 "$line_len"))
+  line=$(printf '═%.0s' $(seq 1 "$inner"))
+  local title_text="$title"
+  local title_visual_w
+  title_visual_w=$(_visual_width "$title_text")
+  local pad=$((inner - 2 - title_visual_w))
+  if [[ $pad -lt 0 ]]; then
+    title_text="${title_text:0:$((inner - 5))}..."
+    title_visual_w=$(_visual_width "$title_text")
+    pad=$((inner - 2 - title_visual_w))
+    [[ $pad -lt 0 ]] && pad=0
+  fi
 
   echo ""
   echo -e "${BANNER_CYAN}╔${line}╗${BANNER_RESET}"
-  echo -e "${BANNER_CYAN}║${BANNER_RESET}  ${BANNER_BOLD}${title}${BANNER_RESET}"
+  printf "${BANNER_CYAN}║${BANNER_RESET}  ${BANNER_BOLD}%s${BANNER_RESET}%*s${BANNER_CYAN}║${BANNER_RESET}\n" "$title_text" "$pad" ""
   echo -e "${BANNER_CYAN}╚${line}╝${BANNER_RESET}"
   echo ""
 }
