@@ -2,17 +2,18 @@
 # Banner de boas-vindas moderno e responsivo
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CORES (definição centralizada)
+# CORES (aliases para UI_* definidos em lib/ui.sh)
 # ══════════════════════════════════════════════════════════════════════════════
-declare -g BANNER_CYAN='\033[0;36m'
-declare -g BANNER_GREEN='\033[0;32m'
-declare -g BANNER_YELLOW='\033[1;33m'
-declare -g BANNER_BLUE='\033[0;34m'
-declare -g BANNER_MAGENTA='\033[0;35m'
-declare -g BANNER_WHITE='\033[1;37m'
-declare -g BANNER_BOLD='\033[1m'
-declare -g BANNER_DIM='\033[2m'
-declare -g BANNER_RESET='\033[0m'
+# Nota: lib/ui.sh deve ser carregado ANTES deste arquivo
+declare -g BANNER_CYAN="${UI_CYAN:-\033[0;36m}"
+declare -g BANNER_GREEN="${UI_GREEN:-\033[0;32m}"
+declare -g BANNER_YELLOW="${UI_YELLOW:-\033[1;33m}"
+declare -g BANNER_BLUE="${UI_BLUE:-\033[0;34m}"
+declare -g BANNER_MAGENTA="${UI_MAGENTA:-\033[0;35m}"
+declare -g BANNER_WHITE="${UI_WHITE:-\033[1;37m}"
+declare -g BANNER_BOLD="${UI_BOLD:-\033[1m}"
+declare -g BANNER_DIM="${UI_DIM:-\033[2m}"
+declare -g BANNER_RESET="${UI_RESET:-\033[0m}"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FUNÇÕES UTILITÁRIAS

@@ -303,7 +303,7 @@ ask_nerd_fonts() {
           msg ""
           msg "  ⚠️  AVISO: Instalar todas as fontes baixará ~2GB de dados!"
           msg ""
-          echo -e "  ${UI_GREEN}Enter${UI_RESET} para confirmar  │  ${UI_YELLOW}P${UI_RESET} para voltar"
+          echo -e "  ${UI_CYAN}Enter${UI_RESET} para confirmar  │  ${UI_YELLOW}P${UI_RESET} para voltar"
           local confirm_all
           read -r -p "  → " confirm_all
           if [[ "${confirm_all,,}" != "p" ]]; then
@@ -354,7 +354,7 @@ install_nerd_fonts() {
     warn "⚠️  Você selecionou $total_fonts fontes. Isso pode demorar alguns minutos."
     warn "    Cada fonte tem ~20-50MB e precisa ser baixada e extraída."
     msg ""
-    echo -e "  ${UI_GREEN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}P${UI_RESET} para pular"
+    echo -e "  ${UI_CYAN}Enter${UI_RESET} para continuar  │  ${UI_YELLOW}P${UI_RESET} para pular"
     local continue_choice
     read -r -p "  → " continue_choice
     if [[ "${continue_choice,,}" == "p" ]]; then

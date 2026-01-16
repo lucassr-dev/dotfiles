@@ -26,7 +26,6 @@ INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_FISH="${INSTALL_FISH:-1}"
 INSTALL_NUSHELL="${INSTALL_NUSHELL:-0}"
 INSTALL_BASE_DEPS=1  # Dependências base (pode ser desativado pelo usuário)
-INSTALL_VSCODE_EXTENSIONS=0
 BASE_DEPS_INSTALLED=0
 
 # Controle de cópia de configurações (padrão: copiar se selecionado)
@@ -91,10 +90,6 @@ is_truthy() {
   esac
 }
 
-should_ensure_latest() {
-  return 0
-}
-
 snap_install_or_refresh() {
   local pkg="$1"
   local friendly="$2"
@@ -105,13 +100,11 @@ snap_install_or_refresh() {
   has_cmd snap || return 0
 
   if has_snap_pkg "$pkg"; then
-    if should_ensure_latest; then
-      msg "  🔄 Atualizando $friendly via snap..."
-      if run_with_sudo snap refresh "$pkg" >/dev/null 2>&1; then
-        INSTALLED_MISC+=("$friendly: snap refresh")
-      else
-        record_failure "$level" "Falha ao atualizar via snap: $friendly ($pkg)"
-      fi
+    msg "  🔄 Atualizando $friendly via snap..."
+    if run_with_sudo snap refresh "$pkg" >/dev/null 2>&1; then
+      INSTALLED_MISC+=("$friendly: snap refresh")
+    else
+      record_failure "$level" "Falha ao atualizar via snap: $friendly ($pkg)"
     fi
     return 0
   fi
@@ -155,13 +148,11 @@ flatpak_install_or_update() {
   flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
 
   if flatpak info "$ref" >/dev/null 2>&1; then
-    if should_ensure_latest; then
-      msg "  🔄 Atualizando $friendly via flatpak..."
-      if flatpak update -y "$ref" >/dev/null 2>&1; then
-        INSTALLED_MISC+=("$friendly: flatpak update")
-      else
-        record_failure "$level" "Falha ao atualizar via flatpak: $friendly ($ref)"
-      fi
+    msg "  🔄 Atualizando $friendly via flatpak..."
+    if flatpak update -y "$ref" >/dev/null 2>&1; then
+      INSTALLED_MISC+=("$friendly: flatpak update")
+    else
+      record_failure "$level" "Falha ao atualizar via flatpak: $friendly ($ref)"
     fi
     return 0
   fi
@@ -684,8 +675,8 @@ INSTALL_BREWFILE=true
 [[ -f "$DATA_APPS" ]] && source "$DATA_APPS" || warn "Arquivo de dados de apps não encontrado: $DATA_APPS"
 [[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
 
-[[ -f "$SCRIPT_DIR/lib/banner.sh" ]] && source "$SCRIPT_DIR/lib/banner.sh"
 [[ -f "$SCRIPT_DIR/lib/ui.sh" ]] && source "$SCRIPT_DIR/lib/ui.sh"
+[[ -f "$SCRIPT_DIR/lib/banner.sh" ]] && source "$SCRIPT_DIR/lib/banner.sh"
 [[ -f "$SCRIPT_DIR/lib/selections.sh" ]] && source "$SCRIPT_DIR/lib/selections.sh"
 [[ -f "$SCRIPT_DIR/lib/nerd_fonts.sh" ]] && source "$SCRIPT_DIR/lib/nerd_fonts.sh"
 [[ -f "$SCRIPT_DIR/lib/themes.sh" ]] && source "$SCRIPT_DIR/lib/themes.sh"
@@ -711,37 +702,6 @@ print_selection_summary() {
   fi
   # Título com cor cyan e bold, items em texto normal
   msg "  ${UI_CYAN}${UI_BOLD}$label${UI_RESET}: $list"
-}
-
-ask_vscode_extensions() {
-  local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
-  INSTALL_VSCODE_EXTENSIONS=0
-
-  if [[ ! -f "$extensions_file" ]]; then
-    return 0
-  fi
-
-  while true; do
-    clear_screen
-    show_section_header "🧩 VS Code - Extensões"
-    msg "Este script pode aplicar automaticamente suas configurações do VS Code:"
-    msg "  • Settings: shared/vscode/settings.json"
-    msg "  • Extensões: shared/vscode/extensions.txt"
-    msg ""
-    msg "Se quiser usar suas próprias configs, edite esses arquivos antes de continuar."
-    msg ""
-
-    if confirm_action "instalar extensões do VS Code"; then
-      INSTALL_VSCODE_EXTENSIONS=1
-    fi
-
-    local ext_status="não instalar"
-    [[ $INSTALL_VSCODE_EXTENSIONS -eq 1 ]] && ext_status="instalar"
-
-    if confirm_selection "🧩 VS Code Extensions" "$ext_status"; then
-      break
-    fi
-  done
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1716,12 +1676,10 @@ install_vscode_macos() {
           msg "  ✅ VS Code já instalado (versão: $version)"
         fi
       fi
-      if should_ensure_latest; then
-        if brew upgrade --cask visual-studio-code >/dev/null 2>&1; then
-          INSTALLED_PACKAGES+=("brew cask: visual-studio-code (upgrade)")
-        else
-          record_failure "optional" "Falha ao atualizar VS Code via Homebrew cask"
-        fi
+      if brew upgrade --cask visual-studio-code >/dev/null 2>&1; then
+        INSTALLED_PACKAGES+=("brew cask: visual-studio-code (upgrade)")
+      else
+        record_failure "optional" "Falha ao atualizar VS Code via Homebrew cask"
       fi
       return 0
     fi
@@ -1754,12 +1712,10 @@ install_vscode_windows() {
           msg "  ✅ VS Code já instalado (versão: $version)"
         fi
       fi
-      if should_ensure_latest; then
-        if winget upgrade --id "$id" -e --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
-          INSTALLED_PACKAGES+=("winget: VS Code (upgrade)")
-        else
-          record_failure "optional" "Falha ao atualizar VS Code via winget"
-        fi
+      if winget upgrade --id "$id" -e --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
+        INSTALLED_PACKAGES+=("winget: VS Code (upgrade)")
+      else
+        record_failure "optional" "Falha ao atualizar VS Code via winget"
       fi
       return 0
     fi
@@ -1785,12 +1741,10 @@ install_vscode_windows() {
           msg "  ✅ VS Code já instalado (versão: $version)"
         fi
       fi
-      if should_ensure_latest; then
-        if choco upgrade -y "$package" >/dev/null 2>&1; then
-          INSTALLED_PACKAGES+=("choco: vscode (upgrade)")
-        else
-          record_failure "optional" "Falha ao atualizar VS Code via Chocolatey"
-        fi
+      if choco upgrade -y "$package" >/dev/null 2>&1; then
+        INSTALLED_PACKAGES+=("choco: vscode (upgrade)")
+      else
+        record_failure "optional" "Falha ao atualizar VS Code via Chocolatey"
       fi
       return 0
     fi
@@ -2881,6 +2835,7 @@ main() {
   # Tela de dependências base (informativa - apenas Enter)
   ask_base_dependencies
   pause_before_next_section
+  # Instalar dependências base ANTES dos menus (fzf é necessário para seleções)
   install_prerequisites
 
   # Shells (obrigatório - Zsh/Fish/Ambos)
@@ -2927,9 +2882,6 @@ main() {
 
   # Limpar tela antes de iniciar instalação
   clear_screen
-
-  # Instalar dependências base (sempre necessário)
-  install_prerequisites
 
   # Instalar shells selecionados
   install_selected_shells

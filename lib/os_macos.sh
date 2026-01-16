@@ -32,10 +32,8 @@ brew_install_formula() {
   fi
 
   if brew list "$formula" >/dev/null 2>&1; then
-    if should_ensure_latest; then
-      if brew upgrade "$formula" >/dev/null 2>&1; then
-        INSTALLED_MISC+=("brew formula: $formula (upgrade)")
-      fi
+    if brew upgrade "$formula" >/dev/null 2>&1; then
+      INSTALLED_MISC+=("brew formula: $formula (upgrade)")
     fi
     return 0
   fi
@@ -58,10 +56,8 @@ brew_install_cask() {
   fi
 
   if brew list --cask "$cask" >/dev/null 2>&1; then
-    if should_ensure_latest; then
-      if brew upgrade --cask "$cask" >/dev/null 2>&1; then
-        INSTALLED_MISC+=("brew cask: $cask (upgrade)")
-      fi
+    if brew upgrade --cask "$cask" >/dev/null 2>&1; then
+      INSTALLED_MISC+=("brew cask: $cask (upgrade)")
     fi
     return 0
   fi
@@ -84,13 +80,11 @@ install_macos_base_dependencies() {
     return
   fi
 
-  if should_ensure_latest; then
-    msg "▶ Atualizando Homebrew (brew update)"
-    if brew update >/dev/null 2>&1; then
-      INSTALLED_MISC+=("brew: update")
-    else
-      warn "Falha ao rodar brew update"
-    fi
+  msg "▶ Atualizando Homebrew (brew update)"
+  if brew update >/dev/null 2>&1; then
+    INSTALLED_MISC+=("brew: update")
+  else
+    warn "Falha ao rodar brew update"
   fi
 
   msg "▶ Verificando dependências macOS (Homebrew)"

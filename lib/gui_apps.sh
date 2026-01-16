@@ -299,7 +299,7 @@ ask_gui_apps() {
     msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     msg "  O Brewfile contém apps adicionais (Arc, iTerm2, Raycast, Rectangle, etc.)"
     msg ""
-    echo -e "  ${UI_GREEN}Enter${UI_RESET} para incluir Brewfile  │  ${UI_YELLOW}P${UI_RESET} para pular"
+    echo -e "  ${UI_CYAN}Enter${UI_RESET} para incluir Brewfile  │  ${UI_YELLOW}P${UI_RESET} para pular"
     local brewfile_choice
     read -r -p "  → " brewfile_choice
     if [[ "${brewfile_choice,,}" != "p" ]]; then
