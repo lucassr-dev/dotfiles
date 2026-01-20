@@ -3,7 +3,6 @@
 # Usa o sistema de UI moderno (fzf/gum/bash) de lib/ui.sh
 # shellcheck disable=SC2034,SC2329,SC1091
 
-# Arrays globais para armazenar seleções
 declare -a SELECTED_CLI_TOOLS=()
 declare -a SELECTED_IA_TOOLS=()
 declare -a SELECTED_TERMINALS=()
@@ -57,12 +56,10 @@ _wrap_text() {
 # Funções de compatibilidade (fallback se ui.sh não carregou)
 # ═══════════════════════════════════════════════════════════
 
-# Verifica se o sistema de UI moderno está disponível
 _has_modern_ui() {
   declare -F ui_select_multiple >/dev/null 2>&1
 }
 
-# Fallback para menu_header se não tiver ui.sh
 menu_header() {
   local title="$1"
   msg ""
@@ -72,7 +69,6 @@ menu_header() {
   echo ""
 }
 
-# Fallback para seleção única
 menu_select_single() {
   local title="$1"
   local prompt="$2"
@@ -80,11 +76,9 @@ menu_select_single() {
   shift 3
   local options=("$@")
 
-  # Usar UI moderna se disponível
   if _has_modern_ui; then
     local result=""
     ui_select_single "$title" result "${options[@]}"
-    # Mapear resultado para índice
     for i in "${!options[@]}"; do
       local opt_name
       opt_name=$(echo "${options[i]}" | awk '{print $1}')
@@ -97,7 +91,6 @@ menu_select_single() {
     return 0
   fi
 
-  # Fallback bash puro
   local selection=""
   while true; do
     menu_header "$title"
@@ -116,18 +109,15 @@ menu_select_single() {
   done
 }
 
-# Seleção única (wrapper para ui_select_single)
 select_single_item() {
   local title="$1"
   local out_var="$2"
   shift 2
   local options=("$@")
 
-  # Usar UI moderna se disponível
   if _has_modern_ui; then
     local result=""
     ui_select_single "$title" result "${options[@]}"
-    # Retornar a linha completa selecionada (não apenas a primeira palavra)
     for opt in "${options[@]}"; do
       local opt_name
       opt_name=$(echo "$opt" | awk '{print $1}')
@@ -136,12 +126,10 @@ select_single_item() {
         return 0
       fi
     done
-    # Se não encontrou, retornar primeira opção
     printf -v "$out_var" '%s' "${options[0]}"
     return 0
   fi
 
-  # Fallback bash puro - estilo moderno
   local selection=""
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
@@ -173,20 +161,17 @@ select_single_item() {
   done
 }
 
-# Fallback para seleção múltipla
 select_multiple_items() {
   local title="$1"
   local out_var="$2"
   shift 2
   local options=("$@")
 
-  # Usar UI moderna se disponível
   if _has_modern_ui; then
     ui_select_multiple "$title" "$out_var" "${options[@]}"
     return
   fi
 
-  # Fallback bash puro (código original)
   local input=""
   local selected=()
 
@@ -264,7 +249,6 @@ select_multiple_items() {
     msg "  ⚠️  Entrada inválida. Use números da lista separados por vírgula, 'a' para todos ou Enter para nenhum."
   done
 
-  # Usar nameref para atribuir array de volta (Bash 4.3+)
   declare -n array_ref="$out_var"
   array_ref=("${selected[@]}")
   unset -n array_ref
@@ -275,15 +259,13 @@ confirm_selection() {
   shift
   local items=("$@")
 
-  # Largura responsiva - IGUAL ao show_section_header para alinhamento
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
   local box_w=$((term_w > 70 ? 70 : term_w - 4))
   [[ $box_w -lt 40 ]] && box_w=40
   local inner_w=$((box_w - 2))
-  local content_w=$((box_w - 6))  # Espaço para "│  ✓ " e margem
+  local content_w=$((box_w - 6))
 
-  # Gerar linha horizontal
   local h_line
   h_line=$(printf '─%.0s' $(seq 1 "$inner_w"))
 
@@ -302,21 +284,17 @@ confirm_selection() {
   fill=$(printf '─%.0s' $(seq 1 "$fill_len"))
   echo -e "${UI_CYAN}╭─ ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${fill}╮${UI_RESET}"
 
-  # Mostrar items com word-wrap inteligente
   if [[ ${#items[@]} -gt 0 ]]; then
     for item in "${items[@]}"; do
-      # Se o item cabe na linha, mostrar direto
       if [[ ${#item} -le $content_w ]]; then
         local pad=$((inner_w - 4 - ${#item}))
         [[ $pad -lt 0 ]] && pad=0
         echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${item}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
       else
-        # Item longo - quebrar em palavras (espaços)
         local current_line=""
         local first_line=1
         local words=()
 
-        # Dividir por espaços
         read -ra words <<< "$item"
 
         for word in "${words[@]}"; do
@@ -325,7 +303,6 @@ confirm_selection() {
           elif [[ $((${#current_line} + 1 + ${#word})) -le $content_w ]]; then
             current_line="$current_line $word"
           else
-            # Imprimir linha atual
             local pad=$((inner_w - 4 - ${#current_line}))
             [[ $pad -lt 0 ]] && pad=0
             if [[ $first_line -eq 1 ]]; then
@@ -338,7 +315,6 @@ confirm_selection() {
           fi
         done
 
-        # Imprimir última linha
         if [[ -n "$current_line" ]]; then
           local pad=$((inner_w - 4 - ${#current_line}))
           [[ $pad -lt 0 ]] && pad=0

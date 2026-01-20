@@ -2,8 +2,6 @@
 # Instalação de CLI Tools e IA Tools selecionadas
 # shellcheck disable=SC2034,SC2329,SC1091
 
-# Instala via cargo-binstall (binários pré-compilados) ou cargo install (compilação)
-# cargo-binstall é ~100x mais rápido pois baixa binários prontos
 cargo_smart_install() {
   local crate="$1"
   local display_name="${2:-$crate}"
@@ -16,7 +14,6 @@ cargo_smart_install() {
     fi
   fi
 
-  # Fallback: compilação (mais lento)
   msg "  🦀 Instalando $display_name via cargo (compilando, pode demorar)..."
   if cargo install "$crate" >/dev/null 2>&1; then
     INSTALLED_MISC+=("cargo: $crate")
@@ -26,13 +23,11 @@ cargo_smart_install() {
   return 1
 }
 
-# Instala cargo-binstall se não existir (para acelerar instalações futuras)
 ensure_cargo_binstall() {
   has_cmd cargo-binstall && return 0
   has_cmd cargo || return 1
 
   msg "  📦 Instalando cargo-binstall (acelera instalações futuras)..."
-  # Instalar via script oficial (mais rápido que compilar)
   if curl -fsSL https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh 2>/dev/null | bash >/dev/null 2>&1; then
     export PATH="$HOME/.cargo/bin:$PATH"
     return 0
@@ -125,7 +120,6 @@ install_cli_tools_linux() {
   if [[ $need_cargo -eq 1 ]]; then
     ensure_rust_cargo
     if has_cmd cargo; then
-      # Instalar cargo-binstall primeiro para acelerar instalações (~100x mais rápido)
       ensure_cargo_binstall
 
       for tool in "${SELECTED_CLI_TOOLS[@]}"; do
@@ -155,7 +149,6 @@ install_cli_tools_linux() {
             cli_tool_installed "$tool" || cargo_smart_install tealdeer "tealdeer"
             ;;
           yazi)
-            # yazi tem dois crates: yazi-fm (app) e yazi-cli (helper)
             if ! cli_tool_installed "$tool"; then
               cargo_smart_install yazi-fm "yazi"
               cargo_smart_install yazi-cli "yazi-cli"
@@ -181,7 +174,6 @@ install_cli_tools_linux() {
     fi
   fi
 
-  # Ferramentas específicas com instalação manual
   for tool in "${SELECTED_CLI_TOOLS[@]}"; do
     case "$tool" in
       gh)

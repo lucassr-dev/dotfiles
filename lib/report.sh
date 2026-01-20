@@ -28,7 +28,6 @@ get_version() {
   esac
 }
 
-# Desenha linha horizontal com cantos
 _draw_line() {
   local width="$1"
   local left="$2"
@@ -53,7 +52,6 @@ _truncate_text() {
   printf '%s' "${text:0:$((max - 3))}..."
 }
 
-# Formata item com ícone e versão, truncando se necessário
 _fmt_tool() {
   local icon="$1"
   local name="$2"

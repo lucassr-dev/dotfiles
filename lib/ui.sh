@@ -7,7 +7,6 @@
 # CONFIGURAÇÃO E DETECÇÃO
 # ═══════════════════════════════════════════════════════════
 
-# Cores para UI
 declare -g UI_CYAN='\033[0;36m'
 declare -g UI_GREEN='\033[0;32m'
 declare -g UI_YELLOW='\033[1;33m'
@@ -19,7 +18,6 @@ declare -g UI_BOLD='\033[1m'
 declare -g UI_DIM='\033[2m'
 declare -g UI_RESET='\033[0m'
 
-# Símbolos Unicode para checkboxes
 declare -g UI_CHECK="✓"
 declare -g UI_UNCHECK="○"
 declare -g UI_ARROW="›"
@@ -30,7 +28,6 @@ declare -g UI_BOX_TR="╮"
 declare -g UI_BOX_BL="╰"
 declare -g UI_BOX_BR="╯"
 
-# Detectar modo de UI disponível
 detect_ui_mode() {
   if [[ -n "${FORCE_UI_MODE:-}" ]]; then
     UI_MODE="$FORCE_UI_MODE"
@@ -50,14 +47,12 @@ detect_ui_mode() {
 # SPINNERS E PROGRESSO
 # ═══════════════════════════════════════════════════════════
 
-# Spinner frames (Braille)
 declare -a SPINNER_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 declare -g SPINNER_PID=""
 
 start_spinner() {
   local message="${1:-Aguarde...}"
 
-  # Não iniciar se já tem um rodando
   [[ -n "$SPINNER_PID" ]] && return
 
   (
@@ -82,10 +77,8 @@ stop_spinner() {
     SPINNER_PID=""
   fi
 
-  # Limpar linha
   printf "\r\033[K"
 
-  # Mostrar resultado
   if [[ -n "$message" ]]; then
     case "$status" in
       success) printf "  ${UI_GREEN}✓${UI_RESET} %s\n" "$message" ;;
@@ -121,21 +114,17 @@ show_progress_bar() {
 # SELEÇÃO MÚLTIPLA - FZF
 # ═══════════════════════════════════════════════════════════
 
-# Seleção múltipla usando fzf
-# Retorna itens selecionados (primeira palavra de cada linha)
 ui_select_multi_fzf() {
   local title="$1"
   local out_var="$2"
   shift 2
   local options=("$@")
 
-  # Calcular altura dinâmica (itens + header + prompt + margem)
   local num_items=${#options[@]}
   local height=$((num_items + 6))
   [[ $height -lt 10 ]] && height=10
   [[ $height -gt 22 ]] && height=22
 
-  # Header com título e dica de uso
   local header
   header=$(printf '%s\n%s' "📦 $title" "Tab: selecionar │ Ctrl+A: todos │ ESC: nenhum │ Enter: confirmar")
 
@@ -158,13 +147,11 @@ ui_select_multi_fzf() {
     --color='header:cyan,pointer:green,marker:green,prompt:yellow' \
   ) || true
 
-  # Extrair nomes (primeira palavra)
   local -a result=()
   while IFS= read -r line; do
     [[ -n "$line" ]] && result+=("$(echo "$line" | awk '{print $1}')")
   done <<< "$selected"
 
-  # Atribuir resultado
   declare -n ref="$out_var"
   ref=("${result[@]}")
   unset -n ref
@@ -189,7 +176,6 @@ ui_select_multi_gum() {
     "${options[@]}" \
   ) || true
 
-  # Extrair nomes
   local -a result=()
   while IFS= read -r line; do
     [[ -n "$line" ]] && result+=("$(echo "$line" | awk '{print $1}')")
@@ -215,12 +201,10 @@ ui_select_multi_bash() {
   local input=""
 
   while true; do
-    # Limpar tela e mostrar header
     echo ""
     echo -e "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H} ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
     echo ""
 
-    # Layout em 2 colunas se muitos itens
     if [[ $total -gt 12 ]]; then
       local mid=$(( (total + 1) / 2 ))
       local col_width=38
@@ -231,7 +215,6 @@ ui_select_multi_bash() {
         local left_item="${options[i]}"
         local right_item=""
 
-        # Verificar se está selecionado
         local left_check="$UI_UNCHECK"
         local right_check="$UI_UNCHECK"
 
@@ -249,7 +232,6 @@ ui_select_multi_bash() {
         fi
       done
     else
-      # Layout simples
       for (( i=0; i<total; i++ )); do
         local idx=$((i + 1))
         local item="${options[i]}"
@@ -268,14 +250,11 @@ ui_select_multi_bash() {
     echo ""
     read -r -p "  Selecione (números separados por vírgula): " input
 
-    # Processar entrada
     case "$input" in
       "")
-        # Enter sem input = confirmar seleção atual
         break
         ;;
       a|A|all|todos|t|T|\*)
-        # Selecionar todos
         selected_indices=()
         for ((i=0; i<total; i++)); do
           selected_indices+=($i)
@@ -283,12 +262,10 @@ ui_select_multi_bash() {
         break
         ;;
       n|N|none|nenhum)
-        # Limpar seleção
         selected_indices=()
         break
         ;;
       *)
-        # Processar números
         local valid=1
         local -a new_indices=()
         IFS=',' read -r -a nums <<< "$input"
@@ -299,7 +276,6 @@ ui_select_multi_bash() {
 
           if [[ "$n" =~ ^[0-9]+$ ]] && (( n >= 1 )) && (( n <= total )); then
             local idx=$((n - 1))
-            # Toggle: adicionar se não está, remover se está
             local found=0
             local -a temp=()
             for s in "${selected_indices[@]}"; do
@@ -329,7 +305,6 @@ ui_select_multi_bash() {
     esac
   done
 
-  # Construir resultado
   local -a result=()
   for idx in "${selected_indices[@]}"; do
     local item="${options[idx]}"
@@ -351,13 +326,11 @@ ui_select_single_fzf() {
   shift 2
   local options=("$@")
 
-  # Calcular altura dinâmica
   local num_items=${#options[@]}
   local height=$((num_items + 5))
   [[ $height -lt 9 ]] && height=9
   [[ $height -gt 17 ]] && height=17
 
-  # Header com título e dica de uso
   local header
   header=$(printf '%s\n%s' "$title" "↑↓: navegar │ ESC: cancelar │ Enter: confirmar")
 
@@ -468,7 +441,6 @@ ui_confirm() {
 # API PRINCIPAL - Detecta modo automaticamente
 # ═══════════════════════════════════════════════════════════
 
-# Seleção múltipla (API principal)
 ui_select_multiple() {
   local title="$1"
   local out_var="$2"
@@ -484,7 +456,6 @@ ui_select_multiple() {
   esac
 }
 
-# Seleção única (API principal)
 ui_select_single() {
   local title="$1"
   local out_var="$2"
@@ -504,27 +475,12 @@ ui_select_single() {
 # NOTIFICAÇÕES E STATUS
 # ═══════════════════════════════════════════════════════════
 
-ui_success() {
-  echo -e "  ${UI_GREEN}✓${UI_RESET} $1"
-}
+ui_success() { echo -e "  ${UI_GREEN}✓${UI_RESET} $1"; }
+ui_error() { echo -e "  ${UI_RED}✗${UI_RESET} $1"; }
+ui_warning() { echo -e "  ${UI_YELLOW}⚠${UI_RESET} $1"; }
+ui_info() { echo -e "  ${UI_BLUE}ℹ${UI_RESET} $1"; }
+ui_step() { echo -e "  ${UI_CYAN}▶${UI_RESET} $1"; }
 
-ui_error() {
-  echo -e "  ${UI_RED}✗${UI_RESET} $1"
-}
-
-ui_warning() {
-  echo -e "  ${UI_YELLOW}⚠${UI_RESET} $1"
-}
-
-ui_info() {
-  echo -e "  ${UI_BLUE}ℹ${UI_RESET} $1"
-}
-
-ui_step() {
-  echo -e "  ${UI_CYAN}▶${UI_RESET} $1"
-}
-
-# Box de status
 ui_status_box() {
   local status="$1"
   local title="$2"

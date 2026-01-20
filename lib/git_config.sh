@@ -74,7 +74,6 @@ ask_git_configuration() {
 
     GIT_CONFIGURE=1
 
-  # Perguntar diretórios para conta pessoal
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   msg "  👤 CONTA PESSOAL - Diretórios"
@@ -98,7 +97,6 @@ ask_git_configuration() {
     read -r -a GIT_PERSONAL_DIRS <<< "$personal_dirs_input"
   fi
 
-  # Perguntar dados da conta pessoal
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   msg "  👤 CONTA PESSOAL - Dados"
@@ -113,20 +111,16 @@ ask_git_configuration() {
   msg "🔑 Chave SSH para conta pessoal:"
   msg ""
 
-  # Listar chaves SSH disponíveis (buscar em ~/.ssh e shared/.ssh)
   local ssh_keys=()
 
-  # Buscar em ~/.ssh
   if [[ -d "$HOME/.ssh" ]]; then
     while IFS= read -r key; do
       ssh_keys+=("$key")
     done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
   fi
 
-  # Buscar também em shared/.ssh (do repositório de config)
   if [[ -n "${SCRIPT_DIR:-}" ]] && [[ -d "$SCRIPT_DIR/shared/.ssh" ]]; then
     while IFS= read -r key; do
-      # Evitar duplicatas (comparar basename)
       local key_basename
       key_basename="$(basename "$key")"
       local found=0
@@ -163,7 +157,6 @@ ask_git_configuration() {
     read -r -p "  Caminho da chave SSH (Enter para não configurar): " GIT_PERSONAL_SSH_KEY
   fi
 
-  # Perguntar diretórios para conta de trabalho
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   msg "  💼 CONTA TRABALHO - Diretórios"
@@ -187,7 +180,6 @@ ask_git_configuration() {
     read -r -a GIT_WORK_DIRS <<< "$work_dirs_input"
   fi
 
-  # Perguntar dados da conta de trabalho
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   msg "  💼 CONTA TRABALHO - Dados"
@@ -212,10 +204,8 @@ ask_git_configuration() {
     done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
   fi
 
-  # Buscar também em shared/.ssh (do repositório de config)
   if [[ -n "${SCRIPT_DIR:-}" ]] && [[ -d "$SCRIPT_DIR/shared/.ssh" ]]; then
     while IFS= read -r key; do
-      # Evitar duplicatas (comparar basename)
       local key_basename
       key_basename="$(basename "$key")"
       local found=0
@@ -252,7 +242,6 @@ ask_git_configuration() {
     read -r -p "  Caminho da chave SSH (Enter para não configurar): " GIT_WORK_SSH_KEY
   fi
 
-  # Perguntar preferências de editor e pager
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   msg "  ⚙️  PREFERÊNCIAS"
@@ -267,7 +256,6 @@ ask_git_configuration() {
   read -r -p "  Pager para diffs (delta/less/cat) [delta]: " pager_input
   GIT_PAGER="${pager_input:-delta}"
 
-    # Resumo
     msg ""
     msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     msg "  ✅ RESUMO DA CONFIGURAÇÃO GIT"
@@ -308,7 +296,6 @@ install_git_configuration() {
   msg "▶ Configurando Git multi-conta"
   msg ""
 
-  # Criar .gitconfig-personal
   local gitconfig_personal="$HOME/.gitconfig-personal"
   cat > "$gitconfig_personal" << EOF
 [user]
@@ -335,7 +322,6 @@ EOF
 
   msg "  ✅ Criado: ~/.gitconfig-personal"
 
-  # Criar .gitconfig-work
   local gitconfig_work="$HOME/.gitconfig-work"
   cat > "$gitconfig_work" << EOF
 [user]
@@ -362,7 +348,6 @@ EOF
 
   msg "  ✅ Criado: ~/.gitconfig-work"
 
-  # Criar .gitconfig principal
   local gitconfig="$HOME/.gitconfig"
   cat > "$gitconfig" << 'EOF'
 [color]
@@ -377,7 +362,6 @@ EOF
 
 EOF
 
-  # Adicionar includeIf para conta pessoal
   for dir in "${GIT_PERSONAL_DIRS[@]}"; do
     {
       echo "[includeIf \"gitdir:$dir/\"]"
@@ -386,7 +370,6 @@ EOF
     } >> "$gitconfig"
   done
 
-  # Adicionar includeIf para conta de trabalho
   for dir in "${GIT_WORK_DIRS[@]}"; do
     {
       echo "[includeIf \"gitdir:$dir/\"]"
@@ -395,7 +378,6 @@ EOF
     } >> "$gitconfig"
   done
 
-  # Adicionar configurações gerais
   cat >> "$gitconfig" << EOF
 # ════════════════════════════════════════════════════════════════
 # Aliases úteis
@@ -455,10 +437,8 @@ EOF
   msg "  ✅ Criado: ~/.gitconfig"
   msg ""
 
-  # Criar diretórios se não existirem
   msg "  📁 Criando diretórios configurados..."
   for dir in "${GIT_PERSONAL_DIRS[@]}" "${GIT_WORK_DIRS[@]}"; do
-    # Expandir ~ para $HOME
     local expanded_dir="${dir/#\~/$HOME}"
     if [[ ! -d "$expanded_dir" ]]; then
       if mkdir -p "$expanded_dir" 2>/dev/null; then

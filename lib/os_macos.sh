@@ -337,8 +337,7 @@ install_macos_selected_apps() {
   msg "▶ Instalando apps GUI selecionados (macOS)"
 
   for app in "${SELECTED_IDES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
-    if is_app_processed "$app"; then
+      if is_app_processed "$app"; then
       continue
     fi
     mark_app_processed "$app"
@@ -351,8 +350,7 @@ install_macos_selected_apps() {
   done
 
   for app in "${SELECTED_BROWSERS[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
-    if is_app_processed "$app"; then
+      if is_app_processed "$app"; then
       continue
     fi
     mark_app_processed "$app"
@@ -367,8 +365,7 @@ install_macos_selected_apps() {
   done
 
   for app in "${SELECTED_DEV_TOOLS[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
-    if is_app_processed "$app"; then
+      if is_app_processed "$app"; then
       continue
     fi
     mark_app_processed "$app"
@@ -382,8 +379,7 @@ install_macos_selected_apps() {
   done
 
   for app in "${SELECTED_DATABASES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
-    if is_app_processed "$app"; then
+      if is_app_processed "$app"; then
       continue
     fi
     mark_app_processed "$app"
@@ -399,8 +395,7 @@ install_macos_selected_apps() {
   done
 
   for app in "${SELECTED_PRODUCTIVITY[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
-    if is_app_processed "$app"; then
+      if is_app_processed "$app"; then
       continue
     fi
     mark_app_processed "$app"
@@ -414,8 +409,7 @@ install_macos_selected_apps() {
   done
 
   for app in "${SELECTED_COMMUNICATION[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
-    if is_app_processed "$app"; then
+      if is_app_processed "$app"; then
       continue
     fi
     mark_app_processed "$app"
@@ -427,8 +421,7 @@ install_macos_selected_apps() {
   done
 
   for app in "${SELECTED_MEDIA[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
-    if is_app_processed "$app"; then
+      if is_app_processed "$app"; then
       continue
     fi
     mark_app_processed "$app"
@@ -451,10 +444,7 @@ apply_macos_configs() {
   [[ -d "$source_dir" ]] || return
   msg "▶ Copiando configs macOS"
 
-  # Ghostty (macOS usa pasta diferente)
   if [[ -d "$source_dir/ghostty" ]]; then
     copy_dir "$source_dir/ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
   fi
-
-  # Outras configs específicas do macOS podem ser adicionadas aqui
 }

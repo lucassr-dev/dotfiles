@@ -32,7 +32,6 @@ winget_install() {
     return
   fi
 
-  # Verificar se já está instalado
   if winget list --id "$package_id" >/dev/null 2>&1; then
     msg "  🔄 Atualizando $friendly_name via winget..."
     if winget upgrade --id "$package_id" --silent --accept-source-agreements --accept-package-agreements >/dev/null 2>&1; then
@@ -97,13 +96,11 @@ copy_windows_terminal_settings() {
     base="$HOME/AppData/Local"
   fi
 
-  # Windows Terminal (versão estável da Microsoft Store)
   local wt_stable="$base/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
   if [[ -d "$(dirname "$wt_stable")" ]]; then
     copy_file "$wt_settings" "$wt_stable"
   fi
 
-  # Windows Terminal Preview
   local wt_preview="$base/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json"
   if [[ -d "$(dirname "$wt_preview")" ]]; then
     copy_file "$wt_settings" "$wt_preview"
@@ -117,23 +114,18 @@ copy_powershell_profile() {
   local docs="${USERPROFILE:-$HOME}/Documents"
   [[ -d "$docs" ]] || docs="$HOME/Documents"
 
-  # PowerShell 7+
   copy_file "$ps_profile_src" "$docs/PowerShell/Microsoft.PowerShell_profile.ps1"
-
-  # Windows PowerShell 5.1
   copy_file "$ps_profile_src" "$docs/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
 }
 
 export_windows_configs_back() {
   local base="${LOCALAPPDATA:-$HOME/AppData/Local}"
 
-  # Windows Terminal settings
   local wt_stable="$base/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
   if [[ -f "$wt_stable" ]]; then
     export_file "$wt_stable" "$CONFIG_WINDOWS/windows-terminal-settings.json"
   fi
 
-  # PowerShell profile
   local ps_profile="${USERPROFILE:-$HOME}/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"
   if [[ -f "$ps_profile" ]]; then
     export_file "$ps_profile" "$CONFIG_WINDOWS/powershell/profile.ps1"
@@ -152,9 +144,7 @@ install_windows_selected_apps() {
 
   msg "▶ Instalando apps selecionados via winget"
 
-  # IDEs
   for ide in "${SELECTED_IDES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$ide"; then
       continue
     fi
@@ -180,18 +170,14 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Terminais
   for terminal in "${SELECTED_TERMINALS[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$terminal"; then
       continue
     fi
     mark_app_processed "$terminal"
 
     case "$terminal" in
-      windows-terminal)
-        # Já instalado como dependência base
-        ;;
+      windows-terminal) ;;
       wezterm)
         winget_install "wez.wezterm" "WezTerm"
         ;;
@@ -204,9 +190,7 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Navegadores
   for browser in "${SELECTED_BROWSERS[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$browser"; then
       continue
     fi
@@ -220,9 +204,7 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Dev tools
   for tool in "${SELECTED_DEV_TOOLS[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$tool"; then
       continue
     fi
@@ -236,9 +218,7 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Bancos de dados
   for db in "${SELECTED_DATABASES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$db"; then
       continue
     fi
@@ -252,9 +232,7 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Produtividade
   for app in "${SELECTED_PRODUCTIVITY[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -267,9 +245,7 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Comunicação
   for app in "${SELECTED_COMMUNICATION[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -280,9 +256,7 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Mídia
   for app in "${SELECTED_MEDIA[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -294,9 +268,7 @@ install_windows_selected_apps() {
     esac
   done
 
-  # Utilitários
   for app in "${SELECTED_UTILITIES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi

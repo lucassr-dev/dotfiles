@@ -11,7 +11,6 @@ INSTALL_POWERLEVEL10K=0
 INSTALL_OH_MY_POSH=0
 INSTALL_STARSHIP=0
 
-# Arrays para plugins e presets selecionados
 declare -a SELECTED_OMZ_PLUGINS=()
 declare -a SELECTED_OMZ_EXTERNAL_PLUGINS=()
 declare -a SELECTED_FISH_PLUGINS=()
@@ -37,7 +36,6 @@ theme_preview_cache_dir() {
 # ═══════════════════════════════════════════════════════════
 
 _terminal_no_inline_support() {
-  # Terminais que NÃO suportam imagens inline
   [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]] && return 0
   [[ "${TERM:-}" == "linux" ]] && return 0
   [[ "${TERM:-}" == "dumb" ]] && return 0
@@ -49,16 +47,11 @@ _terminal_no_inline_support() {
 theme_preview_renderer() {
   _terminal_no_inline_support && return 1
 
-  # chafa é a melhor opção: auto-detecta terminal e suporta
-  # Kitty, iTerm2, Sixel e fallback para symbols (ASCII art)
-  # Funciona em: Ghostty, Kitty, iTerm2, WezTerm, foot, etc.
   if has_cmd chafa; then
     echo "chafa"
     return 0
   fi
 
-  # Fallback: kitty icat para terminais com protocolo Kitty
-  # (Kitty, Ghostty, WezTerm, Konsole)
   if has_cmd kitty; then
     local kitty_term=0
     [[ -n "${KITTY_WINDOW_ID:-}" ]] && kitty_term=1
@@ -70,8 +63,6 @@ theme_preview_renderer() {
     [[ $kitty_term -eq 1 ]] && { echo "kitty"; return 0; }
   fi
 
-  # Fallback: img2sixel para terminais com suporte Sixel
-  # (foot, mlterm, contour, Windows Terminal 1.22+)
   if has_cmd img2sixel; then
     local sixel_term=0
     [[ "${TERM:-}" == *"sixel"* ]] && sixel_term=1
@@ -82,7 +73,6 @@ theme_preview_renderer() {
     [[ $sixel_term -eq 1 ]] && { echo "sixel"; return 0; }
   fi
 
-  # Fallbacks ASCII art
   has_cmd catimg && { echo "catimg"; return 0; }
   has_cmd timg && { echo "timg"; return 0; }
 
@@ -95,17 +85,14 @@ check_preview_support() {
     return 1
   fi
 
-  # chafa é a solução universal - auto-detecta e suporta todos os protocolos
   if has_cmd chafa; then
     return 0
   fi
 
-  # Sem chafa, verificar se há alternativas
   if has_cmd kitty || has_cmd img2sixel || has_cmd catimg || has_cmd timg; then
     return 0
   fi
 
-  # Nenhuma ferramenta disponível - sugerir instalação do chafa
   warn "Nenhuma ferramenta de preview de imagens encontrada"
   msg "  💡 Para habilitar previews de temas, instale o chafa:"
   case "${TARGET_OS:-linux}" in
@@ -239,8 +226,6 @@ show_theme_preview() {
 
   case "$renderer" in
     chafa)
-      # chafa auto-detecta o protocolo correto (Kitty, iTerm2, Sixel, symbols)
-      # --animate=off evita problemas com GIFs animados
       chafa --animate=off --size="${chafa_width}x${chafa_height}" "$render_path" 2>/dev/null || \
         msg "  ⚠️  Falha ao renderizar com chafa"
       ;;
@@ -284,7 +269,6 @@ preview_starship_preset() {
   local img="$cache_dir/starship-${preset}.png"
   local url=""
 
-  # URLs das imagens dos presets do Starship
   case "$preset" in
     catppuccin-powerline)
       url="https://starship.rs/presets/img/catppuccin-powerline.png"
@@ -420,7 +404,6 @@ ask_themes() {
     msg "  • Todos os temas requerem Nerd Fonts instaladas"
     msg ""
 
-    # Verificar e informar sobre suporte a previews
     check_preview_support || true
 
     local selected_desc=()
@@ -550,7 +533,6 @@ ask_oh_my_zsh_plugins() {
       SELECTED_OMZ_EXTERNAL_PLUGINS+=("$plugin_name")
     done
 
-    # Montar resumo com separador correto
     local all_plugins=()
     if [[ ${#SELECTED_OMZ_PLUGINS[@]} -gt 0 ]]; then
       local builtin_list
@@ -607,7 +589,6 @@ ask_starship_preset() {
         msg "  ✅ Selecionado: Catppuccin Powerline"
         msg ""
 
-        # Perguntar variante Catppuccin
         msg "🎨 Escolha o sabor (flavor) do Catppuccin:"
         msg ""
 
@@ -775,7 +756,6 @@ ask_fish_plugins() {
     msg "e plugins via Fisher (gerenciador de plugins moderno)."
     msg ""
 
-    # Avisar sobre duplicação com CLI Tools
     local has_zoxide=0
     local has_fzf=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do
@@ -802,7 +782,6 @@ ask_fish_plugins() {
 
     local selected_fish_desc=()
     select_multiple_items "🐟 Selecione os plugins do Fish" selected_fish_desc "${fish_plugins_desc[@]}"
-    # Mapear de volta para nomes sem descrição (pegar primeira palavra)
     for item in "${selected_fish_desc[@]}"; do
       local plugin_name
       plugin_name="$(echo "$item" | awk '{print $1}')"
@@ -839,7 +818,6 @@ install_oh_my_zsh() {
   else
     msg "  📦 Instalando Oh My Zsh..."
 
-    # Download e instalação via script oficial
     if has_cmd curl; then
       if sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null; then
         INSTALLED_MISC+=("oh-my-zsh: framework")
@@ -854,7 +832,6 @@ install_oh_my_zsh() {
     fi
   fi
 
-  # Instalar plugins externos se houver seleções
   if [[ ${#SELECTED_OMZ_EXTERNAL_PLUGINS[@]} -gt 0 ]]; then
     msg "  📦 Instalando plugins externos..."
 
@@ -944,15 +921,12 @@ install_oh_my_zsh() {
   if [[ ${#all_plugins[@]} -gt 0 ]] && [[ -f "$zshrc" ]]; then
     msg "  🔌 Configurando plugins no .zshrc..."
 
-    # Criar string de plugins: git docker kubectl zsh-autosuggestions ...
     local plugins_str="${all_plugins[*]}"
 
-    # Substituir linha de plugins no .zshrc
     if grep -q "^plugins=" "$zshrc"; then
       sed -i.bak "s/^plugins=.*/plugins=($plugins_str)/" "$zshrc"
       msg "  ✅ Plugins configurados: $plugins_str"
     else
-      # Se não existir linha de plugins, adicionar
       echo "plugins=($plugins_str)" >> "$zshrc"
       msg "  ✅ Plugins adicionados ao .zshrc"
     fi
@@ -1031,7 +1005,6 @@ install_starship() {
     esac
   fi
 
-  # Configurar preset se selecionado
   if [[ $starship_installed -eq 1 ]] && [[ -n "$SELECTED_STARSHIP_PRESET" ]]; then
     local config_dir="$HOME/.config"
     local starship_config="$config_dir/starship.toml"
@@ -1043,10 +1016,8 @@ install_starship() {
 
     msg "  ✨ Configurando preset: $preset"
 
-    # Criar diretório de config se não existir
     mkdir -p "$config_dir"
 
-    # Usar comando starship preset para aplicar
     if starship preset "$preset" -o "$starship_config" 2>/dev/null; then
       msg "  ✅ Preset $preset aplicado"
 
@@ -1115,15 +1086,11 @@ install_oh_my_posh() {
     esac
   fi
 
-  # Configurar tema se selecionado
   if [[ $omp_installed -eq 1 ]] && [[ -n "$SELECTED_OMP_THEME" ]]; then
     msg "  🎭 Configurando tema: $SELECTED_OMP_THEME"
 
-    # Oh My Posh instala temas em diretórios diferentes por OS
     local theme_file=""
 
-    # Tentar encontrar o arquivo de tema
-    # Formato: nome.omp.json (ex: catppuccin.omp.json)
     local possible_dirs=(
       "$HOME/.poshthemes"
       "$(brew --prefix oh-my-posh 2>/dev/null)/themes"
@@ -1141,7 +1108,6 @@ install_oh_my_posh() {
     if [[ -n "$theme_file" ]]; then
       msg "  ✅ Tema encontrado: $theme_file"
 
-      # Adicionar init ao shell config
       if [[ $INSTALL_ZSH -eq 1 ]] && [[ -f "$HOME/.zshrc" ]]; then
         local init_line="eval \"\$(oh-my-posh init zsh --config '$theme_file')\""
         if ! grep -q "oh-my-posh init zsh" "$HOME/.zshrc"; then
@@ -1196,7 +1162,6 @@ install_fish_plugins() {
 
   msg "  🐟 Instalando Fisher e plugins do Fish..."
 
-  # Instalar Fisher (gerenciador de plugins)
   local fisher_file="$HOME/.config/fish/functions/fisher.fish"
   if [[ ! -f "$fisher_file" ]]; then
     msg "  📦 Instalando Fisher (gerenciador de plugins)..."
@@ -1211,7 +1176,6 @@ install_fish_plugins() {
     msg "  ℹ️  Fisher já está instalado"
   fi
 
-  # Instalar plugins selecionados via Fisher
   for plugin in "${SELECTED_FISH_PLUGINS[@]}"; do
     local plugin_repo=""
     local plugin_name=""
@@ -1278,7 +1242,6 @@ install_selected_themes() {
   msg "  ✅ Temas instalados com sucesso!"
   msg ""
 
-  # Resumo de configurações aplicadas
   if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
     local all_omz_plugins=()
     all_omz_plugins+=("${SELECTED_OMZ_PLUGINS[@]}")
@@ -1303,7 +1266,6 @@ install_selected_themes() {
 
   msg ""
 
-  # Dicas de configuração
   if [[ $INSTALL_POWERLEVEL10K -eq 1 ]]; then
     msg "  💡 Powerlevel10k: Execute 'p10k configure' para personalizar"
   fi

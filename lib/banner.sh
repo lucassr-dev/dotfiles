@@ -155,12 +155,9 @@ show_welcome_message() {
 # Calcula largura visual de texto (emojis = 2 cells, ANSI removido)
 _visual_width() {
   local text="$1"
-  # Remove códigos ANSI
   local clean
   clean=$(printf '%s' "$text" | sed -E 's/\x1b\[[0-9;]*m//g')
-  # Conta emojis comuns (ocupam 2 células)
   local emoji_count=0
-  # Padrão para emojis unicode comuns
   emoji_count=$(printf '%s' "$clean" | grep -oE '[🔌🎨🖼✨🎭🐟🔤🛠🤖💻🐚📦🔐📋🖥🧰🌐📝🏠⚡💡📂🔧🐧👤]' 2>/dev/null | wc -l || echo 0)
   local char_len=${#clean}
   echo $((char_len + emoji_count))
@@ -201,7 +198,6 @@ pause_before_next_section() {
     local width
     width=$(get_term_width)
     local full_msg="💡 $message "
-    # Calcular padding (emoji conta como 2 chars visuais)
     local text_len=$((${#message} + 4))
     local padding=$(( (width - text_len) / 2 ))
     [[ $padding -gt 0 ]] && printf "%${padding}s" ""

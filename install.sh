@@ -2,11 +2,8 @@
 set -uo pipefail
 # shellcheck disable=SC2034,SC2329,SC1091
 
-# Instalador & Exportador de Dotfiles
-# Uso básico:
-#   bash config/install.sh           # instala
-#   bash config/install.sh export    # exporta
-#   bash config/install.sh sync      # exporta + instala
+# Dev Environment Setup
+# Uso: bash install.sh [install|export|sync]
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_SHARED="$SCRIPT_DIR/shared"
 CONFIG_LINUX="$SCRIPT_DIR/linux"
@@ -19,16 +16,15 @@ BACKUP_DIR="$HOME/.bkp-$(date +%Y%m%d-%H%M)"
 TARGET_OS=""
 LINUX_PKG_MANAGER=""
 LINUX_PKG_UPDATED=0
-MODE="install"  # install, export, or sync
+MODE="install"
 FAIL_FAST=1
 DRY_RUN="${DRY_RUN:-0}"
 INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_FISH="${INSTALL_FISH:-1}"
 INSTALL_NUSHELL="${INSTALL_NUSHELL:-0}"
-INSTALL_BASE_DEPS=1  # Dependências base (pode ser desativado pelo usuário)
+INSTALL_BASE_DEPS=1
 BASE_DEPS_INSTALLED=0
 
-# Controle de cópia de configurações (padrão: copiar se selecionado)
 COPY_ZSH_CONFIG=1
 COPY_FISH_CONFIG=1
 COPY_NUSHELL_CONFIG=1
@@ -37,7 +33,7 @@ COPY_NVIM_CONFIG=1
 COPY_TMUX_CONFIG=1
 COPY_TERMINAL_CONFIG=1
 COPY_MISE_CONFIG=1
-COPY_SSH_KEYS=0  # SSH keys desabilitado por padrão (sensível)
+COPY_SSH_KEYS=0 
 COPY_VSCODE_SETTINGS=1
 
 PRIVATE_DIR="${DOTFILES_PRIVATE_DIR:-}"
@@ -63,7 +59,7 @@ declare -a INSTALLED_MISC=()
 
 for arg in "$@"; do
   case "$arg" in
-    install|export|sync|help|--help|-h)
+    install|export|sync)
       MODE="$arg"
       ;;
     *)
@@ -75,7 +71,6 @@ for arg in "$@"; do
 done
 
 msg() {
-  # Usar %b para interpretar escape sequences (cores ANSI)
   printf '%b\n' "$1"
 }
 
@@ -362,15 +357,11 @@ download_file() {
 # Preservação de PATH e configurações existentes
 # ═══════════════════════════════════════════════════════════
 
-# Verifica se uma configuração de ferramenta já existe no arquivo
-# Usa padrões semânticos para detectar a mesma ferramenta em formatos diferentes
 tool_config_exists() {
   local file="$1"
   local line="$2"
 
   [[ ! -f "$file" ]] && return 1
-
-  # Detectar qual ferramenta a linha configura e verificar se já existe
   case "$line" in
     *"NVM_DIR"*|*"nvm.sh"*|*'$NVM_DIR'*)
       grep -q "NVM_DIR\|nvm\.sh" "$file" 2>/dev/null && return 0
@@ -428,10 +419,8 @@ tool_config_exists() {
       ;;
   esac
 
-  return 1  # Não encontrado
+  return 1
 }
-
-# Adiciona bloco de configurações preservadas, evitando duplicação semântica
 append_preserved_config() {
   local file="$1"
   local preserved_config="$2"
@@ -442,14 +431,11 @@ append_preserved_config() {
   [[ ! -f "$file" ]] && return 1
 
   local lines_to_add=()
-
-  # Primeira passagem: filtrar linhas que já existem semanticamente
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" ]] && continue
     [[ "$line" =~ ^#.*═ ]] && continue
     [[ "$line" =~ ^#.*[Pp]reservad ]] && continue
 
-    # Verificar se a ferramenta já está configurada
     if tool_config_exists "$file" "$line"; then
       ((skipped_count++))
     else
@@ -458,7 +444,6 @@ append_preserved_config() {
     fi
   done <<< "$preserved_config"
 
-  # Se há linhas para adicionar, adicionar com cabeçalho
   if [[ ${#lines_to_add[@]} -gt 0 ]]; then
     {
       echo ""
@@ -476,7 +461,6 @@ append_preserved_config() {
 }
 
 # Extrai configurações de PATH do .zshrc existente que devem ser preservadas
-# Captura: NVM, Android Studio, SDKMAN, pyenv, rbenv, yarn, JAVA_HOME, GOPATH, etc.
 extract_user_path_config_zsh() {
   local zshrc="$HOME/.zshrc"
   [[ -f "$zshrc" ]] || return
@@ -485,79 +469,59 @@ extract_user_path_config_zsh() {
   local prev_line=""
 
   while IFS= read -r line || [[ -n "$line" ]]; do
-    # Pular linhas vazias e comentários simples (mas manter comentários de seção)
     [[ -z "$line" ]] && continue
 
-    # Detectar configurações conhecidas que devem ser preservadas
     case "$line" in
-      # NVM (Node Version Manager)
       *"NVM_DIR"*|*"nvm.sh"*|*"nvm bash_completion"*|*'$NVM_DIR'*)
         preserved_lines+=("$line")
         ;;
-      # Android Studio / SDK
       *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"/Android/Sdk"*|*"/android"*"/tools"*|*"/platform-tools"*)
         preserved_lines+=("$line")
         ;;
-      # SDKMAN (Java/Kotlin/Gradle)
       *"SDKMAN_DIR"*|*"sdkman-init.sh"*|*".sdkman"*)
         preserved_lines+=("$line")
         ;;
-      # pyenv (Python)
       *"PYENV_ROOT"*|*"pyenv init"*|*'$PYENV_ROOT'*)
         preserved_lines+=("$line")
         ;;
-      # rbenv (Ruby)
       *"RBENV_ROOT"*|*"rbenv init"*|*'$RBENV_ROOT'*)
         preserved_lines+=("$line")
         ;;
-      # Java
       *"JAVA_HOME"*|*"JDK_HOME"*|*'$JAVA_HOME'*)
         preserved_lines+=("$line")
         ;;
-      # Go
       *"GOPATH"*|*"GOROOT"*|*"/go/bin"*|*'$GOPATH'*|*'$GOROOT'*)
         preserved_lines+=("$line")
         ;;
-      # Yarn
       *".yarn/bin"*|*".config/yarn"*|*"yarn global"*)
         preserved_lines+=("$line")
         ;;
-      # PNPM
       *"PNPM_HOME"*|*".local/share/pnpm"*|*'$PNPM_HOME'*)
         preserved_lines+=("$line")
         ;;
-      # Bun
       *"BUN_INSTALL"*|*".bun/bin"*|*'$BUN_INSTALL'*)
         preserved_lines+=("$line")
         ;;
-      # Deno
       *"DENO_INSTALL"*|*".deno/bin"*|*'$DENO_INSTALL'*)
         preserved_lines+=("$line")
         ;;
-      # Flutter
       *"FLUTTER_HOME"*|*"flutter/bin"*|*'$FLUTTER_HOME'*)
         preserved_lines+=("$line")
         ;;
-      # .NET
       *"DOTNET_ROOT"*|*".dotnet"*|*'$DOTNET_ROOT'*)
         preserved_lines+=("$line")
         ;;
-      # Rust/Cargo - NÃO preservar (nosso script já configura via mise)
       *".cargo/env"*|*"CARGO_HOME"*|*"RUSTUP_HOME"*)
-        # Ignorar - já configuramos Rust
         ;;
-      # Homebrew (linuxbrew)
       *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*|*'$HOMEBREW_PREFIX'*)
         preserved_lines+=("$line")
         ;;
-      # Snap
       *"/snap/bin"*)
         preserved_lines+=("$line")
         ;;
     esac
   done < "$zshrc"
 
-  # Retornar linhas preservadas (se houver)
   if [[ ${#preserved_lines[@]} -gt 0 ]]; then
     printf '%s\n' ""
     printf '%s\n' "# ═══════════════════════════════════════════════════════════"
@@ -579,70 +543,54 @@ extract_user_path_config_fish() {
     [[ -z "$line" ]] && continue
 
     case "$line" in
-      # NVM (via nvm.fish ou bass)
       *"NVM_DIR"*|*"nvm.fish"*|*"bass"*"nvm"*|*'$NVM_DIR'*)
         preserved_lines+=("$line")
         ;;
-      # Android Studio / SDK
       *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"/Android/Sdk"*|*"/android"*"/tools"*|*"/platform-tools"*)
         preserved_lines+=("$line")
         ;;
-      # SDKMAN
       *"SDKMAN_DIR"*|*"sdkman"*|*".sdkman"*)
         preserved_lines+=("$line")
         ;;
-      # pyenv
       *"PYENV_ROOT"*|*"pyenv init"*|*'$PYENV_ROOT'*)
         preserved_lines+=("$line")
         ;;
-      # rbenv
       *"RBENV_ROOT"*|*"rbenv init"*|*'$RBENV_ROOT'*)
         preserved_lines+=("$line")
         ;;
-      # Java
       *"JAVA_HOME"*|*"JDK_HOME"*|*'$JAVA_HOME'*)
         preserved_lines+=("$line")
         ;;
-      # Go
       *"GOPATH"*|*"GOROOT"*|*"/go/bin"*|*'$GOPATH'*|*'$GOROOT'*)
         preserved_lines+=("$line")
         ;;
-      # Yarn
       *".yarn/bin"*|*".config/yarn"*|*"yarn global"*)
         preserved_lines+=("$line")
         ;;
-      # PNPM
       *"PNPM_HOME"*|*".local/share/pnpm"*|*'$PNPM_HOME'*)
         preserved_lines+=("$line")
         ;;
-      # Bun
       *"BUN_INSTALL"*|*".bun/bin"*|*'$BUN_INSTALL'*)
         preserved_lines+=("$line")
         ;;
-      # Deno
       *"DENO_INSTALL"*|*".deno/bin"*|*'$DENO_INSTALL'*)
         preserved_lines+=("$line")
         ;;
-      # Flutter
       *"FLUTTER_HOME"*|*"flutter/bin"*|*'$FLUTTER_HOME'*)
         preserved_lines+=("$line")
         ;;
-      # .NET
       *"DOTNET_ROOT"*|*".dotnet"*|*'$DOTNET_ROOT'*)
         preserved_lines+=("$line")
         ;;
-      # Homebrew (linuxbrew)
       *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*|*'$HOMEBREW_PREFIX'*)
         preserved_lines+=("$line")
         ;;
-      # Snap
       *"/snap/bin"*)
         preserved_lines+=("$line")
         ;;
     esac
   done < "$fishrc"
 
-  # Retornar linhas preservadas (se houver)
   if [[ ${#preserved_lines[@]} -gt 0 ]]; then
     printf '%s\n' ""
     printf '%s\n' "# ═══════════════════════════════════════════════════════════"
@@ -657,9 +605,6 @@ extract_user_path_config_fish() {
 # Seleção Interativa de Apps GUI
 # ═══════════════════════════════════════════════════════════
 
-# Arrays para armazenar seleções do usuário no menu interativo.
-# Estes arrays são populados pelos arquivos DATA_APPS e DATA_RUNTIMES
-# e utilizados pelas funções de instalação de GUI apps.
 declare -a SELECTED_IDES=()
 declare -a SELECTED_BROWSERS=()
 declare -a SELECTED_DEV_TOOLS=()
@@ -700,7 +645,6 @@ print_selection_summary() {
     list="$(printf "%s, " "${items[@]}")"
     list="${list%, }"
   fi
-  # Título com cor cyan e bold, items em texto normal
   msg "  ${UI_CYAN}${UI_BOLD}$label${UI_RESET}: $list"
 }
 
@@ -708,7 +652,6 @@ print_selection_summary() {
 # FUNÇÕES AUXILIARES PARA RESUMO RESPONSIVO
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Junta array com vírgula + espaço (padronizado)
 _join_items() {
   local items=("$@")
   if [[ ${#items[@]} -eq 0 ]]; then
@@ -720,7 +663,6 @@ _join_items() {
   fi
 }
 
-# Trunca array para caber na largura especificada
 _truncate_items() {
   local max_width="$1"
   shift
@@ -758,12 +700,7 @@ _visible_len() {
   local text="$1"
   local clean
   clean=$(printf '%s' "$text" | sed -E 's/\x1b\[[0-9;]*m//g')
-  # Contar emojis que ocupam 2 células visuais
-  local emoji_count=0
-  emoji_count=$(printf '%s' "$clean" | grep -oE '[📋📦🐚🔧💾🔌🎨🖼✨🎭🐟🔤🛠🤖💻📝🏠⚡💡📂🐧👤]' 2>/dev/null | wc -l || true)
-  emoji_count=${emoji_count//[[:space:]]/}
-  [[ -z "$emoji_count" ]] && emoji_count=0
-  echo $((${#clean} + emoji_count))
+  echo "${#clean}"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -782,7 +719,6 @@ review_selections() {
     local term_width
     term_width=$(tput cols 2>/dev/null || echo 80)
 
-    # Largura responsiva - IGUAL ao show_section_header para alinhamento
     local w=$((term_width > 70 ? 70 : term_width - 4))
     [[ $w -lt 40 ]] && w=40
 
@@ -796,14 +732,12 @@ review_selections() {
     h_line=$(printf '─%.0s' $(seq 1 "$inner_w"))
     echo -e "${BANNER_CYAN}╭${h_line}╮${BANNER_RESET}"
     local title="📋 RESUMO FINAL"
-    # Emoji 📋 = 2 visual width, mas ${#} conta como 1
     local title_visual=$((${#title} + 1))
     local title_pad=$(( (inner_w - title_visual) / 2 ))
     local title_pad_r=$((inner_w - title_pad - title_visual))
     printf "${BANNER_CYAN}│${BANNER_RESET}%*s${BANNER_BOLD}${BANNER_WHITE}%s${BANNER_RESET}%*s${BANNER_CYAN}│${BANNER_RESET}\n" "$title_pad" "" "$title" "$title_pad_r" ""
     echo -e "${BANNER_CYAN}╰${h_line}╯${BANNER_RESET}"
 
-    # Coleta dados
     local selected_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
     [[ ${INSTALL_FISH:-0} -eq 1 ]] && selected_shells+=("fish")
@@ -822,26 +756,26 @@ review_selections() {
     # ═══════════════════════════════════════════════════════════════════════════
     # LAYOUT 2 COLUNAS: AMBIENTE | FERRAMENTAS
     # ═══════════════════════════════════════════════════════════════════════════
-    # Layout: " LABEL data│ LABEL data"
-    # col_w = largura de cada coluna (sem o │)
-    local col_w=$(( (w - 3) / 2 ))  # -3 para " │ "
+    local col_w=$(( (w - 3) / 2 ))
     local sep_line
     sep_line=$(printf '─%.0s' $(seq 1 "$col_w"))
 
     echo ""
-    # Títulos das colunas - calcular padding manualmente para emojis
     local env_title="🐚 AMBIENTE"
     local tool_title="🔧 FERRAMENTAS"
-    local env_visual=$((${#env_title} + 1))  # emoji = +1
+    local env_visual=$((${#env_title} + 1))
     local env_pad=$((col_w - 1 - env_visual))
     [[ $env_pad -lt 0 ]] && env_pad=0
     echo -e " ${BANNER_CYAN}${BANNER_BOLD}${env_title}${BANNER_RESET}$(printf '%*s' "$env_pad" '')${BANNER_CYAN}│${BANNER_RESET} ${BANNER_CYAN}${BANNER_BOLD}${tool_title}${BANNER_RESET}"
     echo -e " ${BANNER_DIM}${sep_line}┼${sep_line}${BANNER_RESET}"
 
-    # Preparar dados das colunas
-    local data_w=$((col_w - 12))  # espaço para label + padding
-    local shells_str; shells_str=$(_truncate_items "$data_w" "${selected_shells[@]}")
-    local themes_str; themes_str=$(_truncate_items "$data_w" "${themes_selected[@]}")
+    local data_w=$((col_w - 12))
+    [[ $data_w -lt 1 ]] && data_w=1
+
+    local shells_str="(nenhum)"
+    [[ ${#selected_shells[@]} -gt 0 ]] && shells_str=$(_truncate_items "$data_w" "${selected_shells[@]}")
+    local themes_str="(nenhum)"
+    [[ ${#themes_selected[@]} -gt 0 ]] && themes_str=$(_truncate_items "$data_w" "${themes_selected[@]}")
     local term_str="(nenhum)"
     [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]] && term_str=$(_truncate_items "$data_w" "${SELECTED_TERMINALS[@]}")
     local fonts_str="(nenhuma)"
@@ -854,22 +788,20 @@ review_selections() {
     local rt_str="(nenhum)"
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && rt_str=$(_truncate_items "$data_w" "${SELECTED_RUNTIMES[@]}")
 
-    # Função para imprimir linha de 2 colunas com alinhamento correto
     _2col() {
       local l1="$1" v1="$2" l2="$3" v2="$4"
       local left="${l1} ${v1}"
       local right="${l2} ${v2}"
-      local left_visual=${#left}
+      local left_visual
+      left_visual=$(_visible_len "$left")
       local left_pad=$((col_w - 1 - left_visual))
       [[ $left_pad -lt 0 ]] && left_pad=0
       echo -e " ${left}$(printf '%*s' "$left_pad" '')${BANNER_CYAN}│${BANNER_RESET} ${right}"
     }
 
-    # Linhas lado a lado
     _2col "Shells" "(${#selected_shells[@]}) $shells_str" "CLI Tools" "(${#SELECTED_CLI_TOOLS[@]}) $cli_str"
     _2col "Temas" "(${#themes_selected[@]}) $themes_str" "IA Tools" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
     _2col "Terminal" "$term_str" "Runtimes" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
-    # Linha fonts (só coluna esquerda)
     local fonts_left="Fonts (${#SELECTED_NERD_FONTS[@]}) $fonts_str"
     local fonts_visual=${#fonts_left}
     local fonts_pad=$((col_w - 1 - fonts_visual))
@@ -897,22 +829,19 @@ review_selections() {
     fi
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # CONFIGURAÇÕES A COPIAR - Card style
+    # CONFIGURAÇÕES A COPIAR
     # ═══════════════════════════════════════════════════════════════════════════
     echo ""
-    # Título com emoji (📋 = +1 visual width)
     local cfg_title="📋 COPIAR CONFIGURAÇÕES"
-    local cfg_title_visual=$((${#cfg_title} + 1))  # emoji extra width
+    local cfg_title_visual=$((${#cfg_title} + 1))
     local cfg_fill=$((inner_w - cfg_title_visual - 2))
-    [[ $cfg_fill -lt 0 ]] && cfg_fill=0
+    [[ $cfg_fill -lt 1 ]] && cfg_fill=1
     local cfg_h_line
     cfg_h_line=$(printf '─%.0s' $(seq 1 "$cfg_fill"))
     echo -e "${BANNER_CYAN}╭─ ${UI_BOLD}${cfg_title}${UI_RESET}${BANNER_CYAN} ${cfg_h_line}╮${BANNER_RESET}"
 
-    # Grid horizontal de configs
     local cfg_items=()
 
-    # Shells
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && {
       [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Zsh") || cfg_items+=("${BANNER_DIM}○ Zsh${BANNER_RESET}")
     }
@@ -923,34 +852,28 @@ review_selections() {
       [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Nushell") || cfg_items+=("${BANNER_DIM}○ Nushell${BANNER_RESET}")
     }
 
-    # Git
     [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && {
       [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Git") || cfg_items+=("${BANNER_DIM}○ Git${BANNER_RESET}")
     }
 
-    # Neovim
     local has_neovim=0
     for ide in "${SELECTED_IDES[@]}"; do [[ "$ide" == "neovim" ]] && has_neovim=1 && break; done
     [[ $has_neovim -eq 1 ]] && {
       [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Neovim") || cfg_items+=("${BANNER_DIM}○ Neovim${BANNER_RESET}")
     }
 
-    # tmux
     local has_tmux=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do [[ "$tool" == "tmux" ]] && has_tmux=1 && break; done
     [[ $has_tmux -eq 1 ]] && {
       [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} tmux") || cfg_items+=("${BANNER_DIM}○ tmux${BANNER_RESET}")
     }
 
-    # VS Code
     if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
       [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} VS Code") || cfg_items+=("${BANNER_DIM}○ VS Code${BANNER_RESET}")
     fi
 
-    # Mise
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Mise")
 
-    # Imprimir configs em grid
     if [[ ${#cfg_items[@]} -gt 0 ]]; then
       local line_content=""
       local item_count=0
@@ -990,11 +913,10 @@ review_selections() {
     echo -e " ${BANNER_DIM}💾 Backup automático em ~/.bkp-YYYYMMDD-HHMM/${BANNER_RESET}"
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # MENU - Estilo card moderno
+    # MENU
     # ═══════════════════════════════════════════════════════════════════════════
     echo ""
     echo -e "${BANNER_CYAN}╭${h_line}╮${BANNER_RESET}"
-    # Texto visual: "  Enter Instalar  S Sair  1-8 Editar  0 Configs" = ~46 chars
     local menu_text="Enter Instalar  S Sair  1-8 Editar  0 Configs"
     local menu_pad=$((inner_w - 2 - ${#menu_text}))
     [[ $menu_pad -lt 0 ]] && menu_pad=0
@@ -1067,7 +989,6 @@ ask_yes_no() {
 }
 
 # Confirmação moderna com Enter/P (Pular)
-# Retorna 0 se confirmar (Enter), 1 se pular (P)
 confirm_action() {
   local prompt="$1"
   echo ""
@@ -1088,7 +1009,6 @@ ask_configs_to_copy() {
   local config_options=()
   local config_keys=()
 
-  # Construir lista de opções disponíveis
   if [[ ${INSTALL_ZSH:-0} -eq 1 ]]; then
     config_options+=("zsh-config      - Zsh (~/.zshrc, .p10k.zsh)")
     config_keys+=("COPY_ZSH_CONFIG")
@@ -1109,7 +1029,6 @@ ask_configs_to_copy() {
     config_keys+=("COPY_GIT_CONFIG")
   fi
 
-  # Neovim config - mostrar se tem config salva E neovim selecionado em IDEs
   if [[ -d "$CONFIG_SHARED/nvim" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/nvim" 2>/dev/null)" ]]; then
     local has_neovim=0
     for ide in "${SELECTED_IDES[@]}"; do
@@ -1121,7 +1040,6 @@ ask_configs_to_copy() {
     fi
   fi
 
-  # Tmux config - mostrar se tem config salva E tmux selecionado em CLI Tools
   if [[ -d "$CONFIG_SHARED/tmux" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/tmux" 2>/dev/null)" ]]; then
     local has_tmux=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do
@@ -1630,7 +1548,6 @@ install_vscode_windows() {
     local result=""
     result="$(choco list --local-only "$package" 2>/dev/null || true)"
     if [[ "$result" == *"$package"* ]]; then
-      # Show version if already installed
       if has_cmd code; then
         local version=""
         version="$(code --version 2>/dev/null | head -n 1 || echo '')"
@@ -1959,7 +1876,6 @@ ensure_uv() {
     INSTALLED_MISC+=("uv: installer script")
     msg "  ✅ uv instalado com sucesso"
 
-    # Generate shell completions
     if has_cmd fish && [[ -d "$HOME/.config/fish/completions" ]]; then
       uv generate-shell-completion fish > "$HOME/.config/fish/completions/uv.fish" 2>/dev/null
     fi
@@ -1981,7 +1897,6 @@ ensure_mise() {
 
   msg "▶ mise (runtime manager) não encontrado. Instalando..."
 
-  # Try Homebrew first on macOS
   if [[ "${TARGET_OS:-}" == "macos" ]] && has_cmd brew; then
     if brew install mise >/dev/null 2>&1; then
       INSTALLED_PACKAGES+=("brew: mise (install)")
@@ -1990,7 +1905,6 @@ ensure_mise() {
     fi
   fi
 
-  # Fall back to installer script
   if download_and_run_script "https://mise.run" "mise"; then
     export PATH="$HOME/.local/bin:$PATH"
     INSTALLED_MISC+=("mise: installer script")
@@ -2076,7 +1990,6 @@ ensure_atuin() {
     msg "  💡 Use 'atuin register' para criar conta e sincronizar"
     msg "  💡 Use 'atuin login' se já tiver conta"
 
-    # Configure fish shell integration
     if has_cmd fish && [[ -d "$HOME/.config/fish" ]]; then
       local fish_config="$HOME/.config/fish/config.fish"
       if [[ -f "$fish_config" ]] && ! grep -q "atuin init fish" "$fish_config"; then
@@ -2090,7 +2003,6 @@ ensure_atuin() {
       fi
     fi
 
-    # Configure zsh shell integration
     if has_cmd zsh && [[ -f "$HOME/.zshrc" ]]; then
       if ! grep -q "atuin init zsh" "$HOME/.zshrc"; then
         {
@@ -2108,14 +2020,6 @@ ensure_atuin() {
     return 1
   fi
 }
-
-
-
-
-
-
-
-
 
 install_prerequisites() {
   if [[ "${INSTALL_BASE_DEPS:-1}" -ne 1 ]]; then
@@ -2176,16 +2080,13 @@ install_selected_gui_apps() {
 apply_shared_configs() {
   msg "▶ Copiando configs compartilhadas"
 
-  # Fish config
   if is_truthy "$INSTALL_FISH" && has_cmd fish && [[ ${COPY_FISH_CONFIG:-1} -eq 1 ]]; then
-    # Preservar configurações de PATH do config.fish existente
     local preserved_fish_config=""
     preserved_fish_config="$(extract_user_path_config_fish)"
 
     copy_dir "$CONFIG_SHARED/fish" "$HOME/.config/fish"
     normalize_crlf_to_lf "$HOME/.config/fish/config.fish"
 
-    # Append configurações preservadas ao novo config.fish (sem duplicação)
     if [[ -n "$preserved_fish_config" ]]; then
       msg "  🔄 Verificando configurações de PATH para preservar..."
       append_preserved_config "$HOME/.config/fish/config.fish" "$preserved_fish_config"
@@ -2196,16 +2097,13 @@ apply_shared_configs() {
     msg "  ⚠️ Fish não encontrado, pulando config."
   fi
 
-  # Zsh config
   if is_truthy "$INSTALL_ZSH" && has_cmd zsh && [[ ${COPY_ZSH_CONFIG:-1} -eq 1 ]]; then
-    # Preservar configurações de PATH do .zshrc existente
     local preserved_zsh_config=""
     preserved_zsh_config="$(extract_user_path_config_zsh)"
 
     copy_file "$CONFIG_SHARED/zsh/.zshrc" "$HOME/.zshrc"
     normalize_crlf_to_lf "$HOME/.zshrc"
 
-    # Append configurações preservadas ao novo .zshrc (sem duplicação)
     if [[ -n "$preserved_zsh_config" ]]; then
       msg "  🔄 Verificando configurações de PATH para preservar..."
       append_preserved_config "$HOME/.zshrc" "$preserved_zsh_config"
@@ -2222,7 +2120,6 @@ apply_shared_configs() {
     msg "  ⚠️ Zsh não encontrado, pulando .zshrc."
   fi
 
-  # Nushell config
   if is_truthy "$INSTALL_NUSHELL" && has_cmd nu && [[ ${COPY_NUSHELL_CONFIG:-1} -eq 1 ]]; then
     mkdir -p "$HOME/.config/nushell"
     copy_file "$CONFIG_SHARED/nushell/config.nu" "$HOME/.config/nushell/config.nu"
@@ -2234,7 +2131,6 @@ apply_shared_configs() {
     msg "  ⚠️ Nushell não encontrado após instalação, pulando config."
   fi
 
-  # Git config
   if has_cmd git && [[ ${COPY_GIT_CONFIG:-1} -eq 1 ]]; then
     local git_base="$CONFIG_SHARED/git/.gitconfig"
     local git_personal="$CONFIG_SHARED/git/.gitconfig-personal"
@@ -2255,7 +2151,6 @@ apply_shared_configs() {
     msg "  ⚠️ Git não encontrado, pulando .gitconfig."
   fi
 
-  # Mise config
   if has_cmd mise && [[ ${COPY_MISE_CONFIG:-1} -eq 1 ]]; then
     copy_dir "$CONFIG_SHARED/mise" "$HOME/.config/mise"
   elif [[ ${COPY_MISE_CONFIG:-1} -eq 0 ]]; then
@@ -2264,7 +2159,6 @@ apply_shared_configs() {
     msg "  ⚠️ Mise não encontrado, pulando config."
   fi
 
-  # Neovim config
   if has_cmd nvim && [[ ${COPY_NVIM_CONFIG:-1} -eq 1 ]]; then
     copy_dir "$CONFIG_SHARED/nvim" "$HOME/.config/nvim"
   elif [[ ${COPY_NVIM_CONFIG:-1} -eq 0 ]]; then
@@ -2273,7 +2167,6 @@ apply_shared_configs() {
     msg "  ⚠️ Neovim não encontrado, pulando config."
   fi
 
-  # Tmux config
   if has_cmd tmux && [[ ${COPY_TMUX_CONFIG:-1} -eq 1 ]]; then
     copy_file "$CONFIG_SHARED/tmux/.tmux.conf" "$HOME/.tmux.conf"
   elif [[ ${COPY_TMUX_CONFIG:-1} -eq 0 ]]; then
@@ -2282,14 +2175,12 @@ apply_shared_configs() {
     msg "  ⚠️ tmux não encontrado, pulando .tmux.conf."
   fi
 
-  # VS Code settings
   if [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]]; then
     copy_vscode_settings
   else
     msg "  ⏭️  VS Code settings: usuário optou por não copiar"
   fi
 
-  # SSH Keys
   if [[ ${COPY_SSH_KEYS:-0} -eq 1 ]]; then
     local ssh_source=""
     if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
@@ -2308,10 +2199,7 @@ apply_shared_configs() {
   fi
 }
 
-
-
 copy_vscode_settings() {
-  # COPY_VSCODE_SETTINGS já foi verificado pelo chamador (apply_shared_configs)
   local settings_file="$CONFIG_SHARED/vscode/settings.json"
   [[ -f "$settings_file" ]] || return
 
@@ -2368,26 +2256,22 @@ apply_macos_configs() {
   [[ -d "$source_dir" ]] || return
   msg "▶ Copiando configs macOS"
 
-  # Ghostty terminal
   if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
     copy_dir "$source_dir/ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
   else
     msg "  ⏭️  Terminal config (Ghostty): usuário optou por não copiar"
   fi
 
-  # Rectangle window manager
   if [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
     copy_file "$source_dir/rectangle/com.knollsoft.Rectangle.plist" "$HOME/Library/Preferences/com.knollsoft.Rectangle.plist"
     msg "  ✅ Rectangle configurado (reinicie o app para aplicar)"
   fi
 
-  # Stats system monitor
   if [[ -f "$source_dir/stats/com.exelban.Stats.plist" ]]; then
     copy_file "$source_dir/stats/com.exelban.Stats.plist" "$HOME/Library/Preferences/com.exelban.Stats.plist"
     msg "  ✅ Stats configurado (reinicie o app para aplicar)"
   fi
 
-  # KeyCastr (nota: configuração manual necessária para permissões)
   if [[ -f "$source_dir/keycastr/keycastr.json" ]]; then
     msg "  📋 KeyCastr: configuração disponível em $source_dir/keycastr/keycastr.json"
     msg "     Lembre-se de dar permissão de Acessibilidade nas Preferências do Sistema"
@@ -2464,7 +2348,6 @@ export_vscode_extensions() {
 install_vscode_extensions() {
   local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
 
-  # Instalar extensões se COPY_VSCODE_SETTINGS estiver habilitado
   if [[ ${COPY_VSCODE_SETTINGS:-1} -ne 1 ]]; then
     msg "  ⏭️  VS Code extensions: usuário optou por não copiar/instalar"
     return
@@ -2538,7 +2421,6 @@ export_configs() {
   msg "╚══════════════════════════════════════╝"
   msg "Sistema -> Repositório: $SCRIPT_DIR"
 
-  # Exportar configs compartilhadas
   msg "▶ Exportando configs compartilhadas"
 
   if [[ -f "$HOME/.config/fish/config.fish" ]]; then
@@ -2584,14 +2466,11 @@ export_configs() {
     export_dir "$HOME/.ssh" "$export_ssh_dir"
   fi
 
-  # Exportar VS Code settings e extensões
   export_vscode_settings
   export_vscode_extensions
 
-  # Exportar Brewfile (macOS)
   export_brewfile
 
-  # Exportar configs específicas do OS
   case "$TARGET_OS" in
     linux)
       msg "▶ Exportando configs Linux"
@@ -2639,56 +2518,18 @@ export_vscode_settings() {
 export_windows_configs_back() {
   local base="${LOCALAPPDATA:-$HOME/AppData/Local}"
 
-  # Windows Terminal settings
   local wt_stable="$base/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
   if [[ -f "$wt_stable" ]]; then
     export_file "$wt_stable" "$CONFIG_WINDOWS/windows-terminal-settings.json"
   fi
 
-  # PowerShell profile
   local ps_profile="${USERPROFILE:-$HOME}/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"
   if [[ -f "$ps_profile" ]]; then
     export_file "$ps_profile" "$CONFIG_WINDOWS/powershell/profile.ps1"
   fi
 }
 
-show_usage() {
-  cat <<EOF
-╔══════════════════════════════════════════════════════════╗
-║   Dotfiles Manager - Instalação e Sincronização         ║
-╚══════════════════════════════════════════════════════════╝
-
-Uso: bash config/install.sh [COMANDO] [OPÇÕES]
-
-COMANDOS:
-  (nenhum)    Instala configs do repositório -> sistema (padrão)
-  export      Exporta configs do sistema -> repositório
-  sync        Sincroniza (exporta + instala)
-  help        Mostra esta ajuda
-
-EXEMPLOS:
-  bash config/install.sh                  # Primeira instalação
-  bash config/install.sh export           # Salvar mudanças atuais
-  bash config/install.sh sync             # Sincronizar bidirecional
-
-NOTAS:
-  • Backups automáticos são criados em ~/.bkp-*
-  • Seleção interativa de apps GUI (evita instalar tudo automaticamente)
-  • CLI Tools modernas são opcionais e selecionadas no menu
-  • Oh My Zsh e plugins são configurados automaticamente
-  • Fontes Nerd Fonts são instaladas no local correto do sistema
-
-EOF
-}
-
 main() {
-  # Mostrar ajuda
-  if [[ "$MODE" == "help" || "$MODE" == "--help" || "$MODE" == "-h" ]]; then
-    show_usage
-    exit 0
-  fi
-
-  # Validar que a pasta shared existe
   if [[ ! -d "$CONFIG_SHARED" ]]; then
     echo "❌ Pasta shared/ não encontrada em $CONFIG_SHARED" >&2
     exit 1
@@ -2696,13 +2537,11 @@ main() {
 
   TARGET_OS="$(detect_os)"
 
-  # Modo EXPORT - Sistema -> Repositório
   if [[ "$MODE" == "export" ]]; then
     export_configs
     exit 0
   fi
 
-  # Modo SYNC - Exporta e depois instala
   if [[ "$MODE" == "sync" ]]; then
     export_configs
     msg ""
@@ -2712,85 +2551,47 @@ main() {
     sleep 1
   fi
 
-  # Mostrar banner de boas-vindas (apenas no modo install/sync)
   if [[ "$MODE" == "install" || "$MODE" == "sync" ]]; then
     show_banner
     pause_before_next_section "Pressione Enter para começar a configuração..." "true"
   fi
 
-  # Modo INSTALL (padrão) - Repositório -> Sistema
   clear_screen
 
   # ══════════════════════════════════════════════════════════════
   # ETAPA 1: Seleções Essenciais
   # ══════════════════════════════════════════════════════════════
-
-  # Tela de dependências base (informativa - apenas Enter)
   ask_base_dependencies
   pause_before_next_section
-  # Instalar dependências base ANTES dos menus (fzf é necessário para seleções)
   install_prerequisites
-
-  # Shells (obrigatório - Zsh/Fish/Ambos)
   ask_shells
-
-  # Temas (baseado nos shells) + Plugins/Presets (SEM pause entre eles)
   ask_themes
-
-  # Plugins e Presets
   [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
   [[ $INSTALL_STARSHIP -eq 1 ]] && ask_starship_preset
   [[ $INSTALL_OH_MY_POSH -eq 1 ]] && ask_oh_my_posh_theme
   [[ $INSTALL_FISH -eq 1 ]] && ask_fish_plugins
-
-  # Nerd Fonts (essenciais para temas funcionarem corretamente)
   ask_nerd_fonts
 
   # ══════════════════════════════════════════════════════════════
   # ETAPA 2: Apps e Ferramentas
   # ══════════════════════════════════════════════════════════════
-
-  # Terminais
   ask_terminals
-
-  # CLI Tools (ferramentas modernas de linha de comando)
   ask_cli_tools
-
-  # IA Tools
   ask_ia_tools
-
-  # GUI Apps
   ask_gui_apps
-
-  # Runtimes (Node/Python/PHP/etc via mise)
   ask_runtimes
-
-  # Git Configuration
   ask_git_configuration
 
   # ══════════════════════════════════════════════════════════════
   # Confirmação Final
   # ══════════════════════════════════════════════════════════════
   review_selections
-
-  # Limpar tela antes de iniciar instalação
   clear_screen
-
-  # Instalar shells selecionados
   install_selected_shells
-
-  # Instalar CLI Tools PRIMEIRO (antes de tudo)
   install_selected_cli_tools
-
-  # Instalar apps GUI selecionados
   install_selected_gui_apps
-
-  # Instalar IA Tools selecionadas
   install_selected_ia_tools
-
-  # Instalar extensões VS Code após a instalação do editor
   install_vscode_extensions
-
   apply_shared_configs
   install_git_configuration
 
@@ -2800,19 +2601,10 @@ main() {
     windows) apply_windows_configs ;;
   esac
 
-  # Instalar runtimes selecionados após pré-requisitos + configs
   install_selected_runtimes
-
-  # Instalar Editor/IDE (Neovim + tmux)
   install_selected_editors
-
-  # Instalar Nerd Fonts selecionadas
   install_nerd_fonts
-
-  # Instalar temas selecionados
   install_selected_themes
-
-  # Limpar tela antes de mostrar resumo final
   clear_screen
 
   print_post_install_report

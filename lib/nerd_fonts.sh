@@ -11,10 +11,8 @@ run_with_timeout() {
   if has_cmd timeout; then
     timeout "$seconds" "$@"
   elif has_cmd gtimeout; then
-    # macOS com coreutils instalado
     gtimeout "$seconds" "$@"
   else
-    # Fallback: executar sem timeout
     "$@"
   fi
 }
@@ -119,7 +117,6 @@ get_fonts_dir() {
       echo "$HOME/Library/Fonts"
       ;;
     windows)
-      # Windows: %LOCALAPPDATA%\Microsoft\Windows\Fonts
       echo "$LOCALAPPDATA/Microsoft/Windows/Fonts"
       ;;
     *)
@@ -153,10 +150,8 @@ download_and_install_font() {
   local temp_zip="/tmp/${font_name}.zip"
   local temp_dir="/tmp/nerd-fonts-${font_name}"
 
-  # Limpar arquivos temporários antigos se existirem (proteção contra crash anterior)
   rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
 
-  # Download do arquivo zip com timeout de 120s
   if ! run_with_timeout 120 curl -fsSL --max-time 120 "$download_url" -o "$temp_zip" 2>/dev/null; then
     if ! run_with_timeout 120 curl -fsSL --max-time 120 "$latest_url" -o "$temp_zip" 2>/dev/null; then
       warn "Falha ao baixar $font_name"
@@ -165,19 +160,15 @@ download_and_install_font() {
     fi
   fi
 
-  # Verificar se o arquivo foi baixado e tem tamanho razoável
   if [[ ! -f "$temp_zip" ]] || [[ ! -s "$temp_zip" ]]; then
     warn "Arquivo de $font_name vazio ou não encontrado"
     rm -f "$temp_zip" 2>/dev/null
     return 1
   fi
 
-  # Criar diretório temporário
   mkdir -p "$temp_dir"
 
-  # Extrair apenas arquivos .ttf e .otf (com timeout para evitar travamento)
   if run_with_timeout 60 unzip -q -o "$temp_zip" -d "$temp_dir" 2>/dev/null; then
-    # Copiar fontes para o diretório correto
     local font_count=0
     while IFS= read -r -d '' font_file; do
       cp -f "$font_file" "$fonts_dir/" 2>/dev/null && ((font_count++))
@@ -196,7 +187,6 @@ download_and_install_font() {
     return 1
   fi
 
-  # Limpar arquivos temporários imediatamente para economizar espaço
   rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
   return 0
 }
@@ -210,7 +200,6 @@ refresh_font_cache() {
       fi
       ;;
     macos)
-      # macOS atualiza automaticamente, mas podemos forçar
       msg "  🔄 Cache de fontes será atualizado automaticamente pelo macOS"
       ;;
     windows)
@@ -349,7 +338,6 @@ install_nerd_fonts() {
   msg "  📊 Total: $total_fonts fonte(s)"
   msg ""
 
-  # Warning para muitas fontes
   if [[ $total_fonts -gt 10 ]]; then
     warn "⚠️  Você selecionou $total_fonts fontes. Isso pode demorar alguns minutos."
     warn "    Cada fonte tem ~20-50MB e precisa ser baixada e extraída."
@@ -364,7 +352,6 @@ install_nerd_fonts() {
     msg ""
   fi
 
-  # Verificar dependências
   if ! has_cmd curl; then
     record_failure "critical" "curl não encontrado - necessário para download de fontes"
     return 1
@@ -375,10 +362,8 @@ install_nerd_fonts() {
     return 1
   fi
 
-  # Garantir que o diretório de fontes existe
   ensure_fonts_dir || return 1
 
-  # Instalar cada fonte selecionada
   local installed_count=0
   local failed_count=0
   local current=0
@@ -387,7 +372,6 @@ install_nerd_fonts() {
     ((current++))
     msg "  [$current/$total_fonts] Processando $font..."
 
-    # Proteção contra crash: tentar 2x antes de desistir
     if download_and_install_font "$font"; then
       ((installed_count++))
     elif download_and_install_font "$font"; then
@@ -406,7 +390,6 @@ install_nerd_fonts() {
   [[ $failed_count -gt 0 ]] && msg "    ❌ Falharam: $failed_count"
   msg ""
 
-  # Atualizar cache de fontes
   refresh_font_cache
 
   msg "  ✅ Instalação de Nerd Fonts concluída!"

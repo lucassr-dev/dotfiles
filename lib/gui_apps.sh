@@ -7,7 +7,6 @@
 # Verificação de UI moderna
 # ═══════════════════════════════════════════════════════════
 
-# Verifica se o sistema de UI moderno está disponível
 _gui_has_modern_ui() {
   declare -F ui_select_multiple >/dev/null 2>&1
 }
@@ -22,7 +21,6 @@ select_apps() {
   shift 2
   local options=("$@")
 
-  # Usar UI moderna se disponível
   if _gui_has_modern_ui; then
     ui_select_multiple "$title" "$out_var" "${options[@]}"
     return
@@ -113,7 +111,6 @@ select_apps() {
     msg "  ⚠️ Entrada inválida. Use números da lista separados por vírgula, 'a' para todos ou Enter para nenhum."
   done
 
-  # Usar nameref para atribuir array de volta (Bash 4.3+)
   declare -n array_ref="$out_var"
   array_ref=("${selected[@]}")
   unset -n array_ref
@@ -309,11 +306,9 @@ ask_gui_apps() {
     fi
   fi
 
-    # Mostrar resumo e confirmar
     msg ""
     _show_gui_selection_summary
 
-    # Calcular total de apps selecionados
     local gui_total=0
     gui_total=$((${#SELECTED_IDES[@]} + ${#SELECTED_BROWSERS[@]} + ${#SELECTED_DEV_TOOLS[@]} + \
                  ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
@@ -332,8 +327,6 @@ ask_gui_apps() {
 # Funções auxiliares
 # ═══════════════════════════════════════════════════════════
 
-# Mostra resumo das seleções de apps GUI
-# Título em cyan/bold, itens em texto normal, separados por vírgula
 _show_gui_selection_summary() {
   local has_any=0
 

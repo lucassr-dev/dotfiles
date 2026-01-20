@@ -185,7 +185,6 @@ install_linux_base_dependencies() {
     install_linux_packages "critical" "${base_packages[@]}"
   fi
 
-  # Instalar fzf via git (versão mais recente)
   install_fzf_latest
 }
 
@@ -197,12 +196,10 @@ install_fzf_latest() {
   local fzf_dir="$HOME/.fzf"
   local min_version="0.48"
 
-  # Verificar se já tem fzf com versão adequada
   if has_cmd fzf; then
     local current_version
     current_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
     if [[ -n "$current_version" ]]; then
-      # Comparar versões (0.48+ suporta --zsh)
       if awk "BEGIN {exit !($current_version >= $min_version)}"; then
         msg "  ✅ fzf $current_version já instalado (>= $min_version)"
         return 0
@@ -214,20 +211,15 @@ install_fzf_latest() {
 
   msg "  📦 Instalando fzf (versão mais recente via git)..."
 
-  # Remover instalação antiga via git se existir
   [[ -d "$fzf_dir" ]] && rm -rf "$fzf_dir"
 
-  # Clonar repositório oficial
   if ! git clone --depth 1 https://github.com/junegunn/fzf.git "$fzf_dir" >/dev/null 2>&1; then
     record_failure "optional" "Falha ao clonar repositório do fzf"
-    # Fallback: tentar instalar via package manager
     msg "  ⚠️  Tentando fallback via package manager..."
     install_linux_packages "optional" fzf
     return 0
   fi
 
-  # Executar script de instalação (--all instala key-bindings e completion)
-  # --no-update-rc evita modificar .bashrc/.zshrc (já temos nossa config)
   if "$fzf_dir/install" --all --no-update-rc --no-bash --no-fish >/dev/null 2>&1; then
     INSTALLED_MISC+=("fzf (git): latest")
     local installed_version
@@ -235,7 +227,6 @@ install_fzf_latest() {
     msg "  ✅ fzf $installed_version instalado com sucesso"
   else
     record_failure "optional" "Falha ao instalar fzf via git"
-    # Fallback: tentar instalar via package manager
     msg "  ⚠️  Tentando fallback via package manager..."
     install_linux_packages "optional" fzf
   fi
@@ -333,7 +324,6 @@ install_nushell_linux() {
 install_linux_selected_apps() {
   msg "▶ Instalando apps GUI selecionados (Linux)"
 
-  # Terminais
   for terminal in "${SELECTED_TERMINALS[@]}"; do
     case "$terminal" in
       ghostty) ensure_ghostty_linux ;;
@@ -344,9 +334,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # IDEs
   for app in "${SELECTED_IDES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -362,9 +350,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Navegadores
   for app in "${SELECTED_BROWSERS[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -384,9 +370,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Dev tools
   for app in "${SELECTED_DEV_TOOLS[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -405,9 +389,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Bancos
   for app in "${SELECTED_DATABASES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -424,9 +406,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Produtividade
   for app in "${SELECTED_PRODUCTIVITY[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -442,9 +422,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Comunicação
   for app in "${SELECTED_COMMUNICATION[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -462,9 +440,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Mídia
   for app in "${SELECTED_MEDIA[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -483,9 +459,7 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Utilitários
   for app in "${SELECTED_UTILITIES[@]}"; do
-    # Anti-duplicidade: pular se já foi processado nesta execução
     if is_app_processed "$app"; then
       continue
     fi
@@ -502,7 +476,6 @@ install_linux_selected_apps() {
     esac
   done
 
-  # Instalar apps via Snap/Flatpak quando aplicável
   if has_cmd snap; then
     msg "▶ Instalando apps selecionados via Snap"
     for app in "${SELECTED_PRODUCTIVITY[@]}"; do
@@ -562,13 +535,8 @@ ensure_ghostty_linux() {
     return 0
   fi
 
-  # Ghostty no Linux: compilar da fonte ou usar binário pré-compilado
-  # Por enquanto, apenas avisar que não está disponível via gerenciadores comuns
   msg "  ℹ️  Ghostty para Linux: requer build manual ou binário pré-compilado"
   msg "      Visite: https://github.com/mitchellh/ghostty"
-
-  # Opcionalmente, poderia tentar flatpak se houver
-  # flatpak_install_or_update com.mitchellh.ghostty "Ghostty" optional
 }
 
 install_wezterm_linux() {
@@ -576,7 +544,6 @@ install_wezterm_linux() {
     return 0
   fi
 
-  # WezTerm via Flatpak (recomendado)
   if has_cmd flatpak; then
     msg "  📦 Instalando WezTerm via Flatpak..."
     if flatpak install -y flathub org.wezfurlong.wezterm >/dev/null 2>&1; then
@@ -585,11 +552,9 @@ install_wezterm_linux() {
     fi
   fi
 
-  # WezTerm via AppImage
   detect_linux_pkg_manager
   if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
     msg "  📦 Instalando WezTerm via repositório oficial..."
-    # Adicionar repositório WezTerm
     curl -fsSL https://apt.fury.io/wez/gpg.key | run_with_sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg 2>/dev/null
     echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | run_with_sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
     LINUX_PKG_UPDATED=0
@@ -597,7 +562,6 @@ install_wezterm_linux() {
     return 0
   fi
 
-  # Fallback: instruções manuais
   msg "  ℹ️  WezTerm: visite https://wezfurlong.org/wezterm/install/linux.html"
 }
 

@@ -90,13 +90,11 @@ install_nvim_config() {
   msg ""
   msg "▶ Copiando configuração do Neovim"
 
-  # Verificar se há config para copiar
   if [[ ! -d "$CONFIG_SHARED/nvim" ]] || [[ -z "$(ls -A "$CONFIG_SHARED/nvim" 2>/dev/null)" ]]; then
     msg "  ⚠️  Nenhuma config encontrada em shared/nvim/"
     return 0
   fi
 
-  # Instalar Neovim se não estiver instalado
   if ! has_cmd nvim; then
     msg "  📦 Instalando Neovim..."
     case "$TARGET_OS" in
@@ -114,13 +112,11 @@ install_nvim_config() {
     return 0
   fi
 
-  # Backup de config existente
   if [[ -d "$HOME/.config/nvim" ]]; then
     msg "  📦 Backup da configuração existente..."
     mv "$HOME/.config/nvim" "$HOME/.config/nvim.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
   fi
 
-  # Copiar config salva
   mkdir -p "$HOME/.config"
   if cp -r "$CONFIG_SHARED/nvim" "$HOME/.config/nvim" 2>/dev/null; then
     INSTALLED_MISC+=("Neovim (config)")
@@ -136,13 +132,11 @@ install_tmux_config() {
   msg ""
   msg "▶ Copiando configuração do tmux"
 
-  # Verificar se há config para copiar
   if [[ ! -d "$CONFIG_SHARED/tmux" ]] || [[ -z "$(ls -A "$CONFIG_SHARED/tmux" 2>/dev/null)" ]]; then
     msg "  ⚠️  Nenhuma config encontrada em shared/tmux/"
     return 0
   fi
 
-  # Instalar tmux se não estiver instalado
   if ! has_cmd tmux; then
     msg "  📦 Instalando tmux..."
     case "$TARGET_OS" in
@@ -165,20 +159,16 @@ install_tmux_config() {
     return 0
   fi
 
-  # Backup de config existente
   [[ -f "$HOME/.tmux.conf" ]] && mv "$HOME/.tmux.conf" "$HOME/.tmux.conf.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
 
-  # Copiar configs salvas
   local copied=0
 
-  # Copiar .tmux.conf se existir
   if [[ -f "$CONFIG_SHARED/tmux/.tmux.conf" ]]; then
     cp "$CONFIG_SHARED/tmux/.tmux.conf" "$HOME/.tmux.conf" 2>/dev/null && copied=1
   elif [[ -f "$CONFIG_SHARED/tmux/tmux.conf" ]]; then
     cp "$CONFIG_SHARED/tmux/tmux.conf" "$HOME/.tmux.conf" 2>/dev/null && copied=1
   fi
 
-  # Copiar diretório .tmux se existir
   if [[ -d "$CONFIG_SHARED/tmux/.tmux" ]]; then
     [[ -d "$HOME/.tmux" ]] && mv "$HOME/.tmux" "$HOME/.tmux.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
     cp -r "$CONFIG_SHARED/tmux/.tmux" "$HOME/.tmux" 2>/dev/null && copied=1
@@ -188,13 +178,11 @@ install_tmux_config() {
     INSTALLED_MISC+=("tmux (config)")
     msg "  ✅ Configuração do tmux copiada"
 
-    # Instalar TPM se a config usa plugins
     if grep -q "tmux-plugins/tpm" "$HOME/.tmux.conf" 2>/dev/null; then
       if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
         msg "  📦 Instalando TPM (Tmux Plugin Manager)..."
         git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm" >/dev/null 2>&1 || true
       fi
-      # Instalar plugins
       if [[ -x "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]]; then
         msg "  🔄 Instalando plugins do tmux..."
         "$HOME/.tmux/plugins/tpm/bin/install_plugins" >/dev/null 2>&1 || true

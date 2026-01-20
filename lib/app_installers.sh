@@ -25,19 +25,16 @@ install_zed() {
 install_cursor() {
   case "$TARGET_OS" in
     macos)
-      # Cursor usa instalador DMG oficial
       if ! has_cmd cursor; then
         msg "  📥 Baixe Cursor manualmente em: https://cursor.sh"
       fi
       ;;
     linux|wsl2)
-      # AppImage disponível
       if ! has_cmd cursor; then
         msg "  📥 Baixe Cursor AppImage em: https://cursor.sh"
       fi
       ;;
     windows)
-      # Instalador exe oficial
       if ! has_cmd cursor; then
         msg "  📥 Baixe Cursor em: https://cursor.sh"
       fi
