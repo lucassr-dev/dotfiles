@@ -1,0 +1,44 @@
+# Força line endings Unix (LF) para scripts shell
+*.sh text eol=lf
+
+# Força LF para outros arquivos de configuração
+*.bash text eol=lf
+*.zsh text eol=lf
+*.fish text eol=lf
+*.nu text eol=lf
+
+# Arquivos de configuração shell sem extensão ou com prefixo de ponto
+.zshrc text eol=lf
+.bashrc text eol=lf
+.bash_profile text eol=lf
+.profile text eol=lf
+.p10k.zsh text eol=lf
+config.fish text eol=lf
+
+# Configs gerais
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.conf text eol=lf
+*.config text eol=lf
+
+# Git config files
+.gitconfig* text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Markdown e documentação
+*.md text eol=lf
+*.txt text eol=lf
+
+# Arquivos que devem ser tratados como binários
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

@@ -275,6 +275,11 @@ copy_file() {
   elif [[ ! -f "$dest" ]]; then
     record_failure "critical" "Destino ausente após copiar arquivo: $dest"
   else
+    case "$dest" in
+      *.sh|*.zsh|*.bash|*.fish|.zshrc|.bashrc|.profile)
+        normalize_crlf_to_lf "$dest"
+        ;;
+    esac
     COPIED_PATHS+=("$dest")
   fi
 }
@@ -1282,7 +1287,7 @@ install_chrome_linux() {
     record_failure "optional" "Falha ao criar arquivo temporário para Google Chrome"
     return 1
   }
-  trap 'rm -f "$deb"' RETURN
+  trap 'rm -f "${deb:-}"' RETURN
 
   msg "  📦 Baixando Google Chrome para Linux..."
   if curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -o "$deb"; then
@@ -1401,7 +1406,7 @@ install_vscode_linux() {
       record_failure "optional" "Falha ao criar arquivo temporário para VS Code"
       return 1
     }
-    trap 'rm -f "$deb"' RETURN
+    trap 'rm -f "${deb:-}"' RETURN
 
     if curl -fsSL "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64" -o "$deb"; then
       if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
@@ -1742,7 +1747,7 @@ download_and_run_script() {
     record_failure "critical" "Falha ao criar arquivo temporário para instalador $friendly"
     return 1
   }
-  trap 'rm -f "$temp_script"' RETURN
+  trap 'rm -f "${temp_script:-}"' RETURN
 
   # shellcheck disable=SC2086
   if ! curl -fsSL $curl_extra "$url" -o "$temp_script"; then

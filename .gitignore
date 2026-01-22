@@ -21,3 +21,18 @@ shared/git/.gitconfig-personal
 shared/git/.gitconfig-work
 CLAUDE.md
 **/CLAUDE.md
+
+# Configs geradas por ferramentas (runtime state)
+atuin/
+composer/
+eza/
+fish/
+gh/
+ghostty/
+mise/
+nextjs-nodejs/
+nvim/
+nvim.bak.*/
+starship.toml
+uv/
+znt/
