@@ -57,11 +57,19 @@ install_selected_runtimes() {
     case "$runtime" in
       node)
         msg "  📦 Node.js (LTS) via mise..."
-        mise use -g -y node@lts >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Node.js (LTS) via mise"
+        if mise use -g -y node@lts; then
+          INSTALLED_MISC+=("node: mise lts")
+        else
+          record_failure "optional" "Falha ao instalar Node.js (LTS) via mise"
+        fi
         ;;
       python)
         msg "  📦 Python (3.12) via mise..."
-        mise use -g -y python@3.12 >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Python 3.12 via mise"
+        if mise use -g -y python@3.12; then
+          INSTALLED_MISC+=("python: mise 3.12")
+        else
+          record_failure "optional" "Falha ao instalar Python 3.12 via mise"
+        fi
         ;;
       php)
         msg "  📦 PHP (latest) via mise..."
@@ -79,12 +87,16 @@ install_selected_runtimes() {
             ;;
         esac
 
-        if ! mise use -g -y php@latest >/dev/null 2>&1; then
+        if mise use -g -y php@latest; then
+          INSTALLED_MISC+=("php: mise latest")
+        else
           local php_latest=""
           php_latest="$(mise ls-remote php 2>/dev/null | grep -E '^[0-9]' | sort -V | tail -n1 || true)"
           if [[ -n "$php_latest" ]]; then
             msg "  🔄 Tentando PHP ($php_latest) via mise..."
-            if ! mise use -g -y "php@${php_latest}" >/dev/null 2>&1; then
+            if mise use -g -y "php@${php_latest}"; then
+              INSTALLED_MISC+=("php: mise ${php_latest}")
+            else
               record_failure "optional" "Falha ao instalar PHP (${php_latest}) via mise"
             fi
           else
@@ -98,33 +110,61 @@ install_selected_runtimes() {
         ;;
       rust)
         msg "  📦 Rust (stable) via mise..."
-        if ! mise use -g -y rust@stable >/dev/null 2>&1; then
-          mise use -g -y rust@latest >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Rust via mise"
+        if mise use -g -y rust@stable; then
+          INSTALLED_MISC+=("rust: mise stable")
+        elif mise use -g -y rust@latest; then
+          INSTALLED_MISC+=("rust: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Rust via mise"
         fi
         ;;
       go)
         msg "  📦 Go (latest) via mise..."
-        mise use -g -y go@latest >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Go via mise"
+        if mise use -g -y go@latest; then
+          INSTALLED_MISC+=("go: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Go via mise"
+        fi
         ;;
       bun)
         msg "  📦 Bun (latest) via mise..."
-        mise use -g -y bun@latest >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Bun via mise"
+        if mise use -g -y bun@latest; then
+          INSTALLED_MISC+=("bun: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Bun via mise"
+        fi
         ;;
       deno)
         msg "  📦 Deno (latest) via mise..."
-        mise use -g -y deno@latest >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Deno via mise"
+        if mise use -g -y deno@latest; then
+          INSTALLED_MISC+=("deno: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Deno via mise"
+        fi
         ;;
       elixir)
         msg "  📦 Elixir (latest) via mise..."
-        mise use -g -y elixir@latest >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Elixir via mise"
+        if mise use -g -y elixir@latest; then
+          INSTALLED_MISC+=("elixir: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Elixir via mise"
+        fi
         ;;
       java)
         msg "  📦 Java (latest) via mise..."
-        mise use -g -y java@latest >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Java via mise"
+        if mise use -g -y java@latest; then
+          INSTALLED_MISC+=("java: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Java via mise"
+        fi
         ;;
       ruby)
         msg "  📦 Ruby (latest) via mise..."
-        mise use -g -y ruby@latest >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Ruby via mise"
+        if mise use -g -y ruby@latest; then
+          INSTALLED_MISC+=("ruby: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Ruby via mise"
+        fi
         ;;
     esac
   done

@@ -59,19 +59,35 @@ install_neovim_package() {
   case "$LINUX_PKG_MANAGER" in
     apt|apt-get)
       if has_cmd add-apt-repository; then
-        run_with_sudo add-apt-repository -y ppa:neovim-ppa/unstable >/dev/null 2>&1 || true
-        run_with_sudo apt update >/dev/null 2>&1 || true
+        run_with_sudo add-apt-repository -y ppa:neovim-ppa/unstable || true
+        run_with_sudo apt update || true
       fi
-      run_with_sudo apt install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      if run_with_sudo apt install -y neovim; then
+        INSTALLED_MISC+=("neovim: apt")
+      else
+        record_failure "optional" "Falha ao instalar Neovim"
+      fi
       ;;
     dnf)
-      run_with_sudo dnf install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      if run_with_sudo dnf install -y neovim; then
+        INSTALLED_MISC+=("neovim: dnf")
+      else
+        record_failure "optional" "Falha ao instalar Neovim"
+      fi
       ;;
     pacman)
-      run_with_sudo pacman -S --noconfirm neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      if run_with_sudo pacman -S --noconfirm neovim; then
+        INSTALLED_MISC+=("neovim: pacman")
+      else
+        record_failure "optional" "Falha ao instalar Neovim"
+      fi
       ;;
     zypper)
-      run_with_sudo zypper install -y neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+      if run_with_sudo zypper install -y neovim; then
+        INSTALLED_MISC+=("neovim: zypper")
+      else
+        record_failure "optional" "Falha ao instalar Neovim"
+      fi
       ;;
   esac
 }
@@ -102,7 +118,11 @@ install_nvim_config() {
         install_neovim_linux
         ;;
       macos)
-        brew install neovim >/dev/null 2>&1 || record_failure "optional" "Falha ao instalar Neovim"
+        if brew install neovim; then
+          INSTALLED_MISC+=("neovim: brew")
+        else
+          record_failure "optional" "Falha ao instalar Neovim"
+        fi
         ;;
     esac
   fi
@@ -142,14 +162,42 @@ install_tmux_config() {
     case "$TARGET_OS" in
       linux|wsl2)
         case "$LINUX_PKG_MANAGER" in
-          apt) run_with_sudo apt install -y tmux >/dev/null 2>&1 ;;
-          dnf) run_with_sudo dnf install -y tmux >/dev/null 2>&1 ;;
-          pacman) run_with_sudo pacman -S --noconfirm tmux >/dev/null 2>&1 ;;
-          zypper) run_with_sudo zypper install -y tmux >/dev/null 2>&1 ;;
+          apt)
+            if run_with_sudo apt install -y tmux; then
+              INSTALLED_MISC+=("tmux: apt")
+            else
+              record_failure "optional" "Falha ao instalar tmux"
+            fi
+            ;;
+          dnf)
+            if run_with_sudo dnf install -y tmux; then
+              INSTALLED_MISC+=("tmux: dnf")
+            else
+              record_failure "optional" "Falha ao instalar tmux"
+            fi
+            ;;
+          pacman)
+            if run_with_sudo pacman -S --noconfirm tmux; then
+              INSTALLED_MISC+=("tmux: pacman")
+            else
+              record_failure "optional" "Falha ao instalar tmux"
+            fi
+            ;;
+          zypper)
+            if run_with_sudo zypper install -y tmux; then
+              INSTALLED_MISC+=("tmux: zypper")
+            else
+              record_failure "optional" "Falha ao instalar tmux"
+            fi
+            ;;
         esac
         ;;
       macos)
-        brew install tmux >/dev/null 2>&1
+        if brew install tmux; then
+          INSTALLED_MISC+=("tmux: brew")
+        else
+          record_failure "optional" "Falha ao instalar tmux"
+        fi
         ;;
     esac
   fi

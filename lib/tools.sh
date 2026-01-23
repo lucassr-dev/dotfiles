@@ -8,18 +8,19 @@ cargo_smart_install() {
 
   if has_cmd cargo-binstall; then
     msg "  📦 Instalando $display_name via binstall (binário)..."
-    if cargo binstall -y --quiet "$crate" >/dev/null 2>&1; then
+    if cargo binstall -y "$crate"; then
       INSTALLED_MISC+=("binstall: $crate")
       return 0
     fi
   fi
 
   msg "  🦀 Instalando $display_name via cargo (compilando, pode demorar)..."
-  if cargo install "$crate" >/dev/null 2>&1; then
+  if cargo install "$crate"; then
     INSTALLED_MISC+=("cargo: $crate")
     return 0
   fi
 
+  record_failure "optional" "Falha ao instalar $display_name via cargo"
   return 1
 }
 
@@ -28,10 +29,12 @@ ensure_cargo_binstall() {
   has_cmd cargo || return 1
 
   msg "  📦 Instalando cargo-binstall (acelera instalações futuras)..."
-  if curl -fsSL https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh 2>/dev/null | bash >/dev/null 2>&1; then
+  if curl -fsSL https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash; then
     export PATH="$HOME/.cargo/bin:$PATH"
+    INSTALLED_MISC+=("cargo-binstall: script")
     return 0
   fi
+  record_failure "optional" "Falha ao instalar cargo-binstall"
   return 1
 }
 
@@ -103,7 +106,7 @@ install_cli_tools_linux() {
         ;;
     esac
 
-    install_linux_packages optional "$pkg" 2>/dev/null
+    install_linux_packages optional "$pkg"
   done
 
   local need_cargo=0
@@ -180,11 +183,25 @@ install_cli_tools_linux() {
         if ! cli_tool_installed "$tool"; then
           msg "  📦 Instalando GitHub CLI (gh)..."
           if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg 2>/dev/null | run_with_sudo tee /usr/share/keyrings/githubcli-archive-keyring.gpg > /dev/null
-            run_with_sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | run_with_sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            run_with_sudo apt-get update -qq >/dev/null 2>&1
-            run_with_sudo apt-get install -qq -y gh >/dev/null 2>&1 && INSTALLED_MISC+=("gh")
+            if curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | run_with_sudo tee /usr/share/keyrings/githubcli-archive-keyring.gpg > /dev/null; then
+              run_with_sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | run_with_sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+              if run_with_sudo apt-get update && run_with_sudo apt-get install -y gh; then
+                INSTALLED_MISC+=("gh: apt")
+              else
+                record_failure "optional" "Falha ao instalar gh via apt"
+              fi
+            else
+              record_failure "optional" "Falha ao baixar chave GPG do GitHub CLI"
+            fi
+          elif [[ "$LINUX_PKG_MANAGER" == "pacman" ]]; then
+            install_linux_packages optional github-cli
+          elif [[ "$LINUX_PKG_MANAGER" == "dnf" ]]; then
+            if run_with_sudo dnf install -y 'dnf-command(config-manager)' && run_with_sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo && run_with_sudo dnf install -y gh; then
+              INSTALLED_MISC+=("gh: dnf")
+            else
+              record_failure "optional" "Falha ao instalar gh via dnf"
+            fi
           fi
         fi
         ;;
@@ -192,16 +209,25 @@ install_cli_tools_linux() {
         if ! cli_tool_installed "$tool"; then
           msg "  📦 Instalando lazygit via GitHub Releases..."
           local lazygit_version=""
-          lazygit_version="$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" 2>/dev/null | grep -Po '"tag_name": *"v\K[^"]*' || echo "")"
+          lazygit_version="$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": *"v\K[^"]*' || echo "")"
           if [[ -n "$lazygit_version" ]]; then
             local lazygit_url="https://github.com/jesseduffield/lazygit/releases/download/v${lazygit_version}/lazygit_${lazygit_version}_Linux_x86_64.tar.gz"
             local lazygit_tmp=""
             lazygit_tmp="$(mktemp -d)"
-            if curl -fsSL "$lazygit_url" -o "$lazygit_tmp/lazygit.tar.gz" 2>/dev/null; then
-              tar xf "$lazygit_tmp/lazygit.tar.gz" -C "$lazygit_tmp" lazygit 2>/dev/null
-              if [[ -f "$lazygit_tmp/lazygit" ]]; then
-                run_with_sudo install "$lazygit_tmp/lazygit" -D -t /usr/local/bin/ 2>/dev/null && INSTALLED_MISC+=("lazygit: v${lazygit_version} (GitHub)")
+            if curl -fsSL "$lazygit_url" -o "$lazygit_tmp/lazygit.tar.gz"; then
+              if tar xf "$lazygit_tmp/lazygit.tar.gz" -C "$lazygit_tmp" lazygit; then
+                if [[ -f "$lazygit_tmp/lazygit" ]]; then
+                  if run_with_sudo install "$lazygit_tmp/lazygit" -D -t /usr/local/bin/; then
+                    INSTALLED_MISC+=("lazygit: v${lazygit_version}")
+                  else
+                    record_failure "optional" "Falha ao mover lazygit para /usr/local/bin"
+                  fi
+                fi
+              else
+                record_failure "optional" "Falha ao extrair lazygit"
               fi
+            else
+              record_failure "optional" "Falha ao baixar lazygit"
             fi
             rm -rf "$lazygit_tmp" 2>/dev/null || true
           else
@@ -211,9 +237,19 @@ install_cli_tools_linux() {
         ;;
       btop)
         if ! cli_tool_installed "$tool"; then
-          msg "  📦 Instalando btop via snap..."
+          msg "  📦 Instalando btop..."
           if has_cmd snap; then
-            run_with_sudo snap install btop >/dev/null 2>&1 && INSTALLED_MISC+=("snap: btop")
+            if run_with_sudo snap install btop; then
+              INSTALLED_MISC+=("btop: snap")
+            else
+              record_failure "optional" "Falha ao instalar btop via snap"
+            fi
+          elif [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
+            install_linux_packages optional btop
+          elif [[ "$LINUX_PKG_MANAGER" == "pacman" ]]; then
+            install_linux_packages optional btop
+          else
+            record_failure "optional" "btop: nenhum método de instalação disponível"
           fi
         fi
         ;;
@@ -286,15 +322,14 @@ install_selected_ia_tools() {
       serena)
         ensure_uv
         msg "▶ Serena (MCP Server) via uvx"
-        msg "  ℹ️  Executando comando oficial para disponibilizar o Serena:"
-        msg "     uvx --from git+https://github.com/oraios/serena serena start-mcp-server --help"
-        if ! uvx --from git+https://github.com/oraios/serena serena start-mcp-server --help >/dev/null 2>&1; then
-          record_failure "optional" "Falha ao executar Serena via uvx"
-        else
+        msg "  ℹ️  Executando comando oficial para disponibilizar o Serena..."
+        if uvx --from git+https://github.com/oraios/serena serena start-mcp-server --help; then
           INSTALLED_MISC+=("serena: uvx (cache)")
+          msg "  💡 Para iniciar o servidor depois:"
+          msg "     uvx --from git+https://github.com/oraios/serena serena start-mcp-server"
+        else
+          record_failure "optional" "Falha ao executar Serena via uvx"
         fi
-        msg "  💡 Para iniciar o servidor depois:"
-        msg "     uvx --from git+https://github.com/oraios/serena serena start-mcp-server"
         ;;
       codex)
         msg "▶ Codex CLI"
@@ -304,8 +339,8 @@ install_selected_ia_tools() {
               brew_install_formula codex optional
             elif has_cmd npm; then
               msg "  📦 Instalando Codex via npm..."
-              if npm i -g @openai/codex >/dev/null 2>&1; then
-                INSTALLED_MISC+=("npm: @openai/codex")
+              if npm i -g @openai/codex; then
+                INSTALLED_MISC+=("codex: npm")
               else
                 record_failure "optional" "Falha ao instalar Codex via npm"
               fi
@@ -316,8 +351,8 @@ install_selected_ia_tools() {
           linux|wsl2|windows)
             if has_cmd npm; then
               msg "  📦 Instalando Codex via npm..."
-              if npm i -g @openai/codex >/dev/null 2>&1; then
-                INSTALLED_MISC+=("npm: @openai/codex")
+              if npm i -g @openai/codex; then
+                INSTALLED_MISC+=("codex: npm")
               else
                 record_failure "optional" "Falha ao instalar Codex via npm"
               fi
@@ -332,7 +367,7 @@ install_selected_ia_tools() {
         case "$TARGET_OS" in
           macos|linux|wsl2)
             msg "  📦 Instalando Claude Code via script oficial..."
-            if curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1; then
+            if curl -fsSL https://claude.ai/install.sh | bash; then
               INSTALLED_MISC+=("claude-code: install.sh")
             else
               record_failure "optional" "Falha ao instalar Claude Code via script"
@@ -341,7 +376,7 @@ install_selected_ia_tools() {
           windows)
             if has_cmd powershell; then
               msg "  📦 Instalando Claude Code via PowerShell..."
-              if powershell -NoProfile -Command "irm https://claude.ai/install.ps1 | iex" >/dev/null 2>&1; then
+              if powershell -NoProfile -Command "irm https://claude.ai/install.ps1 | iex"; then
                 INSTALLED_MISC+=("claude-code: install.ps1")
               else
                 record_failure "optional" "Falha ao instalar Claude Code via PowerShell"
@@ -357,14 +392,14 @@ install_selected_ia_tools() {
         ensure_uv
         if has_cmd uv; then
           msg "  📦 Instalando Aider via uv..."
-          if uv tool install aider-chat >/dev/null 2>&1; then
+          if uv tool install aider-chat; then
             INSTALLED_MISC+=("aider: uv tool")
           else
             record_failure "optional" "Falha ao instalar Aider via uv"
           fi
         elif has_cmd pipx; then
           msg "  📦 Instalando Aider via pipx..."
-          if pipx install aider-chat >/dev/null 2>&1; then
+          if pipx install aider-chat; then
             INSTALLED_MISC+=("aider: pipx")
           else
             record_failure "optional" "Falha ao instalar Aider via pipx"
@@ -386,14 +421,14 @@ install_selected_ia_tools() {
         ensure_uv
         if has_cmd uv; then
           msg "  📦 Instalando Goose via uv..."
-          if uv tool install goose-ai >/dev/null 2>&1; then
+          if uv tool install goose-ai; then
             INSTALLED_MISC+=("goose: uv tool")
           else
             record_failure "optional" "Falha ao instalar Goose via uv"
           fi
         elif has_cmd pipx; then
           msg "  📦 Instalando Goose via pipx..."
-          if pipx install goose-ai >/dev/null 2>&1; then
+          if pipx install goose-ai; then
             INSTALLED_MISC+=("goose: pipx")
           else
             record_failure "optional" "Falha ao instalar Goose via pipx"

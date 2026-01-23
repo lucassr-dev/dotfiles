@@ -34,19 +34,20 @@ detect_linux_pkg_manager() {
 
 linux_pkg_update_cache() {
   [[ $LINUX_PKG_UPDATED -eq 1 ]] && return
+  msg "  🔄 Atualizando cache de pacotes..."
   case "$LINUX_PKG_MANAGER" in
     apt-get)
-      if run_with_sudo apt-get update -qq >/dev/null 2>&1; then
+      if run_with_sudo apt-get update; then
         LINUX_PKG_UPDATED=1
       fi
       ;;
     dnf)
-      if run_with_sudo dnf makecache --refresh >/dev/null 2>&1; then
+      if run_with_sudo dnf makecache --refresh; then
         LINUX_PKG_UPDATED=1
       fi
       ;;
     zypper)
-      if run_with_sudo zypper refresh >/dev/null 2>&1; then
+      if run_with_sudo zypper refresh; then
         LINUX_PKG_UPDATED=1
       fi
       ;;
@@ -213,14 +214,14 @@ install_fzf_latest() {
 
   [[ -d "$fzf_dir" ]] && rm -rf "$fzf_dir"
 
-  if ! git clone --depth 1 https://github.com/junegunn/fzf.git "$fzf_dir" >/dev/null 2>&1; then
+  if ! git clone --depth 1 https://github.com/junegunn/fzf.git "$fzf_dir"; then
     record_failure "optional" "Falha ao clonar repositório do fzf"
     msg "  ⚠️  Tentando fallback via package manager..."
     install_linux_packages "optional" fzf
     return 0
   fi
 
-  if "$fzf_dir/install" --all --no-update-rc --no-bash --no-fish >/dev/null 2>&1; then
+  if "$fzf_dir/install" --all --no-update-rc --no-bash --no-fish; then
     INSTALLED_MISC+=("fzf (git): latest")
     local installed_version
     installed_version=$("$fzf_dir/bin/fzf" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
@@ -538,20 +539,25 @@ install_wezterm_linux() {
 
   if has_cmd flatpak; then
     msg "  📦 Instalando WezTerm via Flatpak..."
-    if flatpak install -y flathub org.wezfurlong.wezterm >/dev/null 2>&1; then
+    if flatpak install -y flathub org.wezfurlong.wezterm; then
       INSTALLED_MISC+=("wezterm: flatpak")
       return 0
+    else
+      record_failure "optional" "Falha ao instalar WezTerm via Flatpak"
     fi
   fi
 
   detect_linux_pkg_manager
   if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
     msg "  📦 Instalando WezTerm via repositório oficial..."
-    curl -fsSL https://apt.fury.io/wez/gpg.key | run_with_sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg 2>/dev/null
-    echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | run_with_sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
-    LINUX_PKG_UPDATED=0
-    install_linux_packages optional wezterm
-    return 0
+    if curl -fsSL https://apt.fury.io/wez/gpg.key | run_with_sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg; then
+      echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | run_with_sudo tee /etc/apt/sources.list.d/wezterm.list > /dev/null
+      LINUX_PKG_UPDATED=0
+      install_linux_packages optional wezterm
+      return 0
+    else
+      record_failure "optional" "Falha ao baixar chave GPG do WezTerm"
+    fi
   fi
 
   msg "  ℹ️  WezTerm: visite https://wezfurlong.org/wezterm/install/linux.html"

@@ -34,14 +34,14 @@ winget_install() {
 
   if winget list --id "$package_id" >/dev/null 2>&1; then
     msg "  🔄 Atualizando $friendly_name via winget..."
-    if winget upgrade --id "$package_id" --silent --accept-source-agreements --accept-package-agreements >/dev/null 2>&1; then
+    if winget upgrade --id "$package_id" --accept-source-agreements --accept-package-agreements; then
       INSTALLED_MISC+=("winget: $friendly_name (upgrade)")
     fi
     return 0
   fi
 
   msg "  📦 Instalando $friendly_name via winget..."
-  if winget install --id "$package_id" --silent --accept-source-agreements --accept-package-agreements >/dev/null 2>&1; then
+  if winget install --id "$package_id" --accept-source-agreements --accept-package-agreements; then
     INSTALLED_MISC+=("winget: $friendly_name")
   else
     record_failure "$level" "Falha ao instalar via winget: $friendly_name ($package_id)"
@@ -60,7 +60,8 @@ install_windows_base_dependencies() {
     return
   fi
 
-  if winget source update --accept-source-agreements >/dev/null 2>&1; then
+  msg "  🔄 Atualizando fontes do winget..."
+  if winget source update --accept-source-agreements; then
     INSTALLED_MISC+=("winget: source update")
   fi
 

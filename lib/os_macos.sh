@@ -32,14 +32,15 @@ brew_install_formula() {
   fi
 
   if brew list "$formula" >/dev/null 2>&1; then
-    if brew upgrade "$formula" >/dev/null 2>&1; then
+    msg "  🔄 Atualizando $formula..."
+    if brew upgrade "$formula"; then
       INSTALLED_MISC+=("brew formula: $formula (upgrade)")
     fi
     return 0
   fi
 
   msg "  📦 Instalando $formula via Homebrew..."
-  if brew install "$formula" >/dev/null 2>&1; then
+  if brew install "$formula"; then
     INSTALLED_MISC+=("brew formula: $formula")
   else
     record_failure "$level" "Falha ao instalar formula: $formula"
@@ -56,14 +57,15 @@ brew_install_cask() {
   fi
 
   if brew list --cask "$cask" >/dev/null 2>&1; then
-    if brew upgrade --cask "$cask" >/dev/null 2>&1; then
+    msg "  🔄 Atualizando $cask..."
+    if brew upgrade --cask "$cask"; then
       INSTALLED_MISC+=("brew cask: $cask (upgrade)")
     fi
     return 0
   fi
 
   msg "  📦 Instalando $cask via Homebrew Cask..."
-  if brew install --cask "$cask" >/dev/null 2>&1; then
+  if brew install --cask "$cask"; then
     INSTALLED_MISC+=("brew cask: $cask")
   else
     record_failure "$level" "Falha ao instalar cask: $cask"
@@ -81,7 +83,7 @@ install_macos_base_dependencies() {
   fi
 
   msg "▶ Atualizando Homebrew (brew update)"
-  if brew update >/dev/null 2>&1; then
+  if brew update; then
     INSTALLED_MISC+=("brew: update")
   else
     warn "Falha ao rodar brew update"

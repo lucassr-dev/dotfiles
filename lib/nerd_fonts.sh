@@ -152,8 +152,9 @@ download_and_install_font() {
 
   rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
 
-  if ! run_with_timeout 120 curl -fsSL --max-time 120 "$download_url" -o "$temp_zip" 2>/dev/null; then
-    if ! run_with_timeout 120 curl -fsSL --max-time 120 "$latest_url" -o "$temp_zip" 2>/dev/null; then
+  if ! run_with_timeout 120 curl -fsSL --max-time 120 "$download_url" -o "$temp_zip"; then
+    msg "  ⚠️  URL versão específica falhou, tentando latest..."
+    if ! run_with_timeout 120 curl -fsSL --max-time 120 "$latest_url" -o "$temp_zip"; then
       warn "Falha ao baixar $font_name"
       rm -f "$temp_zip" 2>/dev/null
       return 1
@@ -168,7 +169,7 @@ download_and_install_font() {
 
   mkdir -p "$temp_dir"
 
-  if run_with_timeout 60 unzip -q -o "$temp_zip" -d "$temp_dir" 2>/dev/null; then
+  if run_with_timeout 60 unzip -o "$temp_zip" -d "$temp_dir"; then
     local font_count=0
     while IFS= read -r -d '' font_file; do
       cp -f "$font_file" "$fonts_dir/" 2>/dev/null && ((font_count++))

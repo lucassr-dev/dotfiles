@@ -184,7 +184,7 @@ snap_install_or_refresh() {
 
   if has_snap_pkg "$pkg"; then
     msg "  🔄 Atualizando $friendly via snap..."
-    if run_with_sudo snap refresh "$pkg" >/dev/null 2>&1; then
+    if run_with_sudo snap refresh "$pkg"; then
       INSTALLED_MISC+=("$friendly: snap refresh")
     else
       record_failure "$level" "Falha ao atualizar via snap: $friendly ($pkg)"
@@ -193,7 +193,7 @@ snap_install_or_refresh() {
   fi
 
   msg "  📦 Instalando $friendly via snap..."
-  if run_with_sudo snap install "${install_args[@]}" "$pkg" >/dev/null 2>&1; then
+  if run_with_sudo snap install "${install_args[@]}" "$pkg"; then
     INSTALLED_MISC+=("$friendly: snap install")
   else
     record_failure "$level" "Falha ao instalar via snap: $friendly ($pkg)"
@@ -228,11 +228,11 @@ flatpak_install_or_update() {
   local level="${3:-optional}"
 
   has_cmd flatpak || return 0
-  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
 
   if flatpak info "$ref" >/dev/null 2>&1; then
     msg "  🔄 Atualizando $friendly via flatpak..."
-    if flatpak update -y "$ref" >/dev/null 2>&1; then
+    if flatpak update -y "$ref"; then
       INSTALLED_MISC+=("$friendly: flatpak update")
     else
       record_failure "$level" "Falha ao atualizar via flatpak: $friendly ($ref)"
@@ -241,7 +241,7 @@ flatpak_install_or_update() {
   fi
 
   msg "  📦 Instalando $friendly via flatpak..."
-  if flatpak install -y flathub "$ref" >/dev/null 2>&1; then
+  if flatpak install -y flathub "$ref"; then
     INSTALLED_MISC+=("$friendly: flatpak install")
   else
     record_failure "$level" "Falha ao instalar via flatpak: $friendly ($ref)"
@@ -954,22 +954,66 @@ _count_total_packages() {
 
 _count_configs_to_copy() {
   local total=0
+
+  # Shells - só conta se selecionado E COPY habilitado
   [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_ZSH:-0} -eq 1 ]] && ((total++))
   [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_FISH:-0} -eq 1 ]] && ((total++))
   [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && ((total++))
+
+  # Git
   [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_VSCODE_SETTINGS:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_LAZYGIT_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_YAZI_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_BTOP_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && ((total++))
+
+  # Editores - verificar se está em SELECTED_IDES
+  local has_neovim=0 has_vscode=0 has_zed=0 has_helix=0
+  for ide in "${SELECTED_IDES[@]}"; do
+    case "$ide" in
+      neovim) has_neovim=1 ;;
+      vscode) has_vscode=1 ;;
+      zed) has_zed=1 ;;
+      helix) has_helix=1 ;;
+    esac
+  done
+  [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && [[ $has_neovim -eq 1 ]] && ((total++))
+  [[ ${COPY_VSCODE_SETTINGS:-0} -eq 1 ]] && [[ $has_vscode -eq 1 ]] && ((total++))
+  [[ ${COPY_ZED_CONFIG:-0} -eq 1 ]] && [[ $has_zed -eq 1 ]] && ((total++))
+  [[ ${COPY_HELIX_CONFIG:-0} -eq 1 ]] && [[ $has_helix -eq 1 ]] && ((total++))
+
+  # CLI Tools - verificar se está em SELECTED_CLI_TOOLS
+  local has_tmux=0 has_lazygit=0 has_yazi=0 has_btop=0 has_direnv=0
+  for tool in "${SELECTED_CLI_TOOLS[@]}"; do
+    case "$tool" in
+      tmux) has_tmux=1 ;;
+      lazygit) has_lazygit=1 ;;
+      yazi) has_yazi=1 ;;
+      btop) has_btop=1 ;;
+      direnv) has_direnv=1 ;;
+    esac
+  done
+  [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && [[ $has_tmux -eq 1 ]] && ((total++))
+  [[ ${COPY_LAZYGIT_CONFIG:-0} -eq 1 ]] && [[ $has_lazygit -eq 1 ]] && ((total++))
+  [[ ${COPY_YAZI_CONFIG:-0} -eq 1 ]] && [[ $has_yazi -eq 1 ]] && ((total++))
+  [[ ${COPY_BTOP_CONFIG:-0} -eq 1 ]] && [[ $has_btop -eq 1 ]] && ((total++))
+  [[ ${COPY_DIRENV_CONFIG:-0} -eq 1 ]] && [[ $has_direnv -eq 1 ]] && ((total++))
+
+  # Runtime/Starship
+  [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && ((total++))
   [[ ${COPY_MISE_CONFIG:-0} -eq 1 ]] && [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && ((total++))
-  [[ ${COPY_KITTY_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_ALACRITTY_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_WEZTERM_CONFIG:-0} -eq 1 ]] && ((total++))
-  [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]] && ((total++))
+
+  # Terminais - verificar se está em SELECTED_TERMINALS
+  local has_ghostty=0 has_kitty=0 has_alacritty=0 has_wezterm=0
+  for term in "${SELECTED_TERMINALS[@]}"; do
+    case "$term" in
+      ghostty) has_ghostty=1 ;;
+      kitty) has_kitty=1 ;;
+      alacritty) has_alacritty=1 ;;
+      wezterm) has_wezterm=1 ;;
+    esac
+  done
+  [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]] && [[ $has_ghostty -eq 1 ]] && ((total++))
+  [[ ${COPY_KITTY_CONFIG:-0} -eq 1 ]] && [[ $has_kitty -eq 1 ]] && ((total++))
+  [[ ${COPY_ALACRITTY_CONFIG:-0} -eq 1 ]] && [[ $has_alacritty -eq 1 ]] && ((total++))
+  [[ ${COPY_WEZTERM_CONFIG:-0} -eq 1 ]] && [[ $has_wezterm -eq 1 ]] && ((total++))
+
   echo "$total"
 }
 
@@ -985,8 +1029,9 @@ review_selections() {
     local term_width
     term_width=$(tput cols 2>/dev/null || echo 80)
 
-    local w=$((term_width > 76 ? 76 : term_width - 4))
-    [[ $w -lt 50 ]] && w=50
+    # Usar mais espaço horizontal - max 100 ou terminal - 4
+    local w=$((term_width > 100 ? 100 : term_width - 4))
+    [[ $w -lt 60 ]] && w=60
 
     echo ""
 
@@ -1038,7 +1083,7 @@ review_selections() {
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && themes_selected+=("OMP")
 
     local col_w=$(( (w - 3) / 2 ))
-    local data_w=$((col_w - 14))
+    local data_w=$((col_w - 12))  # Mais espaço para dados
     [[ $data_w -lt 1 ]] && data_w=1
 
     echo ""
@@ -1058,19 +1103,75 @@ review_selections() {
       echo -e "${BANNER_CYAN}│${BANNER_RESET} ${left}$(printf '%*s' "$left_pad" '')${BANNER_CYAN}│${BANNER_RESET} ${right}$(printf '%*s' "$right_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
     }
 
-    local shells_str themes_str term_str fonts_str cli_str ia_str rt_str
+    # Helper: formata lista de items em múltiplas linhas se necessário
+    _format_items_multiline() {
+      local max_w="$1"
+      local prefix="$2"
+      shift 2
+      local items=("$@")
+      local lines=()
+      local current_line=""
+      local count=0
+
+      for item in "${items[@]}"; do
+        local test_str
+        if [[ -z "$current_line" ]]; then
+          test_str="$item"
+        else
+          test_str="$current_line, $item"
+        fi
+        if [[ ${#test_str} -le $max_w ]]; then
+          current_line="$test_str"
+          ((count++))
+        else
+          [[ -n "$current_line" ]] && lines+=("$current_line")
+          current_line="$item"
+          ((count++))
+        fi
+      done
+      [[ -n "$current_line" ]] && lines+=("$current_line")
+
+      # Retorna linhas separadas por |
+      local IFS='|'
+      echo "${lines[*]}"
+    }
+
+    local shells_str themes_str term_str fonts_str ia_str rt_str
     shells_str=$([[ ${#selected_shells[@]} -gt 0 ]] && _truncate_items "$data_w" "${selected_shells[@]}" || echo "(nenhum)")
     themes_str=$([[ ${#themes_selected[@]} -gt 0 ]] && _truncate_items "$data_w" "${themes_selected[@]}" || echo "(nenhum)")
     term_str=$([[ ${#SELECTED_TERMINALS[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_TERMINALS[@]}" || echo "(nenhum)")
     fonts_str=$([[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_NERD_FONTS[@]}" || echo "(nenhuma)")
-    cli_str=$([[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_CLI_TOOLS[@]}" || echo "(nenhuma)")
     ia_str=$([[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_IA_TOOLS[@]}" || echo "(nenhuma)")
     rt_str=$([[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_RUNTIMES[@]}" || echo "(nenhum)")
 
-    _2col_box "${BANNER_WHITE}Shells${BANNER_RESET}" "(${#selected_shells[@]}) $shells_str" "${BANNER_WHITE}CLI Tools${BANNER_RESET}" "(${#SELECTED_CLI_TOOLS[@]}) $cli_str"
-    _2col_box "${BANNER_WHITE}Temas${BANNER_RESET}" "(${#themes_selected[@]}) $themes_str" "${BANNER_WHITE}IA Tools${BANNER_RESET}" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
-    _2col_box "${BANNER_WHITE}Terminal${BANNER_RESET}" "$term_str" "${BANNER_WHITE}Runtimes${BANNER_RESET}" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
-    _2col_box "${BANNER_WHITE}Fonts${BANNER_RESET}" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "" ""
+    # CLI Tools - mostrar todas se possível, usando largura total da coluna direita
+    local cli_data_w=$((col_w - 15))
+    local cli_lines_str cli_first cli_second
+    if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
+      cli_lines_str=$(_format_items_multiline "$cli_data_w" "" "${SELECTED_CLI_TOOLS[@]}")
+      IFS='|' read -ra cli_lines <<< "$cli_lines_str"
+      cli_first="${cli_lines[0]:-}"
+      cli_second="${cli_lines[1]:-}"
+    else
+      cli_first="(nenhuma)"
+      cli_second=""
+    fi
+
+    _2col_box "${BANNER_WHITE}Shells${BANNER_RESET}" "(${#selected_shells[@]}) $shells_str" "${BANNER_WHITE}CLI Tools${BANNER_RESET}" "(${#SELECTED_CLI_TOOLS[@]}) $cli_first"
+    # Se CLI Tools tem segunda linha, mostrar
+    if [[ -n "$cli_second" ]]; then
+      _2col_box "${BANNER_WHITE}Temas${BANNER_RESET}" "(${#themes_selected[@]}) $themes_str" "" "     $cli_second"
+      _2col_box "${BANNER_WHITE}Terminal${BANNER_RESET}" "$term_str" "${BANNER_WHITE}IA Tools${BANNER_RESET}" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
+    else
+      _2col_box "${BANNER_WHITE}Temas${BANNER_RESET}" "(${#themes_selected[@]}) $themes_str" "${BANNER_WHITE}IA Tools${BANNER_RESET}" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
+      _2col_box "${BANNER_WHITE}Terminal${BANNER_RESET}" "$term_str" "${BANNER_WHITE}Runtimes${BANNER_RESET}" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
+    fi
+    # Ajustar linhas restantes baseado no layout
+    if [[ -n "$cli_second" ]]; then
+      _2col_box "${BANNER_WHITE}Fonts${BANNER_RESET}" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "${BANNER_WHITE}Runtimes${BANNER_RESET}" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
+    else
+      _2col_box "${BANNER_WHITE}Fonts${BANNER_RESET}" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "" ""
+    fi
     echo -e "${BANNER_CYAN}╰$(printf '─%.0s' $(seq 1 "$col_w"))┴$(printf '─%.0s' $(seq 1 "$col_w"))╯${BANNER_RESET}"
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -1135,46 +1236,39 @@ review_selections() {
     echo ""
     echo -e "${BANNER_CYAN}╭─ ${BANNER_BOLD}📋 COPIAR CONFIGURAÇÕES${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $((inner_w - 26))))╮${BANNER_RESET}"
 
-    # Shells
+    # Shells - só mostrar itens selecionados com COPY habilitado
     local cfg_shells=()
-    [[ ${INSTALL_ZSH:-0} -eq 1 ]] && {
-      [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Zsh") || cfg_shells+=("${BANNER_DIM}○Zsh${BANNER_RESET}")
-    }
-    [[ ${INSTALL_FISH:-0} -eq 1 ]] && {
-      [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Fish") || cfg_shells+=("${BANNER_DIM}○Fish${BANNER_RESET}")
-    }
-    [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && {
-      [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Nushell") || cfg_shells+=("${BANNER_DIM}○Nushell${BANNER_RESET}")
-    }
+    [[ ${INSTALL_ZSH:-0} -eq 1 ]] && [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Zsh")
+    [[ ${INSTALL_FISH:-0} -eq 1 ]] && [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Fish")
+    [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Nushell")
     if [[ ${#cfg_shells[@]} -gt 0 ]]; then
       local shells_cfg_str
-      shells_cfg_str=$(IFS='  '; echo "${cfg_shells[*]}")
+      shells_cfg_str=$(IFS=' '; echo "${cfg_shells[*]}")
       _print_box_line "$inner_w" "🐚 ${BANNER_WHITE}Shells:${BANNER_RESET}    $shells_cfg_str"
     fi
 
-    # Editores
+    # Editores - só mostrar itens selecionados com COPY habilitado
     local cfg_editors=()
-    local has_neovim=0
-    for ide in "${SELECTED_IDES[@]}"; do [[ "$ide" == "neovim" ]] && has_neovim=1 && break; done
-    [[ $has_neovim -eq 1 ]] && {
-      [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}Neovim") || cfg_editors+=("${BANNER_DIM}○Neovim${BANNER_RESET}")
-    }
-    if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
-      [[ ${COPY_VSCODE_SETTINGS:-0} -eq 1 ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}VSCode") || cfg_editors+=("${BANNER_DIM}○VSCode${BANNER_RESET}")
-    fi
-    [[ -f "$CONFIG_SHARED/zed/settings.json" ]] && {
-      [[ ${COPY_ZED_CONFIG:-0} -eq 1 ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}Zed") || cfg_editors+=("${BANNER_DIM}○Zed${BANNER_RESET}")
-    }
-    [[ -f "$CONFIG_SHARED/helix/config.toml" ]] && {
-      [[ ${COPY_HELIX_CONFIG:-0} -eq 1 ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}Helix") || cfg_editors+=("${BANNER_DIM}○Helix${BANNER_RESET}")
-    }
+    local has_neovim=0 has_vscode=0 has_zed=0 has_helix=0
+    for ide in "${SELECTED_IDES[@]}"; do
+      case "$ide" in
+        neovim) has_neovim=1 ;;
+        vscode) has_vscode=1 ;;
+        zed) has_zed=1 ;;
+        helix) has_helix=1 ;;
+      esac
+    done
+    [[ $has_neovim -eq 1 ]] && [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}Neovim")
+    [[ $has_vscode -eq 1 ]] && [[ ${COPY_VSCODE_SETTINGS:-0} -eq 1 ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}VSCode")
+    [[ $has_zed -eq 1 ]] && [[ ${COPY_ZED_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}Zed")
+    [[ $has_helix -eq 1 ]] && [[ ${COPY_HELIX_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]] && cfg_editors+=("${BANNER_GREEN}✓${BANNER_RESET}Helix")
     if [[ ${#cfg_editors[@]} -gt 0 ]]; then
       local editors_cfg_str
-      editors_cfg_str=$(IFS='  '; echo "${cfg_editors[*]}")
+      editors_cfg_str=$(IFS=' '; echo "${cfg_editors[*]}")
       _print_box_line "$inner_w" "📝 ${BANNER_WHITE}Editors:${BANNER_RESET}   $editors_cfg_str"
     fi
 
-    # CLI Tools
+    # CLI Tools - só mostrar itens selecionados com COPY habilitado
     local cfg_tools=()
     local has_tmux=0 has_lazygit=0 has_yazi=0 has_btop=0 has_direnv=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do
@@ -1186,65 +1280,49 @@ review_selections() {
         direnv) has_direnv=1 ;;
       esac
     done
-    [[ $has_tmux -eq 1 ]] && {
-      [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}tmux") || cfg_tools+=("${BANNER_DIM}○tmux${BANNER_RESET}")
-    }
-    [[ $has_lazygit -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]] && {
-      [[ ${COPY_LAZYGIT_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}lazygit") || cfg_tools+=("${BANNER_DIM}○lazygit${BANNER_RESET}")
-    }
-    [[ $has_yazi -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]] && {
-      [[ ${COPY_YAZI_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}yazi") || cfg_tools+=("${BANNER_DIM}○yazi${BANNER_RESET}")
-    }
-    [[ $has_btop -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]] && {
-      [[ ${COPY_BTOP_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}btop") || cfg_tools+=("${BANNER_DIM}○btop${BANNER_RESET}")
-    }
-    [[ $has_direnv -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]] && {
-      [[ ${COPY_DIRENV_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}direnv") || cfg_tools+=("${BANNER_DIM}○direnv${BANNER_RESET}")
-    }
-    [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && {
-      [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}Git") || cfg_tools+=("${BANNER_DIM}○Git${BANNER_RESET}")
-    }
+    [[ $has_tmux -eq 1 ]] && [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}tmux")
+    [[ $has_lazygit -eq 1 ]] && [[ ${COPY_LAZYGIT_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}lazygit")
+    [[ $has_yazi -eq 1 ]] && [[ ${COPY_YAZI_CONFIG:-0} -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}yazi")
+    [[ $has_btop -eq 1 ]] && [[ ${COPY_BTOP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}btop")
+    [[ $has_direnv -eq 1 ]] && [[ ${COPY_DIRENV_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}direnv")
+    [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && cfg_tools+=("${BANNER_GREEN}✓${BANNER_RESET}Git")
     if [[ ${#cfg_tools[@]} -gt 0 ]]; then
       local tools_cfg_str
-      tools_cfg_str=$(IFS='  '; echo "${cfg_tools[*]}")
+      tools_cfg_str=$(IFS=' '; echo "${cfg_tools[*]}")
       _print_box_line "$inner_w" "🛠️  ${BANNER_WHITE}Tools:${BANNER_RESET}     $tools_cfg_str"
     fi
 
-    # Terminais
+    # Terminais - só mostrar itens selecionados com COPY habilitado
     local cfg_terminals=()
     for term in "${SELECTED_TERMINALS[@]}"; do
       case "$term" in
         ghostty)
-          [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}ghostty") || cfg_terminals+=("${BANNER_DIM}○ghostty${BANNER_RESET}")
+          [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}ghostty")
           ;;
         kitty)
-          [[ ${COPY_KITTY_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}kitty") || cfg_terminals+=("${BANNER_DIM}○kitty${BANNER_RESET}")
+          [[ ${COPY_KITTY_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}kitty")
           ;;
         alacritty)
-          [[ ${COPY_ALACRITTY_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}alacritty") || cfg_terminals+=("${BANNER_DIM}○alacritty${BANNER_RESET}")
+          [[ ${COPY_ALACRITTY_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}alacritty")
           ;;
         wezterm)
-          [[ ${COPY_WEZTERM_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}wezterm") || cfg_terminals+=("${BANNER_DIM}○wezterm${BANNER_RESET}")
+          [[ ${COPY_WEZTERM_CONFIG:-0} -eq 1 ]] && cfg_terminals+=("${BANNER_GREEN}✓${BANNER_RESET}wezterm")
           ;;
       esac
     done
     if [[ ${#cfg_terminals[@]} -gt 0 ]]; then
       local terminals_cfg_str
-      terminals_cfg_str=$(IFS='  '; echo "${cfg_terminals[*]}")
+      terminals_cfg_str=$(IFS=' '; echo "${cfg_terminals[*]}")
       _print_box_line "$inner_w" "💻 ${BANNER_WHITE}Terminals:${BANNER_RESET} $terminals_cfg_str"
     fi
 
-    # Runtime/Prompt
+    # Runtime/Prompt - só mostrar itens selecionados com COPY habilitado
     local cfg_runtime=()
-    [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && {
-      [[ ${COPY_MISE_CONFIG:-0} -eq 1 ]] && cfg_runtime+=("${BANNER_GREEN}✓${BANNER_RESET}Mise") || cfg_runtime+=("${BANNER_DIM}○Mise${BANNER_RESET}")
-    }
-    [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && {
-      [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && cfg_runtime+=("${BANNER_GREEN}✓${BANNER_RESET}Starship") || cfg_runtime+=("${BANNER_DIM}○Starship${BANNER_RESET}")
-    }
+    [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && [[ ${COPY_MISE_CONFIG:-0} -eq 1 ]] && cfg_runtime+=("${BANNER_GREEN}✓${BANNER_RESET}Mise")
+    [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_runtime+=("${BANNER_GREEN}✓${BANNER_RESET}Starship")
     if [[ ${#cfg_runtime[@]} -gt 0 ]]; then
       local runtime_cfg_str
-      runtime_cfg_str=$(IFS='  '; echo "${cfg_runtime[*]}")
+      runtime_cfg_str=$(IFS=' '; echo "${cfg_runtime[*]}")
       _print_box_line "$inner_w" "📦 ${BANNER_WHITE}Runtime:${BANNER_RESET}   $runtime_cfg_str"
     fi
 

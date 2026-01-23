@@ -1,0 +1,178 @@
+# Yazi File Manager Configuration
+# Catppuccin Mocha Theme + Vim-like keybindings
+
+[manager]
+# Layout ratios for panels (parent:current:preview)
+ratio = [1, 4, 3]
+
+# Sorting options
+sort_by = "alphabetical"
+sort_sensitive = false
+sort_reverse = false
+sort_dir_first = true
+sort_translit = false
+
+# Line mode (size, permissions, mtime, etc)
+linemode = "permissions"
+
+# Show hidden files
+show_hidden = false
+
+# Show symlink target
+show_symlink = true
+
+# Scrolloff (keep cursor this many lines from edge)
+scrolloff = 5
+
+# Mouse support
+mouse = true
+
+[preview]
+# Tab size in preview
+tab_size = 2
+
+# Max preview width/height
+max_width = 1000
+max_height = 1000
+
+# Cache directory
+cache_dir = ""
+
+# Image preview method (auto, kitty, iterm2, sixel, chafa)
+image_method = "auto"
+image_quality = 90
+
+# Ueberzug settings
+ueberzug_scale = 1
+ueberzug_offset = [0, 0]
+
+[opener]
+# Default file openers - optimized for development
+
+# Text files - use Neovim
+edit = [
+  { run = 'nvim "$@"', block = true, for = "unix" },
+]
+
+# View with bat (syntax highlighting)
+view = [
+  { run = 'bat --paging=always --style=full "$@"', block = true },
+]
+
+# Open in default app
+open = [
+  { run = 'xdg-open "$@"', desc = "Open", for = "linux" },
+  { run = 'open "$@"', desc = "Open", for = "macos" },
+]
+
+# Play media
+play = [
+  { run = 'mpv "$@"', orphan = true, for = "unix" },
+]
+
+# Reveal in file manager
+reveal = [
+  { run = 'nautilus "$@"', orphan = true, for = "linux" },
+  { run = 'open -R "$@"', orphan = true, for = "macos" },
+]
+
+# Extract archives
+extract = [
+  { run = 'unar "$@"', desc = "Extract here" },
+]
+
+[open]
+# File type associations
+
+# Text/Code
+rules = [
+  { mime = "text/*", use = "edit" },
+  { mime = "application/json", use = "edit" },
+  { mime = "application/javascript", use = "edit" },
+  { mime = "application/x-yaml", use = "edit" },
+  { mime = "application/toml", use = "edit" },
+
+  # Images
+  { mime = "image/*", use = "open" },
+
+  # Videos
+  { mime = "video/*", use = "play" },
+  { mime = "audio/*", use = "play" },
+
+  # PDFs
+  { mime = "application/pdf", use = "open" },
+
+  # Archives
+  { mime = "application/zip", use = "extract" },
+  { mime = "application/gzip", use = "extract" },
+  { mime = "application/x-tar", use = "extract" },
+  { mime = "application/x-bzip2", use = "extract" },
+  { mime = "application/x-7z-compressed", use = "extract" },
+  { mime = "application/x-rar", use = "extract" },
+
+  # Fallback
+  { mime = "*", use = "open" },
+]
+
+[tasks]
+# Task scheduler settings
+micro_workers = 5
+macro_workers = 10
+bizarre_retry = 5
+
+[plugin]
+# Plugin settings
+
+# Preloaders (for preview generation)
+preloaders = [
+  # Images
+  { mime = "image/vnd.djvu", run = "noop" },
+  { mime = "image/*", run = "image" },
+
+  # Videos
+  { mime = "video/*", run = "video" },
+
+  # PDFs
+  { mime = "application/pdf", run = "pdf" },
+
+  # Archives
+  { name = "*.zip", run = "archive" },
+  { name = "*.tar", run = "archive" },
+  { name = "*.tar.gz", run = "archive" },
+  { name = "*.tar.bz2", run = "archive" },
+  { name = "*.tar.xz", run = "archive" },
+]
+
+# Previewers
+previewers = [
+  # Images
+  { mime = "image/vnd.djvu", run = "noop" },
+  { mime = "image/*", run = "image" },
+
+  # Videos
+  { mime = "video/*", run = "video" },
+
+  # PDFs
+  { mime = "application/pdf", run = "pdf" },
+
+  # Archives
+  { name = "*.zip", run = "archive" },
+  { name = "*.tar", run = "archive" },
+  { name = "*.tar.gz", run = "archive" },
+  { name = "*.tar.bz2", run = "archive" },
+  { name = "*.tar.xz", run = "archive" },
+
+  # Code with syntax highlighting (bat)
+  { mime = "text/*", run = "code" },
+  { mime = "application/json", run = "code" },
+  { mime = "*/xml", run = "code" },
+  { mime = "*/javascript", run = "code" },
+  { mime = "*/x-wine-extension-ini", run = "code" },
+
+  # Fallback
+  { mime = "*/*", run = "file" },
+]
+
+[log]
+# Logging settings
+enabled = false

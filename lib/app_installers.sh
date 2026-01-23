@@ -45,7 +45,7 @@ install_cursor() {
 install_neovim() {
   case "$TARGET_OS" in
     macos)
-      brew_install neovim optional
+      brew_install_formula neovim optional
       ;;
     linux|wsl2)
       install_linux_packages optional neovim
@@ -241,7 +241,7 @@ install_redis_insight() {
 install_mariadb() {
   case "$TARGET_OS" in
     macos)
-      brew_install mariadb optional
+      brew_install_formula mariadb optional
       ;;
     linux|wsl2)
       install_linux_packages optional mariadb-server
@@ -527,7 +527,7 @@ install_kdenlive() {
 install_flameshot() {
   case "$TARGET_OS" in
     macos)
-      brew_install flameshot optional
+      brew_install_formula flameshot optional
       ;;
     linux|wsl2)
       if has_cmd flatpak; then
@@ -593,7 +593,7 @@ install_keepassxc() {
 install_syncthing() {
   case "$TARGET_OS" in
     macos)
-      brew_install syncthing optional
+      brew_install_formula syncthing optional
       ;;
     linux|wsl2)
       install_linux_packages optional syncthing
