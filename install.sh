@@ -1072,19 +1072,19 @@ review_selections() {
     [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && themes_selected+=("Starship")
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && themes_selected+=("OMP")
 
-    local col_gap=5
-    local col_w=$(( (w - 3 - col_gap) / 2 ))
-    local data_w=$((col_w - 14))
+    local col_w=$(( (inner_w - 1) / 2 ))
+    local cell_w=$((col_w - 2))
+    local data_w=$((cell_w - 12))
     [[ $data_w -lt 1 ]] && data_w=1
-    local gap_spaces
-    gap_spaces=$(printf '%*s' "$col_gap" '')
 
     echo ""
-    local left_header_pad=$((col_w - 13))
-    local right_header_pad=$((col_w - 16))
-    [[ $left_header_pad -lt 0 ]] && left_header_pad=0
-    [[ $right_header_pad -lt 0 ]] && right_header_pad=0
-    echo -e "${BANNER_CYAN}╭─ ${BANNER_BOLD}🐚 AMBIENTE${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $left_header_pad))┬$(printf '─%.0s' $(seq 1 $col_gap))┬─ ${BANNER_RESET}${BANNER_BOLD}🔧 FERRAMENTAS${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $right_header_pad))╮${BANNER_RESET}"
+    local left_title="🐚 AMBIENTE"
+    local right_title="🔧 FERRAMENTAS"
+    local left_pad=$((col_w - ${#left_title} - 2))
+    local right_pad=$((col_w - ${#right_title} - 2))
+    [[ $left_pad -lt 0 ]] && left_pad=0
+    [[ $right_pad -lt 0 ]] && right_pad=0
+    echo -e "${BANNER_CYAN}╭─ ${BANNER_BOLD}${left_title}${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $left_pad))┬─ ${BANNER_BOLD}${right_title}${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $right_pad))╮${BANNER_RESET}"
 
     _2col_box() {
       local l1="$1" v1="$2" l2="$3" v2="$4"
@@ -1102,11 +1102,11 @@ review_selections() {
       local left_visual right_visual
       left_visual=$(_visible_len "$left")
       right_visual=$(_visible_len "$right")
-      local left_pad=$((col_w - left_visual))
-      local right_pad=$((col_w - right_visual))
+      local left_pad=$((cell_w - left_visual))
+      local right_pad=$((cell_w - right_visual))
       [[ $left_pad -lt 0 ]] && left_pad=0
       [[ $right_pad -lt 0 ]] && right_pad=0
-      echo -e "${BANNER_CYAN}│${BANNER_RESET} ${left}$(printf '%*s' "$left_pad" '')${BANNER_CYAN}│${BANNER_RESET}${gap_spaces}${BANNER_CYAN}│${BANNER_RESET} ${right}$(printf '%*s' "$right_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET} ${left}$(printf '%*s' "$left_pad" '') ${BANNER_CYAN}│${BANNER_RESET} ${right}$(printf '%*s' "$right_pad" '') ${BANNER_CYAN}│${BANNER_RESET}"
     }
 
     _format_items_multiline() {
@@ -1148,7 +1148,7 @@ review_selections() {
     ia_str=$([[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_IA_TOOLS[@]}" || echo "(nenhuma)")
     rt_str=$([[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_RUNTIMES[@]}" || echo "(nenhum)")
 
-    local cli_data_w=$((col_w - 15))
+    local cli_data_w=$((cell_w - 13))
     local cli_lines_str cli_first cli_second
     if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
       cli_lines_str=$(_format_items_multiline "$cli_data_w" "" "${SELECTED_CLI_TOOLS[@]}")
@@ -1173,7 +1173,7 @@ review_selections() {
     else
       _2col_box "Fonts" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "" ""
     fi
-    echo -e "${BANNER_CYAN}╰$(printf '─%.0s' $(seq 1 "$col_w"))┴$(printf '─%.0s' $(seq 1 "$col_gap"))┴$(printf '─%.0s' $(seq 1 "$col_w"))╯${BANNER_RESET}"
+    echo -e "${BANNER_CYAN}╰$(printf '─%.0s' $(seq 1 "$col_w"))┴$(printf '─%.0s' $(seq 1 "$col_w"))╯${BANNER_RESET}"
 
     # ═══════════════════════════════════════════════════════════════════════════
     # APLICATIVOS GUI (com nomes)
