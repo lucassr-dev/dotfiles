@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Instaladores e configurações específicas do Windows
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════

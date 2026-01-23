@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Seleção e instalação de runtimes (mise)
 
 ask_runtimes() {
   local runtime_options=(

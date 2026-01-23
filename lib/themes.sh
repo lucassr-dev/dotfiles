@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Seleção e instalação de temas para shells
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
@@ -18,8 +17,7 @@ SELECTED_STARSHIP_PRESET=""
 SELECTED_OMP_THEME=""
 
 # ═══════════════════════════════════════════════════════════
-# Prévia de temas (best-effort)
-# Suporte: Kitty, Ghostty, iTerm2, WezTerm, Sixel, Chafa
+# Prévia de temas
 # ═══════════════════════════════════════════════════════════
 
 THEME_PREVIEW_MAX_WIDTH=800
@@ -32,7 +30,6 @@ theme_preview_cache_dir() {
 
 # ═══════════════════════════════════════════════════════════
 # Detecção de suporte a imagens em terminais
-# Baseado em: https://yazi-rs.github.io/docs/image-preview/
 # ═══════════════════════════════════════════════════════════
 
 _terminal_no_inline_support() {
@@ -42,8 +39,6 @@ _terminal_no_inline_support() {
   return 1
 }
 
-# Detecta qual ferramenta usar para renderizar imagens
-# Prioridade: chafa (auto-detecta) > kitty icat > img2sixel > catimg > timg
 theme_preview_renderer() {
   _terminal_no_inline_support && return 1
 
@@ -79,7 +74,6 @@ theme_preview_renderer() {
   return 1
 }
 
-# Verifica se o terminal suporta previews e sugere instalação se necessário
 check_preview_support() {
   if _terminal_no_inline_support; then
     return 1
@@ -658,7 +652,6 @@ ask_starship_preset() {
       msg ""
     fi
 
-    # Confirmação padronizada
     local preset_display="$SELECTED_STARSHIP_PRESET"
     [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]] && preset_display+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
     if confirm_selection "✨ Starship Preset" "$preset_display"; then
@@ -734,7 +727,6 @@ ask_oh_my_posh_theme() {
 
     preview_oh_my_posh "$SELECTED_OMP_THEME"
 
-    # Confirmação padronizada
     if confirm_selection "🎭 Tema Oh My Posh" "$SELECTED_OMP_THEME"; then
       break
     fi
@@ -913,7 +905,6 @@ install_oh_my_zsh() {
     done
   fi
 
-  # Configurar plugins (built-in + externos) se houver seleções
   local all_plugins=()
   all_plugins+=("${SELECTED_OMZ_PLUGINS[@]}")
   all_plugins+=("${SELECTED_OMZ_EXTERNAL_PLUGINS[@]}")

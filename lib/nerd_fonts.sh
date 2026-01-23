@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Instalação de Nerd Fonts com download dinâmico
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
-# Helper: timeout portável (macOS não tem timeout por padrão)
+# Timeout portável
 # ═══════════════════════════════════════════════════════════
 run_with_timeout() {
   local seconds="$1"
@@ -24,7 +23,6 @@ run_with_timeout() {
 NERD_FONTS_VERSION="${NERD_FONTS_VERSION:-v3.1.1}"
 NERD_FONTS_BASE_URL="https://github.com/ryanoasis/nerd-fonts/releases/download"
 
-# Fontes mais populares e recomendadas
 NERD_FONTS_POPULAR=(
   "FiraCode"
   "JetBrainsMono"
@@ -38,7 +36,6 @@ NERD_FONTS_POPULAR=(
   "Noto"
 )
 
-# Todas as fontes disponíveis (2025)
 NERD_FONTS_ALL=(
   "0xProto"
   "3270"

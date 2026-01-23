@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
-# Instalação de configurações Neovim e tmux
-# As configs são copiadas de shared/ para o sistema
 
 # ══════════════════════════════════════════════════════════════════════════════
-# VARIÁVEIS GLOBAIS (defaults definidos em install.sh)
-# ══════════════════════════════════════════════════════════════════════════════
-# COPY_NVIM_CONFIG e COPY_TMUX_CONFIG são definidos em install.sh
-# Não redefinir aqui para não sobrescrever os valores padrão
-
-# ══════════════════════════════════════════════════════════════════════════════
-# INSTALAÇÃO DO NEOVIM (AppImage nightly - requerido pelo LazyVim >= 0.11)
+# INSTALAÇÃO DO NEOVIM
 # ══════════════════════════════════════════════════════════════════════════════
 install_neovim_linux() {
   local arch

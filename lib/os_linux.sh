@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Instaladores e configurações específicas do Linux
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
-# Anti-duplicidade: rastrear apps já processados nesta execução
+# Rastreamento de apps processados
 # ═══════════════════════════════════════════════════════════
 
 declare -A APPS_PROCESSED

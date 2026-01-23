@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Instaladores e configurações específicas do macOS
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
@@ -145,7 +144,6 @@ tap "homebrew/core"
 
 EOF
 
-  # Adicionar CLI tools selecionadas
   if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
     echo "# CLI Tools selecionadas" >> "$brewfile"
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do
@@ -170,7 +168,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar terminais selecionados
   if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
     echo "# Terminais selecionados" >> "$brewfile"
     for terminal in "${SELECTED_TERMINALS[@]}"; do
@@ -185,7 +182,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar navegadores selecionados
   if [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]; then
     echo "# Navegadores selecionados" >> "$brewfile"
     for browser in "${SELECTED_BROWSERS[@]}"; do
@@ -199,7 +195,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar IDEs selecionadas
   if [[ ${#SELECTED_IDES[@]} -gt 0 ]]; then
     echo "# IDEs e editores selecionados" >> "$brewfile"
     for ide in "${SELECTED_IDES[@]}"; do
@@ -223,7 +218,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar IDEs/dev tools selecionados
   if [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]; then
     echo "# Ferramentas de desenvolvimento selecionadas" >> "$brewfile"
     for tool in "${SELECTED_DEV_TOOLS[@]}"; do
@@ -237,7 +231,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar bancos de dados selecionados
   if [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]; then
     echo "# Bancos de dados selecionados" >> "$brewfile"
     for db in "${SELECTED_DATABASES[@]}"; do
@@ -251,7 +244,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar apps de produtividade selecionados
   if [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]; then
     echo "# Produtividade selecionada" >> "$brewfile"
     for app in "${SELECTED_PRODUCTIVITY[@]}"; do
@@ -264,7 +256,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar apps de comunicação selecionados
   if [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]]; then
     echo "# Comunicação selecionada" >> "$brewfile"
     for app in "${SELECTED_COMMUNICATION[@]}"; do
@@ -275,7 +266,6 @@ EOF
     echo "" >> "$brewfile"
   fi
 
-  # Adicionar apps de mídia selecionados
   if [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]; then
     echo "# Mídia selecionada" >> "$brewfile"
     for app in "${SELECTED_MEDIA[@]}"; do

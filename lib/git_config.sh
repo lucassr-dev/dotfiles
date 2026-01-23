@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Configuração Git multi-conta interativa
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
-# Variáveis globais para configuração Git
+# Variáveis globais
 # ═══════════════════════════════════════════════════════════
 
 declare -a GIT_PERSONAL_DIRS=()
@@ -194,10 +193,8 @@ ask_git_configuration() {
   msg "🔑 Chave SSH para conta de trabalho:"
   msg ""
 
-  # Listar chaves SSH disponíveis (buscar em ~/.ssh e shared/.ssh)
   local ssh_keys=()
 
-  # Buscar em ~/.ssh
   if [[ -d "$HOME/.ssh" ]]; then
     while IFS= read -r key; do
       ssh_keys+=("$key")

@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Seleção de apps GUI
-# Usa o sistema de UI moderno (fzf/gum/bash) de lib/ui.sh
 # shellcheck disable=SC2034,SC2329
 
 # ═══════════════════════════════════════════════════════════

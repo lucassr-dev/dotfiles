@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Instalação de CLI Tools e IA Tools selecionadas
 # shellcheck disable=SC2034,SC2329,SC1091
 
 cargo_smart_install() {

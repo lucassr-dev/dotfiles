@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Funções de seleção interativa para categorias de apps/ferramentas
-# Usa o sistema de UI moderno (fzf/gum/bash) de lib/ui.sh
 # shellcheck disable=SC2034,SC2329,SC1091
 
 declare -a SELECTED_CLI_TOOLS=()
@@ -53,7 +51,7 @@ _wrap_text() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# Funções de compatibilidade (fallback se ui.sh não carregou)
+# Funções de compatibilidade
 # ═══════════════════════════════════════════════════════════
 
 _has_modern_ui() {
@@ -271,7 +269,6 @@ confirm_selection() {
 
   echo ""
 
-  # Título com preenchimento correto (usa _visual_width para emojis)
   local title_visual_w
   if declare -F _visual_width >/dev/null; then
     title_visual_w=$(_visual_width "$title")

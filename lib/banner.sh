@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Banner de boas-vindas moderno e responsivo
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CORES (aliases para UI_* definidos em lib/ui.sh)
+# CORES
 # ══════════════════════════════════════════════════════════════════════════════
-# Nota: lib/ui.sh deve ser carregado ANTES deste arquivo
+
 declare -g BANNER_CYAN="${UI_CYAN:-\033[0;36m}"
 declare -g BANNER_GREEN="${UI_GREEN:-\033[0;32m}"
 declare -g BANNER_YELLOW="${UI_YELLOW:-\033[1;33m}"
@@ -152,7 +151,6 @@ show_welcome_message() {
 # FUNÇÕES DE NAVEGAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Calcula largura visual de texto (emojis = 2 cells, ANSI removido)
 _visual_width() {
   local text="$1"
   local clean

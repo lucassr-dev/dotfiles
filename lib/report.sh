@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Relatório pós-instalação - Layout moderno com rounded corners
 # shellcheck disable=SC2034
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -70,7 +69,6 @@ print_post_install_report() {
   local username="${USER:-$(whoami)}"
   local hostname="${HOSTNAME:-$(hostname 2>/dev/null || echo 'localhost')}"
 
-  # Cores
   local GREEN='\033[0;32m'
   local YELLOW='\033[1;33m'
   local BLUE='\033[0;34m'
@@ -79,7 +77,6 @@ print_post_install_report() {
   local DIM='\033[2m'
   local NC='\033[0m'
 
-  # Largura responsiva (max 80)
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
   local w=$((term_w > 80 ? 80 : term_w - 2))

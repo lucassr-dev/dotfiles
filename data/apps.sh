@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
-# ───────────────────────────────────────────────────────────
-# CLI Tools - Ferramentas de linha de comando modernas
-# ───────────────────────────────────────────────────────────
 CLI_TOOLS=(
-  # fzf é dependência base (lib/os_linux.sh) - não incluir aqui
   zoxide        # cd inteligente (substitui autojump/z)
   eza           # ls moderno com cores e ícones
   bat           # cat com syntax highlighting
@@ -27,9 +23,6 @@ CLI_TOOLS=(
   hyperfine     # Benchmarking CLI
 )
 
-# ───────────────────────────────────────────────────────────
-# IA Tools - Ferramentas de desenvolvimento com IA
-# ───────────────────────────────────────────────────────────
 IA_TOOLS=(
   spec-kit     # Spec-driven development (GitHub Spec Kit)
   serena       # Assistente de código baseado em IA
@@ -40,18 +33,12 @@ IA_TOOLS=(
   goose        # AI agent framework (Block/Square)
 )
 
-# ───────────────────────────────────────────────────────────
-# Shells - Interpretadores de comandos modernos
-# ───────────────────────────────────────────────────────────
 SHELLS=(
   zsh          # Shell padrão macOS, extensível com Oh My Zsh
   fish         # User-friendly, autocomplete nativo
   nushell      # Shell moderno com dados estruturados (Rust)
 )
 
-# ───────────────────────────────────────────────────────────
-# Terminais - Emuladores de terminal
-# ───────────────────────────────────────────────────────────
 TERMINALS=(
   ghostty              # Terminal rápido em Zig (Linux/macOS)
   kitty                # Terminal GPU-accelerated
@@ -62,9 +49,6 @@ TERMINALS=(
   windows-terminal     # Windows only - Terminal moderno MS
 )
 
-# ───────────────────────────────────────────────────────────
-# IDEs e Editores de Código
-# ───────────────────────────────────────────────────────────
 IDES=(
   vscode               # Visual Studio Code (Microsoft)
   zed                  # Editor moderno e rápido (Rust)
@@ -85,9 +69,6 @@ IDES=(
   xcode                # macOS only - IDE oficial Apple
 )
 
-# ───────────────────────────────────────────────────────────
-# Navegadores Web
-# ───────────────────────────────────────────────────────────
 BROWSERS=(
   firefox              # Mozilla Firefox
   chrome               # Google Chrome
@@ -104,9 +85,6 @@ BROWSERS=(
   floorp               # Firefox fork japonês customizável
 )
 
-# ───────────────────────────────────────────────────────────
-# Ferramentas de Desenvolvimento
-# ───────────────────────────────────────────────────────────
 DEV_TOOLS=(
   docker               # Containers (inclui docker-compose)
   podman               # Alternativa ao Docker (Linux)
@@ -129,9 +107,6 @@ DEV_TOOLS=(
   lens                 # Kubernetes IDE
 )
 
-# ───────────────────────────────────────────────────────────
-# Bancos de Dados
-# ───────────────────────────────────────────────────────────
 DATABASE_APPS=(
   postgresql           # PostgreSQL database
   mysql                # MySQL database
@@ -146,9 +121,6 @@ DATABASE_APPS=(
   neo4j                # Graph database
 )
 
-# ───────────────────────────────────────────────────────────
-# Produtividade e Organização
-# ───────────────────────────────────────────────────────────
 PRODUCTIVITY_APPS=(
   notion               # Workspace all-in-one
   obsidian             # Markdown notes e PKM
@@ -166,9 +138,6 @@ PRODUCTIVITY_APPS=(
   trilium              # Hierarchical notes
 )
 
-# ───────────────────────────────────────────────────────────
-# Comunicação e Colaboração
-# ───────────────────────────────────────────────────────────
 COMMUNICATION_APPS=(
   slack                # Comunicação de times
   discord              # Chat de comunidades/games
@@ -187,9 +156,6 @@ COMMUNICATION_APPS=(
   ferdium              # Fork do Ferdi (agregador)
 )
 
-# ───────────────────────────────────────────────────────────
-# Mídia e Entretenimento
-# ───────────────────────────────────────────────────────────
 MEDIA_APPS=(
   vlc                  # Media player universal
   mpv                  # Media player minimalista
@@ -210,30 +176,22 @@ MEDIA_APPS=(
   calibre              # Gerenciador de e-books
 )
 
-# ───────────────────────────────────────────────────────────
-# Utilitários do Sistema
-# ───────────────────────────────────────────────────────────
-# Nota: Alguns utilitários são específicos por OS
 UTILITIES_APPS=(
-  # Screenshots e screen recording
   flameshot            # Screenshot tool (Linux)
   spectacle            # Screenshot tool (Linux/KDE)
   screenkey            # Mostra teclas pressionadas (Linux)
   ksnip                # Screenshot cross-platform
   sharex               # Windows only - Screenshot avançado
 
-  # Windows-specific
   powertoys            # Windows only - Utilitários da Microsoft
   wsl                  # Windows only - Windows Subsystem for Linux
 
-  # macOS-specific
   rectangle            # macOS only - Window manager
   alfred               # macOS only - Launcher avançado
   bartender            # macOS only - Menu bar organizer
   cleanmymac           # macOS only - System cleaner
   istat-menus          # macOS only - System monitor
 
-  # Cross-platform
   1password            # Gerenciador de senhas
   bitwarden            # Gerenciador de senhas open-source
   keepassxc            # Gerenciador de senhas offline

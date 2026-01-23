@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Sistema de UI moderno para seleção interativa
-# Suporta: fzf (primário), gum (alternativo), bash puro (fallback)
 # shellcheck disable=SC2034,SC2329
 
 # ═══════════════════════════════════════════════════════════
@@ -89,7 +87,6 @@ stop_spinner() {
   fi
 }
 
-# Barra de progresso
 show_progress_bar() {
   local current="$1"
   local total="$2"
