@@ -26,8 +26,7 @@ get_version() {
 
 _hline() {
   local width="$1"
-  local char="${2:--}"
-  printf '%*s' "$width" '' | tr ' ' "$char"
+  printf '%*s' "$width" '' | tr ' ' '─'
 }
 
 _truncate() {
@@ -66,6 +65,9 @@ _add_tool_if_version() {
 print_post_install_report() {
   local username="${USER:-$(whoami)}"
   local hostname="${HOSTNAME:-$(hostname 2>/dev/null || echo 'localhost')}"
+  local current_shell="${SHELL##*/}"
+  local current_date
+  current_date=$(date '+%d/%m/%Y %H:%M')
 
   local GREEN='\033[0;32m'
   local YELLOW='\033[1;33m'
@@ -88,32 +90,31 @@ print_post_install_report() {
   local inner_w=$((total_w - 2))
   local cell_w=$((col_w - 2))
 
-  local full_line col_line header_line
-  full_line=$(_hline "$inner_w" "-")
-  col_line=$(_hline "$col_w" "-")
-  header_line=$(_hline "$inner_w" "=")
-
   [[ -t 1 ]] && clear
 
   echo ""
 
-  echo -e "${GREEN}+${header_line}+${NC}"
-  local title="INSTALACAO CONCLUIDA!"
-  local title_pad=$(( (inner_w - ${#title}) / 2 ))
-  printf "${GREEN}|${NC}%*s${YELLOW}${BOLD}%s${NC}%*s${GREEN}|${NC}\n" "$title_pad" "" "$title" "$((inner_w - title_pad - ${#title}))" ""
-  echo -e "${GREEN}+${header_line}+${NC}"
+  echo -e "${GREEN}╭$(_hline "$inner_w")╮${NC}"
+  local title="✨ INSTALAÇÃO CONCLUÍDA! ✨"
+  local title_len=${#title}
+  local title_pad=$(( (inner_w - title_len) / 2 ))
+  printf "${GREEN}│${NC}%*s${YELLOW}${BOLD}%s${NC}%*s${GREEN}│${NC}\n" "$title_pad" "" "$title" "$((inner_w - title_pad - title_len))" ""
+  echo -e "${GREEN}╰$(_hline "$inner_w")╯${NC}"
+
   echo ""
-
-  local info_w=$((inner_w - 2))
-
-  echo -e "${DIM}+${full_line}+${NC}"
-  printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "Usuario:" "$((info_w - 10))" "$(_truncate $((info_w - 10)) "$username")"
-  printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "Host:" "$((info_w - 10))" "$(_truncate $((info_w - 10)) "$hostname")"
-  printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "SO:" "$((info_w - 10))" "${TARGET_OS:-linux}"
+  local info_label_w=12
+  local info_data_w=$((inner_w - info_label_w - 3))
+  echo -e "${CYAN}╭─ ${BOLD}🖥️  SISTEMA${NC}${CYAN} $(_hline $((inner_w - 13)))╮${NC}"
+  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Host:" "$(_truncate "$info_data_w" "$hostname")"
+  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Usuário:" "$(_truncate "$info_data_w" "$username")"
+  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "SO:" "${TARGET_OS:-linux}"
+  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Shell:" "$current_shell"
+  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${DIM}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Data:" "$current_date"
   if [[ -d "$BACKUP_DIR" ]]; then
-    printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "Backup:" "$((info_w - 10))" "$(_truncate $((info_w - 10)) "$BACKUP_DIR")"
+    printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${DIM}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Backup:" "$(_truncate "$info_data_w" "$BACKUP_DIR")"
   fi
-  echo -e "${DIM}+${full_line}+${NC}"
+  echo -e "${CYAN}╰$(_hline "$inner_w")╯${NC}"
+
   echo ""
 
   local tools=()
@@ -139,19 +140,24 @@ print_post_install_report() {
   _add_tool_if_version runtimes "Deno" deno "$cell_w"
   [[ ${#runtimes[@]} -eq 0 ]] && runtimes+=("(nenhum)")
 
-  echo -e "${CYAN}+${col_line}+${col_line}+${NC}"
-  printf "${CYAN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${CYAN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${CYAN}|${NC}\n" "$cell_w" "FERRAMENTAS" "$cell_w" "RUNTIMES"
-  echo -e "${CYAN}+${col_line}+${col_line}+${NC}"
+  local left_title="🛠️  FERRAMENTAS"
+  local right_title="🚀 RUNTIMES"
+  local left_pad=$((col_w - ${#left_title} - 2))
+  local right_pad=$((col_w - ${#right_title} - 2))
+  [[ $left_pad -lt 0 ]] && left_pad=0
+  [[ $right_pad -lt 0 ]] && right_pad=0
+
+  echo -e "${CYAN}╭─ ${BOLD}${left_title}${NC}${CYAN} $(_hline "$left_pad")┬─ ${BOLD}${right_title}${NC}${CYAN} $(_hline "$right_pad")╮${NC}"
 
   local max=${#tools[@]}
   [[ ${#runtimes[@]} -gt $max ]] && max=${#runtimes[@]}
   for (( i=0; i<max; i++ )); do
     local left="${tools[i]:-}"
     local right="${runtimes[i]:-}"
-    printf "${CYAN}|${NC} ${GREEN}%-*s${NC} ${CYAN}|${NC} ${MAGENTA}%-*s${NC} ${CYAN}|${NC}\n" "$cell_w" "$left" "$cell_w" "$right"
+    printf "${CYAN}│${NC} ${GREEN}%-*s${NC} ${CYAN}│${NC} ${MAGENTA}%-*s${NC} ${CYAN}│${NC}\n" "$cell_w" "$left" "$cell_w" "$right"
   done
 
-  echo -e "${CYAN}+${col_line}+${col_line}+${NC}"
+  echo -e "${CYAN}╰$(_hline "$col_w")┴$(_hline "$col_w")╯${NC}"
 
   echo ""
 
@@ -170,33 +176,40 @@ print_post_install_report() {
   has_cmd lazygit && commands+=("lazygit")
   has_cmd zoxide && commands+=("z <dir>")
 
-  echo -e "${GREEN}+${col_line}+${col_line}+${NC}"
-  printf "${GREEN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${GREEN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${GREEN}|${NC}\n" "$cell_w" "PROXIMO PASSO" "$cell_w" "COMANDOS UTEIS"
-  echo -e "${GREEN}+${col_line}+${col_line}+${NC}"
+  local left_title2="⚡ PRÓXIMO PASSO"
+  local right_title2="💡 COMANDOS ÚTEIS"
+  local left_pad2=$((col_w - ${#left_title2} - 2))
+  local right_pad2=$((col_w - ${#right_title2} - 2))
+  [[ $left_pad2 -lt 0 ]] && left_pad2=0
+  [[ $right_pad2 -lt 0 ]] && right_pad2=0
+
+  echo -e "${GREEN}╭─ ${BOLD}${left_title2}${NC}${GREEN} $(_hline "$left_pad2")┬─ ${BOLD}${right_title2}${NC}${GREEN} $(_hline "$right_pad2")╮${NC}"
 
   local steps_max=${#next_steps[@]}
   [[ ${#commands[@]} -gt $steps_max ]] && steps_max=${#commands[@]}
   for (( i=0; i<steps_max; i++ )); do
     local left="${next_steps[i]:-}"
     local right="${commands[i]:-}"
-    printf "${GREEN}|${NC} ${YELLOW}%-*s${NC} ${GREEN}|${NC} ${DIM}%-*s${NC} ${GREEN}|${NC}\n" "$cell_w" "$left" "$cell_w" "$right"
+    printf "${GREEN}│${NC} ${YELLOW}%-*s${NC} ${GREEN}│${NC} ${DIM}%-*s${NC} ${GREEN}│${NC}\n" "$cell_w" "$left" "$cell_w" "$right"
   done
 
-  echo -e "${GREEN}+${col_line}+${col_line}+${NC}"
+  echo -e "${GREEN}╰$(_hline "$col_w")┴$(_hline "$col_w")╯${NC}"
 
   if has_cmd mise; then
     echo ""
-    local mise_title="Mise"
-    local mise_line_w=$((inner_w - ${#mise_title} - 4))
-    echo -e "${DIM}+-- ${WHITE}${mise_title}${DIM} $(_hline "$mise_line_w" "-")+${NC}"
-    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise ls" "$((info_w - 26))" "Listar instalados"
-    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise use -g node@lts" "$((info_w - 26))" "Node LTS global"
-    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise use python@latest" "$((info_w - 26))" "Python no projeto"
-    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise install" "$((info_w - 26))" "Instalar do .mise.toml"
-    echo -e "${DIM}+${full_line}+${NC}"
+    local mise_title="📦 Mise"
+    local mise_pad=$((inner_w - ${#mise_title} - 3))
+    echo -e "${DIM}╭─ ${WHITE}${mise_title}${DIM} $(_hline "$mise_pad")╮${NC}"
+    local cmd_w=24
+    local desc_w=$((inner_w - cmd_w - 4))
+    printf "${DIM}│${NC}  ${WHITE}%-${cmd_w}s${NC}${DIM}%-${desc_w}s${NC} ${DIM}│${NC}\n" "mise ls" "Listar instalados"
+    printf "${DIM}│${NC}  ${WHITE}%-${cmd_w}s${NC}${DIM}%-${desc_w}s${NC} ${DIM}│${NC}\n" "mise use -g node@lts" "Node LTS global"
+    printf "${DIM}│${NC}  ${WHITE}%-${cmd_w}s${NC}${DIM}%-${desc_w}s${NC} ${DIM}│${NC}\n" "mise use python@latest" "Python no projeto"
+    printf "${DIM}│${NC}  ${WHITE}%-${cmd_w}s${NC}${DIM}%-${desc_w}s${NC} ${DIM}│${NC}\n" "mise install" "Instalar do .mise.toml"
+    echo -e "${DIM}╰$(_hline "$inner_w")╯${NC}"
   fi
 
   echo ""
-  echo -e "  ${BLUE}lucassr.dev${NC} ${DIM}|${NC} ${GREEN}github.com/lucassr-dev/.config${NC}"
+  echo -e "  ${BLUE}🌐 lucassr.dev${NC} ${DIM}│${NC} ${GREEN}📦 github.com/lucassr-dev/.config${NC}"
   echo ""
 }
