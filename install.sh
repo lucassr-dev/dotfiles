@@ -2,8 +2,6 @@
 set -uo pipefail
 # shellcheck disable=SC2034,SC2329,SC1091
 
-# Dev Environment Setup
-# Uso: bash install.sh [install|export|sync]
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_SHARED="$SCRIPT_DIR/shared"
 CONFIG_LINUX="$SCRIPT_DIR/linux"
@@ -80,9 +78,7 @@ declare -a INSTALLED_MISC=()
 # ═══════════════════════════════════════════════════════════
 cleanup_on_exit() {
   local exit_code=$?
-  # Limpar arquivos temporários
   rm -f /tmp/dotfiles-install-*.tmp 2>/dev/null || true
-  # Se houve erro ou interrupção, manter checkpoint para resumir
   if [[ $exit_code -ne 0 ]] && [[ -f "$HOME/.dotfiles-checkpoint" ]]; then
     echo ""
     echo "⚠️  Instalação interrompida. Execute novamente para retomar."
@@ -502,7 +498,7 @@ manage_ssh_keys() {
     msg ""
   done
 
-  if ! confirm "Deseja copiar as chaves SSH?"; then
+  if ! ui_confirm "Deseja copiar as chaves SSH?"; then
     msg "  ⏭️  Cópia de chaves SSH cancelada"
     return 1
   fi
@@ -521,7 +517,7 @@ manage_ssh_keys() {
 
       if [[ "$existing_name" != "$key_name" ]]; then
         msg "  ⚠️  $key_name duplica $existing_name (mesmo fingerprint)"
-        if confirm "   Deseja sobrescrever $existing_name?"; then
+        if ui_confirm "   Deseja sobrescrever $existing_name?"; then
           cp "$key_path" "$existing_path"
           [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${existing_path}.pub"
           msg "   ✓ Sobrescrito: $existing_name"
@@ -532,7 +528,7 @@ manage_ssh_keys() {
       fi
     fi
 
-    if [[ -f "$dest_path" ]] && ! confirm "   $key_name já existe. Sobrescrever?"; then
+    if [[ -f "$dest_path" ]] && ! ui_confirm "   $key_name já existe. Sobrescrever?"; then
       msg "   ⏭️  Preservado: $key_name (original mantido)"
       continue
     fi
@@ -673,7 +669,6 @@ append_preserved_config() {
   fi
 }
 
-# Extrai configurações de PATH do .zshrc existente que devem ser preservadas
 extract_user_path_config_zsh() {
   local zshrc="$HOME/.zshrc"
   [[ -f "$zshrc" ]] || return
@@ -745,7 +740,6 @@ extract_user_path_config_zsh() {
   fi
 }
 
-# Extrai configurações de PATH do config.fish existente que devem ser preservadas
 extract_user_path_config_fish() {
   local fishrc="$HOME/.config/fish/config.fish"
   [[ -f "$fishrc" ]] || return
@@ -955,15 +949,12 @@ _count_total_packages() {
 _count_configs_to_copy() {
   local total=0
 
-  # Shells - só conta se selecionado E COPY habilitado
   [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_ZSH:-0} -eq 1 ]] && ((total++))
   [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_FISH:-0} -eq 1 ]] && ((total++))
   [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && ((total++))
 
-  # Git
   [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && ((total++))
 
-  # Editores - verificar se está em SELECTED_IDES
   local has_neovim=0 has_vscode=0 has_zed=0 has_helix=0
   for ide in "${SELECTED_IDES[@]}"; do
     case "$ide" in
@@ -978,7 +969,6 @@ _count_configs_to_copy() {
   [[ ${COPY_ZED_CONFIG:-0} -eq 1 ]] && [[ $has_zed -eq 1 ]] && ((total++))
   [[ ${COPY_HELIX_CONFIG:-0} -eq 1 ]] && [[ $has_helix -eq 1 ]] && ((total++))
 
-  # CLI Tools - verificar se está em SELECTED_CLI_TOOLS
   local has_tmux=0 has_lazygit=0 has_yazi=0 has_btop=0 has_direnv=0
   for tool in "${SELECTED_CLI_TOOLS[@]}"; do
     case "$tool" in
@@ -995,11 +985,9 @@ _count_configs_to_copy() {
   [[ ${COPY_BTOP_CONFIG:-0} -eq 1 ]] && [[ $has_btop -eq 1 ]] && ((total++))
   [[ ${COPY_DIRENV_CONFIG:-0} -eq 1 ]] && [[ $has_direnv -eq 1 ]] && ((total++))
 
-  # Runtime/Starship
   [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && ((total++))
   [[ ${COPY_MISE_CONFIG:-0} -eq 1 ]] && [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && ((total++))
 
-  # Terminais - verificar se está em SELECTED_TERMINALS
   local has_ghostty=0 has_kitty=0 has_alacritty=0 has_wezterm=0
   for term in "${SELECTED_TERMINALS[@]}"; do
     case "$term" in
@@ -1029,7 +1017,6 @@ review_selections() {
     local term_width
     term_width=$(tput cols 2>/dev/null || echo 80)
 
-    # Usar mais espaço horizontal - max 100 ou terminal - 4
     local w=$((term_width > 100 ? 100 : term_width - 4))
     [[ $w -lt 60 ]] && w=60
 
@@ -1103,7 +1090,6 @@ review_selections() {
       echo -e "${BANNER_CYAN}│${BANNER_RESET} ${left}$(printf '%*s' "$left_pad" '')${BANNER_CYAN}│${BANNER_RESET} ${right}$(printf '%*s' "$right_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
     }
 
-    # Helper: formata lista de items em múltiplas linhas se necessário
     _format_items_multiline() {
       local max_w="$1"
       local prefix="$2"
@@ -1131,7 +1117,6 @@ review_selections() {
       done
       [[ -n "$current_line" ]] && lines+=("$current_line")
 
-      # Retorna linhas separadas por |
       local IFS='|'
       echo "${lines[*]}"
     }
@@ -1144,7 +1129,6 @@ review_selections() {
     ia_str=$([[ ${#SELECTED_IA_TOOLS[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_IA_TOOLS[@]}" || echo "(nenhuma)")
     rt_str=$([[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && _truncate_items "$data_w" "${SELECTED_RUNTIMES[@]}" || echo "(nenhum)")
 
-    # CLI Tools - mostrar todas se possível, usando largura total da coluna direita
     local cli_data_w=$((col_w - 15))
     local cli_lines_str cli_first cli_second
     if [[ ${#SELECTED_CLI_TOOLS[@]} -gt 0 ]]; then
@@ -1158,7 +1142,6 @@ review_selections() {
     fi
 
     _2col_box "${BANNER_WHITE}Shells${BANNER_RESET}" "(${#selected_shells[@]}) $shells_str" "${BANNER_WHITE}CLI Tools${BANNER_RESET}" "(${#SELECTED_CLI_TOOLS[@]}) $cli_first"
-    # Se CLI Tools tem segunda linha, mostrar
     if [[ -n "$cli_second" ]]; then
       _2col_box "${BANNER_WHITE}Temas${BANNER_RESET}" "(${#themes_selected[@]}) $themes_str" "" "     $cli_second"
       _2col_box "${BANNER_WHITE}Terminal${BANNER_RESET}" "$term_str" "${BANNER_WHITE}IA Tools${BANNER_RESET}" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
@@ -1166,7 +1149,6 @@ review_selections() {
       _2col_box "${BANNER_WHITE}Temas${BANNER_RESET}" "(${#themes_selected[@]}) $themes_str" "${BANNER_WHITE}IA Tools${BANNER_RESET}" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
       _2col_box "${BANNER_WHITE}Terminal${BANNER_RESET}" "$term_str" "${BANNER_WHITE}Runtimes${BANNER_RESET}" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
     fi
-    # Ajustar linhas restantes baseado no layout
     if [[ -n "$cli_second" ]]; then
       _2col_box "${BANNER_WHITE}Fonts${BANNER_RESET}" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "${BANNER_WHITE}Runtimes${BANNER_RESET}" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
     else
@@ -1236,7 +1218,6 @@ review_selections() {
     echo ""
     echo -e "${BANNER_CYAN}╭─ ${BANNER_BOLD}📋 COPIAR CONFIGURAÇÕES${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $((inner_w - 26))))╮${BANNER_RESET}"
 
-    # Shells - só mostrar itens selecionados com COPY habilitado
     local cfg_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Zsh")
     [[ ${INSTALL_FISH:-0} -eq 1 ]] && [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]] && cfg_shells+=("${BANNER_GREEN}✓${BANNER_RESET}Fish")
@@ -1247,7 +1228,6 @@ review_selections() {
       _print_box_line "$inner_w" "🐚 ${BANNER_WHITE}Shells:${BANNER_RESET}    $shells_cfg_str"
     fi
 
-    # Editores - só mostrar itens selecionados com COPY habilitado
     local cfg_editors=()
     local has_neovim=0 has_vscode=0 has_zed=0 has_helix=0
     for ide in "${SELECTED_IDES[@]}"; do
@@ -1268,7 +1248,6 @@ review_selections() {
       _print_box_line "$inner_w" "📝 ${BANNER_WHITE}Editors:${BANNER_RESET}   $editors_cfg_str"
     fi
 
-    # CLI Tools - só mostrar itens selecionados com COPY habilitado
     local cfg_tools=()
     local has_tmux=0 has_lazygit=0 has_yazi=0 has_btop=0 has_direnv=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do
@@ -1292,7 +1271,6 @@ review_selections() {
       _print_box_line "$inner_w" "🛠️  ${BANNER_WHITE}Tools:${BANNER_RESET}     $tools_cfg_str"
     fi
 
-    # Terminais - só mostrar itens selecionados com COPY habilitado
     local cfg_terminals=()
     for term in "${SELECTED_TERMINALS[@]}"; do
       case "$term" in
@@ -1316,7 +1294,6 @@ review_selections() {
       _print_box_line "$inner_w" "💻 ${BANNER_WHITE}Terminals:${BANNER_RESET} $terminals_cfg_str"
     fi
 
-    # Runtime/Prompt - só mostrar itens selecionados com COPY habilitado
     local cfg_runtime=()
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && [[ ${COPY_MISE_CONFIG:-0} -eq 1 ]] && cfg_runtime+=("${BANNER_GREEN}✓${BANNER_RESET}Mise")
     [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_runtime+=("${BANNER_GREEN}✓${BANNER_RESET}Starship")
@@ -1326,7 +1303,6 @@ review_selections() {
       _print_box_line "$inner_w" "📦 ${BANNER_WHITE}Runtime:${BANNER_RESET}   $runtime_cfg_str"
     fi
 
-    # Se nenhuma config
     if [[ ${#cfg_shells[@]} -eq 0 ]] && [[ ${#cfg_editors[@]} -eq 0 ]] && [[ ${#cfg_tools[@]} -eq 0 ]] && [[ ${#cfg_terminals[@]} -eq 0 ]] && [[ ${#cfg_runtime[@]} -eq 0 ]]; then
       _print_box_line "$inner_w" "${BANNER_DIM}(nenhuma configuração disponível)${BANNER_RESET}"
     fi
@@ -1393,20 +1369,6 @@ review_selections() {
   done
 }
 
-ask_yes_no() {
-  local prompt="$1"
-  local response
-  while true; do
-    read -r -p "$prompt (s/n): " response
-    case "$response" in
-      [SsYy]*) return 0 ;;
-      [Nn]*) return 1 ;;
-      *) msg "  ⚠️ Responda 's' para sim ou 'n' para não" ;;
-    esac
-  done
-}
-
-# Confirmação moderna com Enter/P (Pular)
 confirm_action() {
   local prompt="$1"
   echo ""
@@ -3180,7 +3142,6 @@ main() {
   fi
 
   if [[ "$MODE" == "install" || "$MODE" == "sync" ]]; then
-    # Verificar se existe checkpoint anterior
     if checkpoint_exists && [[ "$RESUME_MODE" -ne 1 ]]; then
       echo ""
       echo "╭──────────────────────────────────────────────────────────╮"
@@ -3239,7 +3200,6 @@ main() {
     # ══════════════════════════════════════════════════════════════
     review_selections
 
-    # Salvar checkpoint antes de começar a instalação
     checkpoint_save "install"
     msg "  💾 Checkpoint salvo. Se a instalação falhar, execute novamente para retomar."
     sleep 1
@@ -3268,7 +3228,6 @@ main() {
   install_selected_themes
   clear_screen
 
-  # Limpar checkpoint após conclusão bem sucedida
   if [[ ${#CRITICAL_ERRORS[@]} -eq 0 ]]; then
     checkpoint_clear
   fi

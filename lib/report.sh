@@ -17,6 +17,7 @@ get_version() {
     mise) mise --version 2>/dev/null | head -n 1 | awk '{print $1}' ;;
     code) code --version 2>&1 | head -n 1 ;;
     docker) docker --version 2>&1 | awk '{print $3}' | tr -d ',' ;;
+    lazygit) lazygit --version 2>/dev/null | grep -o "version='[^']*'" | sed "s/version='//;s/'//" | cut -d'+' -f1 ;;
     node) node --version 2>/dev/null | tr -d 'v' ;;
     python) python3 --version 2>/dev/null | awk '{print $2}' ;;
     php) php --version 2>/dev/null | head -n 1 | awk '{print $2}' ;;
@@ -118,7 +119,7 @@ print_post_install_report() {
   echo ""
 
   local col_total=$((w - 7))
-  local col_w_left=$((col_total * 6 / 10))
+  local col_w_left=$((col_total / 2))
   local col_w_right=$((col_total - col_w_left))
   local left_line right_line
   left_line=$(printf '─%.0s' $(seq 1 $((col_w_left + 2))))
@@ -137,7 +138,7 @@ print_post_install_report() {
   has_cmd code && tools+=("$(_fmt_tool "💻" "VS Code" "$(get_version code)" $col_w_left)")
   has_cmd docker && tools+=("$(_fmt_tool "🐳" "Docker" "$(get_version docker)" $col_w_left)")
   has_cmd mise && tools+=("$(_fmt_tool "📦" "Mise" "$(get_version mise)" $col_w_left)")
-  has_cmd lazygit && tools+=("$(_fmt_tool "🔀" "Lazygit" "" $col_w_left)")
+  has_cmd lazygit && tools+=("$(_fmt_tool "🔀" "Lazygit" "$(get_version lazygit)" $col_w_left)")
   [[ ${#tools[@]} -eq 0 ]] && tools+=("$(_truncate_text "$col_w_left" "(nenhuma)")")
 
   local runtimes=()
@@ -217,13 +218,19 @@ print_post_install_report() {
   # ═══════════════════════════════════════════════════════════════════════════
   if has_cmd mise; then
     echo ""
-    echo -e "${DIM}╭─ 📦 Mise (gerenciador de runtimes) ─────────────────────────╮${NC}"
-    echo -e "${DIM}│${NC}  ${WHITE}mise ls${NC}               ${DIM}→${NC} Listar runtimes instalados        ${DIM}│${NC}"
-    echo -e "${DIM}│${NC}  ${WHITE}mise use -g node@22${NC}   ${DIM}→${NC} Instalar Node 22 global           ${DIM}│${NC}"
-    echo -e "${DIM}│${NC}  ${WHITE}mise use python@3.12${NC}  ${DIM}→${NC} Python 3.12 no projeto atual      ${DIM}│${NC}"
-    echo -e "${DIM}│${NC}  ${WHITE}mise install${NC}          ${DIM}→${NC} Instalar versões do .mise.toml    ${DIM}│${NC}"
-    echo -e "${DIM}│${NC}  ${WHITE}mise --help${NC}           ${DIM}→${NC} Ver todos os comandos             ${DIM}│${NC}"
-    echo -e "${DIM}╰──────────────────────────────────────────────────────────────╯${NC}"
+    local mise_inner=$((w - 4))
+    local mise_title="📦 Mise (gerenciador de runtimes)"
+    local mise_title_pad=$((w - 4 - ${#mise_title}))
+    [[ $mise_title_pad -lt 0 ]] && mise_title_pad=0
+    local mise_line
+    mise_line=$(printf '─%.0s' $(seq 1 $mise_title_pad))
+    echo -e "${DIM}╭─ ${mise_title} ${mise_line}╮${NC}"
+    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise ls" "Listar runtimes instalados"
+    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise use -g node@lts" "Instalar Node LTS global"
+    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise use python@latest" "Python latest no projeto"
+    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise install" "Instalar versões do .mise.toml"
+    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise --help" "Ver todos os comandos"
+    echo -e "${DIM}$(_draw_line $w "╰" "╯")${NC}"
   fi
 
   # ═══════════════════════════════════════════════════════════════════════════

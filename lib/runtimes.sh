@@ -3,14 +3,14 @@
 ask_runtimes() {
   local runtime_options=(
     "node      - Node.js LTS (JavaScript/TypeScript runtime)"
-    "python    - Python 3.12 (linguagem de propósito geral)"
+    "python    - Python latest (linguagem de propósito geral)"
     "php       - PHP latest (desenvolvimento web)"
     "rust      - Rust stable (sistemas e performance)"
     "go        - Go latest (backend e cloud native)"
     "bun       - Bun latest (runtime JS ultrarrápido)"
     "deno      - Deno latest (runtime JS/TS seguro)"
     "elixir    - Elixir latest (funcional e concorrente)"
-    "java      - Java latest (enterprise e Android)"
+    "java      - Java LTS (enterprise e Android)"
     "ruby      - Ruby latest (Rails e scripts)"
   )
 
@@ -63,11 +63,11 @@ install_selected_runtimes() {
         fi
         ;;
       python)
-        msg "  📦 Python (3.12) via mise..."
-        if mise use -g -y python@3.12; then
-          INSTALLED_MISC+=("python: mise 3.12")
+        msg "  📦 Python (latest) via mise..."
+        if mise use -g -y python@latest; then
+          INSTALLED_MISC+=("python: mise latest")
         else
-          record_failure "optional" "Falha ao instalar Python 3.12 via mise"
+          record_failure "optional" "Falha ao instalar Python (latest) via mise"
         fi
         ;;
       php)
@@ -150,11 +150,11 @@ install_selected_runtimes() {
         fi
         ;;
       java)
-        msg "  📦 Java (latest) via mise..."
-        if mise use -g -y java@latest; then
-          INSTALLED_MISC+=("java: mise latest")
+        msg "  📦 Java (LTS) via mise..."
+        if mise use -g -y java@lts; then
+          INSTALLED_MISC+=("java: mise lts")
         else
-          record_failure "optional" "Falha ao instalar Java via mise"
+          record_failure "optional" "Falha ao instalar Java (LTS) via mise"
         fi
         ;;
       ruby)
