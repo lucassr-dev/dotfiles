@@ -28,30 +28,63 @@ get_version() {
   esac
 }
 
-_draw_line() {
-  local width="$1"
-  local left="$2"
-  local right="$3"
-  local fill="${4:-─}"
-  local line=""
-  for ((i=0; i<width-2; i++)); do line+="$fill"; done
-  echo -e "${left}${line}${right}"
+# Calcula a largura visual de uma string (emojis = 2, ASCII = 1)
+_display_width() {
+  local str="$1"
+  local width=0
+  local char
+  while IFS= read -r -n1 char; do
+    if [[ -z "$char" ]]; then
+      continue
+    fi
+    # Detecta caracteres multibyte (emojis, unicode)
+    local byte_len=${#char}
+    if [[ $byte_len -gt 1 ]]; then
+      # Emoji ou caractere unicode largo = 2 espaços visuais
+      ((width += 2))
+    else
+      ((width += 1))
+    fi
+  done <<< "$str"
+  echo "$width"
 }
 
+# Gera linha horizontal com caracteres de borda
+_hline() {
+  local width="$1"
+  printf '%*s' "$width" '' | tr ' ' '─'
+}
+
+# Trunca texto para caber em largura máxima (considerando largura visual)
 _truncate_text() {
   local max="$1"
   local text="$2"
-  if [[ ${#text} -le $max ]]; then
+  local display_w
+  display_w=$(_display_width "$text")
+  if [[ $display_w -le $max ]]; then
     printf '%s' "$text"
     return
   fi
-  if [[ $max -le 3 ]]; then
-    printf '%s' "${text:0:$max}"
-    return
-  fi
-  printf '%s' "${text:0:$((max - 3))}..."
+  # Trunca caractere por caractere até caber
+  local result=""
+  local current_w=0
+  local char
+  while IFS= read -r -n1 char && [[ $current_w -lt $((max - 3)) ]]; do
+    [[ -z "$char" ]] && continue
+    local byte_len=${#char}
+    if [[ $byte_len -gt 1 ]]; then
+      ((current_w += 2))
+    else
+      ((current_w += 1))
+    fi
+    if [[ $current_w -le $((max - 3)) ]]; then
+      result+="$char"
+    fi
+  done <<< "$text"
+  printf '%s...' "$result"
 }
 
+# Formata ferramenta: "icon name version" truncado para largura máxima
 _fmt_tool() {
   local icon="$1"
   local name="$2"
@@ -74,6 +107,17 @@ _add_tool_if_version() {
   if [[ -n "$version" ]]; then
     arr+=("$(_fmt_tool "$icon" "$name" "$version" "$width")")
   fi
+}
+
+# Imprime célula com padding correto baseado em largura visual
+_print_cell() {
+  local content="$1"
+  local target_width="$2"
+  local display_w
+  display_w=$(_display_width "$content")
+  local padding=$((target_width - display_w))
+  [[ $padding -lt 0 ]] && padding=0
+  printf '%s%*s' "$content" "$padding" ''
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -104,155 +148,129 @@ print_post_install_report() {
   # ═══════════════════════════════════════════════════════════════════════════
   # HEADER - Sucesso
   # ═══════════════════════════════════════════════════════════════════════════
-  echo -e "${GREEN}$(_draw_line $w "╭" "╮")${NC}"
-  local title="✨ INSTALAÇÃO CONCLUÍDA! ✨"
-  local pad=$(( (w - 2 - ${#title}) / 2 ))
-  printf "${GREEN}│${NC}%${pad}s${YELLOW}%s${NC}%$((w - 2 - pad - ${#title}))s${GREEN}│${NC}\n" "" "$title" ""
-  echo -e "${GREEN}$(_draw_line $w "╰" "╯")${NC}"
+  local header_line
+  header_line=$(_hline $((w - 2)))
+  echo -e "${GREEN}╭${header_line}╮${NC}"
+  local title="INSTALACAO CONCLUIDA!"
+  local title_pad=$(( (w - 2 - ${#title}) / 2 ))
+  printf "${GREEN}│${NC}%*s${YELLOW}%s${NC}%*s${GREEN}│${NC}\n" "$title_pad" "" "$title" "$((w - 2 - title_pad - ${#title}))" ""
+  echo -e "${GREEN}╰${header_line}╯${NC}"
   echo ""
 
   # ═══════════════════════════════════════════════════════════════════════════
   # INFO DO AMBIENTE
   # ═══════════════════════════════════════════════════════════════════════════
-  local info_inner_w=$((w - 4))
-  local info_lines=()
-  info_lines+=("👤 Usuario: ${username}")
-  info_lines+=("🖥️  Host: ${hostname}")
-  info_lines+=("🐧 SO: ${TARGET_OS:-linux}")
+  local inner_w=$((w - 4))
+  echo -e "${DIM}╭${header_line}╮${NC}"
+  printf "${DIM}│${NC} %-*s ${DIM}│${NC}\n" "$inner_w" "Usuario: ${username}"
+  printf "${DIM}│${NC} %-*s ${DIM}│${NC}\n" "$inner_w" "Host: ${hostname}"
+  printf "${DIM}│${NC} %-*s ${DIM}│${NC}\n" "$inner_w" "SO: ${TARGET_OS:-linux}"
   if [[ -d "$BACKUP_DIR" ]]; then
-    info_lines+=("📦 Backup: ${BACKUP_DIR}")
+    printf "${DIM}│${NC} %-*s ${DIM}│${NC}\n" "$inner_w" "Backup: ${BACKUP_DIR}"
   fi
-
-  echo -e "${DIM}$(_draw_line $w "╭" "╮")${NC}"
-  for line in "${info_lines[@]}"; do
-    local text
-    text=$(_truncate_text "$info_inner_w" "$line")
-    printf "${DIM}│${NC} %-*s ${DIM}│${NC}\n" "$info_inner_w" "$text"
-  done
-  echo -e "${DIM}$(_draw_line $w "╰" "╯")${NC}"
+  echo -e "${DIM}╰${header_line}╯${NC}"
   echo ""
 
-  local gap=3
-  local col_total=$((w - 4 - gap))
-  local col_w_left=$((col_total / 2))
-  local col_w_right=$((col_total - col_w_left))
-  local left_line right_line gap_line
-  left_line=$(printf '─%.0s' $(seq 1 $((col_w_left + 2))))
-  right_line=$(printf '─%.0s' $(seq 1 $((col_w_right + 2))))
-  gap_line=$(printf '─%.0s' $(seq 1 $gap))
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COLUNAS: FERRAMENTAS | RUNTIMES
+  # ═══════════════════════════════════════════════════════════════════════════
+  local gap=1
+  local col_total=$((w - 6))
+  local col_w=$((col_total / 2))
+  local left_line right_line
+  left_line=$(_hline $((col_w + 1)))
+  right_line=$(_hline $((col_w + 1)))
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # FERRAMENTAS | RUNTIMES
-  # ═══════════════════════════════════════════════════════════════════════════
+  # Coletar dados
   local tools=()
-  _add_tool_if_version tools "📚" "Git" git "$col_w_left"
-  _add_tool_if_version tools "🐚" "Zsh" zsh "$col_w_left"
-  _add_tool_if_version tools "🐟" "Fish" fish "$col_w_left"
-  _add_tool_if_version tools "📺" "Tmux" tmux "$col_w_left"
-  _add_tool_if_version tools "📝" "Neovim" nvim "$col_w_left"
-  _add_tool_if_version tools "🚀" "Starship" starship "$col_w_left"
-  _add_tool_if_version tools "💻" "VS Code" code "$col_w_left"
-  _add_tool_if_version tools "🐳" "Docker" docker "$col_w_left"
-  _add_tool_if_version tools "📦" "Mise" mise "$col_w_left"
-  _add_tool_if_version tools "🔀" "Lazygit" lazygit "$col_w_left"
-  [[ ${#tools[@]} -eq 0 ]] && tools+=("$(_truncate_text "$col_w_left" "(nenhuma)")")
+  _add_tool_if_version tools ">" "Git" git "$col_w"
+  _add_tool_if_version tools ">" "Zsh" zsh "$col_w"
+  _add_tool_if_version tools ">" "Fish" fish "$col_w"
+  _add_tool_if_version tools ">" "Tmux" tmux "$col_w"
+  _add_tool_if_version tools ">" "Neovim" nvim "$col_w"
+  _add_tool_if_version tools ">" "Starship" starship "$col_w"
+  _add_tool_if_version tools ">" "VS Code" code "$col_w"
+  _add_tool_if_version tools ">" "Docker" docker "$col_w"
+  _add_tool_if_version tools ">" "Mise" mise "$col_w"
+  _add_tool_if_version tools ">" "Lazygit" lazygit "$col_w"
+  [[ ${#tools[@]} -eq 0 ]] && tools+=("(nenhuma)")
 
   local runtimes=()
-  _add_tool_if_version runtimes "🟢" "Node" node "$col_w_right"
-  _add_tool_if_version runtimes "🐍" "Python" python "$col_w_right"
-  _add_tool_if_version runtimes "🐘" "PHP" php "$col_w_right"
-  _add_tool_if_version runtimes "🦀" "Rust" rust "$col_w_right"
-  _add_tool_if_version runtimes "🔷" "Go" go "$col_w_right"
-  _add_tool_if_version runtimes "🧅" "Bun" bun "$col_w_right"
-  _add_tool_if_version runtimes "🦕" "Deno" deno "$col_w_right"
-  [[ ${#runtimes[@]} -eq 0 ]] && runtimes+=("$(_truncate_text "$col_w_right" "(nenhum)")")
+  _add_tool_if_version runtimes ">" "Node" node "$col_w"
+  _add_tool_if_version runtimes ">" "Python" python "$col_w"
+  _add_tool_if_version runtimes ">" "PHP" php "$col_w"
+  _add_tool_if_version runtimes ">" "Rust" rust "$col_w"
+  _add_tool_if_version runtimes ">" "Go" go "$col_w"
+  _add_tool_if_version runtimes ">" "Bun" bun "$col_w"
+  _add_tool_if_version runtimes ">" "Deno" deno "$col_w"
+  [[ ${#runtimes[@]} -eq 0 ]] && runtimes+=("(nenhum)")
 
-  echo -e "${CYAN}╭${left_line}┬${gap_line}┬${right_line}╮${NC}"
-  local tools_title="🛠️ FERRAMENTAS"
-  local rt_title="🚀 RUNTIMES"
-  local tools_pad=$((col_w_left - ${#tools_title} + 1))
-  local rt_pad=$((col_w_right - ${#rt_title} + 1))
-  [[ $tools_pad -lt 0 ]] && tools_pad=0
-  [[ $rt_pad -lt 0 ]] && rt_pad=0
-  printf "${CYAN}│${NC} ${WHITE}%s${NC}%*s${CYAN}│${NC}%*s${CYAN}│${NC} ${WHITE}%s${NC}%*s${CYAN}│${NC}\n" "$tools_title" "$tools_pad" "" "$gap" "" "$rt_title" "$rt_pad" ""
-  echo -e "${CYAN}├${left_line}┼${gap_line}┼${right_line}┤${NC}"
+  # Desenhar tabela
+  echo -e "${CYAN}╭${left_line}┬${right_line}╮${NC}"
+  printf "${CYAN}│${NC} ${WHITE}%-*s${NC}${CYAN}│${NC} ${WHITE}%-*s${NC}${CYAN}│${NC}\n" "$col_w" "FERRAMENTAS" "$col_w" "RUNTIMES"
+  echo -e "${CYAN}├${left_line}┼${right_line}┤${NC}"
 
   local max=${#tools[@]}
   [[ ${#runtimes[@]} -gt $max ]] && max=${#runtimes[@]}
   for (( i=0; i<max; i++ )); do
     local left="${tools[i]:-}"
     local right="${runtimes[i]:-}"
-    printf "${CYAN}│${NC} %-${col_w_left}s ${CYAN}│${NC}%*s${CYAN}│${NC} %-${col_w_right}s ${CYAN}│${NC}\n" "$left" "$gap" "" "$right"
+    printf "${CYAN}│${NC} %-*s${CYAN}│${NC} %-*s${CYAN}│${NC}\n" "$col_w" "$left" "$col_w" "$right"
   done
 
-  echo -e "${CYAN}╰${left_line}┴${gap_line}┴${right_line}╯${NC}"
+  echo -e "${CYAN}╰${left_line}┴${right_line}╯${NC}"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # PRÓXIMO PASSO | COMANDOS ÚTEIS
+  # COLUNAS: PROXIMO PASSO | COMANDOS UTEIS
   # ═══════════════════════════════════════════════════════════════════════════
   echo ""
+
   local next_steps=()
-  next_steps+=("$(_truncate_text "$col_w_left" "Reinicie: exec \$SHELL")")
+  next_steps+=("Reinicie: exec \$SHELL")
   if [[ ${INSTALL_POWERLEVEL10K:-0} -eq 1 ]]; then
-    next_steps+=("$(_truncate_text "$col_w_left" "Tema: p10k configure")")
+    next_steps+=("Tema: p10k configure")
   fi
   if [[ ${#SELECTED_NERD_FONTS[@]} -gt 0 ]]; then
-    local font="${SELECTED_NERD_FONTS[0]}"
-    next_steps+=("$(_truncate_text "$col_w_left" "Fonte: ${font}")")
+    next_steps+=("Fonte: ${SELECTED_NERD_FONTS[0]}")
   fi
-  [[ ${#next_steps[@]} -eq 0 ]] && next_steps+=("$(_truncate_text "$col_w_left" "(nenhum)")")
 
   local commands=()
-  commands+=("$(_truncate_text "$col_w_right" "bash install.sh export - salvar")")
-  commands+=("$(_truncate_text "$col_w_right" "bash install.sh sync - atualizar")")
-  has_cmd lazygit && commands+=("$(_truncate_text "$col_w_right" "lazygit - TUI Git")")
-  has_cmd zoxide && commands+=("$(_truncate_text "$col_w_right" "z <pasta> - navegar")")
-  [[ ${#commands[@]} -eq 0 ]] && commands+=("$(_truncate_text "$col_w_right" "(nenhum)")")
+  commands+=("install.sh export - salvar")
+  commands+=("install.sh sync - atualizar")
+  has_cmd lazygit && commands+=("lazygit - TUI Git")
+  has_cmd zoxide && commands+=("z <pasta> - navegar")
 
-  echo -e "${GREEN}╭${left_line}┬${gap_line}┬${right_line}╮${NC}"
-  local next_title="⚡ PRÓXIMO PASSO"
-  local cmd_title="💡 COMANDOS UTEIS"
-  local next_pad=$((col_w_left - ${#next_title} + 1))
-  local cmd_pad=$((col_w_right - ${#cmd_title} + 1))
-  [[ $next_pad -lt 0 ]] && next_pad=0
-  [[ $cmd_pad -lt 0 ]] && cmd_pad=0
-  printf "${GREEN}│${NC} ${WHITE}%s${NC}%*s${GREEN}│${NC}%*s${GREEN}│${NC} ${DIM}%s${NC}%*s${GREEN}│${NC}\n" "$next_title" "$next_pad" "" "$gap" "" "$cmd_title" "$cmd_pad" ""
-  echo -e "${GREEN}├${left_line}┼${gap_line}┼${right_line}┤${NC}"
+  echo -e "${GREEN}╭${left_line}┬${right_line}╮${NC}"
+  printf "${GREEN}│${NC} ${WHITE}%-*s${NC}${GREEN}│${NC} ${WHITE}%-*s${NC}${GREEN}│${NC}\n" "$col_w" "PROXIMO PASSO" "$col_w" "COMANDOS UTEIS"
+  echo -e "${GREEN}├${left_line}┼${right_line}┤${NC}"
 
   local steps_max=${#next_steps[@]}
   [[ ${#commands[@]} -gt $steps_max ]] && steps_max=${#commands[@]}
   for (( i=0; i<steps_max; i++ )); do
     local left="${next_steps[i]:-}"
     local right="${commands[i]:-}"
-    printf "${GREEN}│${NC} ${WHITE}%-${col_w_left}s${NC}${GREEN}│${NC}%*s${GREEN}│${NC} ${DIM}%-${col_w_right}s${NC}${GREEN}│${NC}\n" "$left" "$gap" "" "$right"
+    printf "${GREEN}│${NC} %-*s${GREEN}│${NC} ${DIM}%-*s${NC}${GREEN}│${NC}\n" "$col_w" "$left" "$col_w" "$right"
   done
 
-  echo -e "${GREEN}╰${left_line}┴${gap_line}┴${right_line}╯${NC}"
+  echo -e "${GREEN}╰${left_line}┴${right_line}╯${NC}"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # MISE (compacto - 5 comandos essenciais)
+  # MISE (se instalado)
   # ═══════════════════════════════════════════════════════════════════════════
   if has_cmd mise; then
     echo ""
-    local mise_inner=$((w - 4))
-    local mise_title="📦 Mise (gerenciador de runtimes)"
-    local mise_title_pad=$((w - 4 - ${#mise_title}))
-    [[ $mise_title_pad -lt 0 ]] && mise_title_pad=0
-    local mise_line
-    mise_line=$(printf '─%.0s' $(seq 1 $mise_title_pad))
-    echo -e "${DIM}╭─ ${mise_title} ${mise_line}╮${NC}"
-    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise ls" "Listar runtimes instalados"
-    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise use -g node@lts" "Instalar Node LTS global"
-    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise use python@latest" "Python latest no projeto"
-    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise install" "Instalar versões do .mise.toml"
-    printf "${DIM}│${NC}  ${WHITE}%-20s${NC} ${DIM}→${NC} %-$((mise_inner - 26))s ${DIM}│${NC}\n" "mise --help" "Ver todos os comandos"
-    echo -e "${DIM}$(_draw_line $w "╰" "╯")${NC}"
+    echo -e "${DIM}╭─ Mise (gerenciador de runtimes) $(_hline $((w - 36)))╮${NC}"
+    printf "${DIM}│${NC}  %-22s ${DIM}->  %-*s${NC}${DIM}│${NC}\n" "mise ls" "$((inner_w - 28))" "Listar instalados"
+    printf "${DIM}│${NC}  %-22s ${DIM}->  %-*s${NC}${DIM}│${NC}\n" "mise use -g node@lts" "$((inner_w - 28))" "Node LTS global"
+    printf "${DIM}│${NC}  %-22s ${DIM}->  %-*s${NC}${DIM}│${NC}\n" "mise use python@latest" "$((inner_w - 28))" "Python no projeto"
+    printf "${DIM}│${NC}  %-22s ${DIM}->  %-*s${NC}${DIM}│${NC}\n" "mise install" "$((inner_w - 28))" "Instalar do .mise.toml"
+    echo -e "${DIM}╰${header_line}╯${NC}"
   fi
 
   # ═══════════════════════════════════════════════════════════════════════════
   # FOOTER
   # ═══════════════════════════════════════════════════════════════════════════
   echo ""
-  echo -e "  ${BLUE}🌐${NC} ${DIM}lucassr.dev${NC}   ${GREEN}📦${NC} ${DIM}github.com/lucassr-dev/.config${NC}"
+  echo -e "  ${DIM}lucassr.dev | github.com/lucassr-dev/.config${NC}"
   echo ""
 }
