@@ -20,6 +20,7 @@ shared/.ssh/
 shared/git/.gitconfig-personal
 shared/git/.gitconfig-work
 CLAUDE.md
+CONTEXT.md
 **/CLAUDE.md
 
 # Configs geradas por ferramentas (runtime state)
