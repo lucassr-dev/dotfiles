@@ -318,8 +318,24 @@ install_nushell_linux() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# Instalação de apps selecionados no Linux
+# Instalação de apps selecionados no Linux (usando prioridade)
 # ═══════════════════════════════════════════════════════════
+
+_install_app_with_catalog() {
+  local app="$1"
+  local cmd_check="${2:-$app}"
+
+  if is_app_processed "$app"; then
+    return 0
+  fi
+  mark_app_processed "$app"
+
+  if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+    install_with_priority "$app" "$cmd_check" optional
+  else
+    return 1
+  fi
+}
 
 install_linux_selected_apps() {
   msg "▶ Instalando apps GUI selecionados (Linux)"
@@ -329,206 +345,74 @@ install_linux_selected_apps() {
       ghostty) ensure_ghostty_linux ;;
       kitty) install_linux_packages optional kitty ;;
       alacritty) install_linux_packages optional alacritty ;;
-      wezterm) install_wezterm_linux ;;
+      wezterm) _install_app_with_catalog wezterm wezterm || install_wezterm_linux ;;
       gnome-terminal) install_linux_packages optional gnome-terminal ;;
     esac
   done
 
   for app in "${SELECTED_IDES[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      vscode) install_vscode ;;
-      zed) install_zed ;;
-      cursor) install_cursor ;;
-      neovim) install_neovim ;;
-      sublime-text) install_sublime_text ;;
-      *) warn "IDE sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      case "$app" in
+        cursor) install_cursor ;;
+        *) warn "IDE sem instalador automático no Linux: $app" ;;
+      esac
+    }
   done
 
   for app in "${SELECTED_BROWSERS[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      firefox) install_linux_packages optional firefox ;;
-      chrome) install_chrome_linux ;;
-      brave) install_brave_linux ;;
-      zen) install_zen_linux ;;
-      arc) install_arc ;;
-      vivaldi) install_vivaldi ;;
-      edge) install_edge ;;
-      opera) install_opera ;;
-      librewolf) install_librewolf ;;
-      *) warn "Navegador sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      case "$app" in
+        zen) install_zen_linux ;;
+        *) warn "Navegador sem instalador automático no Linux: $app" ;;
+      esac
+    }
   done
 
   for app in "${SELECTED_DEV_TOOLS[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      vscode) install_vscode ;;
-      docker) install_docker_linux ;;
-      postman|dbeaver|notion|obsidian) ;;
-      bruno) install_bruno ;;
-      insomnia) install_insomnia ;;
-      gitkraken) install_gitkraken ;;
-      mongodb-compass) install_mongodb_compass ;;
-      redis-insight) install_redis_insight ;;
-      *) warn "Dev tool sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      case "$app" in
+        redis-insight) install_redis_insight ;;
+        *) warn "Dev tool sem instalador automático no Linux: $app" ;;
+      esac
+    }
   done
 
   for app in "${SELECTED_DATABASES[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      postgresql) install_linux_packages optional postgresql ;;
-      redis) install_linux_packages optional redis ;;
-      mysql) install_linux_packages optional mysql-server ;;
-      mariadb) install_mariadb ;;
-      pgadmin) install_pgadmin_linux ;;
-      mongodb) install_mongodb_linux ;;
-      *) warn "Banco sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      case "$app" in
+        pgadmin) install_pgadmin_linux ;;
+        mongodb) install_mongodb_linux ;;
+        *) warn "Banco sem instalador automático no Linux: $app" ;;
+      esac
+    }
   done
 
   for app in "${SELECTED_PRODUCTIVITY[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      slack|notion|obsidian) ;;
-      logseq) install_logseq ;;
-      anki) install_anki ;;
-      joplin) install_joplin ;;
-      appflowy) install_appflowy ;;
-      *) warn "Produtividade sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      warn "Produtividade sem instalador automático no Linux: $app"
+    }
   done
 
   for app in "${SELECTED_COMMUNICATION[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      discord) ;;
-      telegram) install_telegram ;;
-      whatsapp) install_whatsapp ;;
-      signal) install_signal ;;
-      teams) install_teams ;;
-      zoom) install_zoom ;;
-      thunderbird) install_thunderbird ;;
-      *) warn "Comunicação sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      warn "Comunicação sem instalador automático no Linux: $app"
+    }
   done
 
   for app in "${SELECTED_MEDIA[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      vlc) install_linux_packages optional vlc ;;
-      spotify) ;;
-      obs-studio) install_obs_studio ;;
-      gimp) install_gimp ;;
-      inkscape) install_inkscape ;;
-      blender) install_blender ;;
-      audacity) install_audacity ;;
-      kdenlive) install_kdenlive ;;
-      *) warn "Mídia sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      warn "Mídia sem instalador automático no Linux: $app"
+    }
   done
 
   for app in "${SELECTED_UTILITIES[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
-    case "$app" in
-      flameshot) install_flameshot ;;
-      screenkey) install_linux_packages optional screenkey ;;
-      bitwarden) install_bitwarden ;;
-      1password) install_1password ;;
-      keepassxc) install_keepassxc ;;
-      syncthing) install_syncthing ;;
-      *) warn "Utilitário sem instalador automático no Linux: $app" ;;
-    esac
+    _install_app_with_catalog "$app" "$app" || {
+      case "$app" in
+        screenkey) install_linux_packages optional screenkey ;;
+        *) warn "Utilitário sem instalador automático no Linux: $app" ;;
+      esac
+    }
   done
-
-  if has_cmd snap; then
-    msg "▶ Instalando apps selecionados via Snap"
-    for app in "${SELECTED_PRODUCTIVITY[@]}"; do
-      case "$app" in
-        slack) ensure_snap_app slack "Slack" com.slack.Slack slack optional --classic ;;
-        obsidian) ensure_snap_app obsidian "Obsidian" md.obsidian.Obsidian obsidian optional --classic ;;
-        notion) ensure_snap_app notion-snap-reborn "Notion" "" notion optional ;;
-      esac
-    done
-    for app in "${SELECTED_COMMUNICATION[@]}"; do
-      case "$app" in
-        discord) ensure_snap_app discord "Discord" com.discordapp.Discord discord optional ;;
-      esac
-    done
-    for app in "${SELECTED_MEDIA[@]}"; do
-      case "$app" in
-        spotify) ensure_snap_app spotify "Spotify" com.spotify.Client spotify optional ;;
-      esac
-    done
-    for app in "${SELECTED_DEV_TOOLS[@]}"; do
-      case "$app" in
-        postman) ensure_snap_app postman "Postman" com.getpostman.Postman postman optional ;;
-        dbeaver) ensure_snap_app dbeaver-ce "DBeaver" io.dbeaver.DBeaverCommunity dbeaver optional --classic ;;
-      esac
-    done
-  fi
-
-  if has_cmd flatpak; then
-    msg "▶ Instalando apps selecionados via Flatpak"
-    for app in "${SELECTED_PRODUCTIVITY[@]}"; do
-      case "$app" in
-        slack) ensure_flatpak_app com.slack.Slack "Slack" slack slack optional ;;
-        obsidian) ensure_flatpak_app md.obsidian.Obsidian "Obsidian" obsidian obsidian optional ;;
-      esac
-    done
-    for app in "${SELECTED_COMMUNICATION[@]}"; do
-      case "$app" in
-        discord) ensure_flatpak_app com.discordapp.Discord "Discord" discord discord optional ;;
-      esac
-    done
-    for app in "${SELECTED_MEDIA[@]}"; do
-      case "$app" in
-        spotify) ensure_flatpak_app com.spotify.Client "Spotify" spotify spotify optional ;;
-        vlc) ensure_flatpak_app org.videolan.VLC "VLC" "" vlc optional ;;
-      esac
-    done
-    for app in "${SELECTED_DEV_TOOLS[@]}"; do
-      case "$app" in
-        postman) ensure_flatpak_app com.getpostman.Postman "Postman" postman postman optional ;;
-        dbeaver) ensure_flatpak_app io.dbeaver.DBeaverCommunity "DBeaver" dbeaver-ce dbeaver optional ;;
-      esac
-    done
-  fi
 }
 
 install_wezterm_linux() {

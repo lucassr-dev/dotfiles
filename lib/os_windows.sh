@@ -133,7 +133,29 @@ export_windows_configs_back() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# Instalação de apps selecionados no Windows via winget
+# Helper: instalar app usando o catálogo ou fallback para winget
+# ═══════════════════════════════════════════════════════════
+
+_install_windows_app() {
+  local app="$1"
+  local cmd_check="${2:-$app}"
+  local winget_id="${3:-}"
+  local winget_name="${4:-$app}"
+
+  if is_app_processed "$app"; then
+    return 0
+  fi
+  mark_app_processed "$app"
+
+  if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+    install_with_priority "$app" "$cmd_check" optional
+  elif [[ -n "$winget_id" ]]; then
+    winget_install "$winget_id" "$winget_name" optional
+  fi
+}
+
+# ═══════════════════════════════════════════════════════════
+# Instalação de apps selecionados no Windows
 # ═══════════════════════════════════════════════════════════
 
 install_windows_selected_apps() {
@@ -142,19 +164,16 @@ install_windows_selected_apps() {
     return
   fi
 
-  msg "▶ Instalando apps selecionados via winget"
+  msg "▶ Instalando apps selecionados (Windows)"
 
   for ide in "${SELECTED_IDES[@]}"; do
-    if is_app_processed "$ide"; then
-      continue
-    fi
-    mark_app_processed "$ide"
-
     case "$ide" in
-      vscode) install_vscode_windows ;;
-      zed) winget_install "Zed.Zed" "Zed" ;;
+      vscode) _install_windows_app vscode code "Microsoft.VisualStudioCode" "VS Code" ;;
+      zed) _install_windows_app zed zed "Zed.Zed" "Zed" ;;
       cursor) msg "  ℹ️  Cursor deve ser instalado manualmente: https://cursor.sh" ;;
-      neovim) winget_install "Neovim.Neovim" "Neovim" ;;
+      neovim) _install_windows_app neovim nvim "Neovim.Neovim" "Neovim" ;;
+      sublime-text) _install_windows_app sublime-text subl "SublimeHQ.SublimeText.4" "Sublime Text" ;;
+      android-studio) _install_windows_app android-studio studio "Google.AndroidStudio" "Android Studio" ;;
       intellij-idea) msg "  ℹ️  IntelliJ IDEA: use JetBrains Toolbox para instalar." ;;
       pycharm) msg "  ℹ️  PyCharm: use JetBrains Toolbox para instalar." ;;
       webstorm) msg "  ℹ️  WebStorm: use JetBrains Toolbox para instalar." ;;
@@ -164,123 +183,99 @@ install_windows_selected_apps() {
       clion) msg "  ℹ️  CLion: use JetBrains Toolbox para instalar." ;;
       rider) msg "  ℹ️  Rider: use JetBrains Toolbox para instalar." ;;
       datagrip) msg "  ℹ️  DataGrip: use JetBrains Toolbox para instalar." ;;
-      sublime-text) winget_install "SublimeHQ.SublimeText.4" "Sublime Text" ;;
-      android-studio) winget_install "Google.AndroidStudio" "Android Studio" ;;
-      *) warn "IDE sem instalador automático no Windows: $ide" ;;
     esac
   done
 
   for terminal in "${SELECTED_TERMINALS[@]}"; do
-    if is_app_processed "$terminal"; then
-      continue
-    fi
-    mark_app_processed "$terminal"
-
     case "$terminal" in
       windows-terminal) ;;
-      wezterm)
-        winget_install "wez.wezterm" "WezTerm"
-        ;;
-      kitty)
-        msg "  ℹ️  Kitty no Windows: visite https://sw.kovidgoyal.net/kitty/"
-        ;;
-      alacritty)
-        winget_install "Alacritty.Alacritty" "Alacritty"
-        ;;
+      wezterm) _install_windows_app wezterm wezterm "wez.wezterm" "WezTerm" ;;
+      alacritty) _install_windows_app alacritty alacritty "Alacritty.Alacritty" "Alacritty" ;;
+      kitty) msg "  ℹ️  Kitty no Windows: visite https://sw.kovidgoyal.net/kitty/" ;;
     esac
   done
 
   for browser in "${SELECTED_BROWSERS[@]}"; do
-    if is_app_processed "$browser"; then
-      continue
-    fi
-    mark_app_processed "$browser"
-
     case "$browser" in
-      firefox) winget_install "Mozilla.Firefox" "Firefox" ;;
-      chrome) winget_install "Google.Chrome" "Google Chrome" ;;
-      brave) winget_install "Brave.Brave" "Brave" ;;
-      arc) winget_install "TheBrowserCompany.Arc" "Arc" ;;
+      firefox) _install_windows_app firefox firefox "Mozilla.Firefox" "Firefox" ;;
+      chrome) _install_windows_app chrome chrome "Google.Chrome" "Chrome" ;;
+      brave) _install_windows_app brave brave "Brave.Brave" "Brave" ;;
+      arc) _install_windows_app arc arc "TheBrowserCompany.Arc" "Arc" ;;
+      vivaldi) _install_windows_app vivaldi vivaldi "VivaldiTechnologies.Vivaldi" "Vivaldi" ;;
+      edge) _install_windows_app edge edge "Microsoft.Edge" "Edge" ;;
+      opera) _install_windows_app opera opera "Opera.Opera" "Opera" ;;
+      librewolf) _install_windows_app librewolf librewolf "LibreWolf.LibreWolf" "LibreWolf" ;;
     esac
   done
 
   for tool in "${SELECTED_DEV_TOOLS[@]}"; do
-    if is_app_processed "$tool"; then
-      continue
-    fi
-    mark_app_processed "$tool"
-
     case "$tool" in
-      vscode) install_vscode_windows ;;
-      docker) winget_install "Docker.DockerDesktop" "Docker Desktop" ;;
-      postman) winget_install "Postman.Postman" "Postman" ;;
-      dbeaver) winget_install "dbeaver.dbeaver" "DBeaver" ;;
+      docker) _install_windows_app docker docker "Docker.DockerDesktop" "Docker Desktop" ;;
+      postman) _install_windows_app postman postman "Postman.Postman" "Postman" ;;
+      dbeaver) _install_windows_app dbeaver dbeaver "dbeaver.dbeaver" "DBeaver" ;;
+      bruno) _install_windows_app bruno bruno "Bruno.Bruno" "Bruno" ;;
+      insomnia) _install_windows_app insomnia insomnia "Insomnia.Insomnia" "Insomnia" ;;
+      gitkraken) _install_windows_app gitkraken gitkraken "Axosoft.GitKraken" "GitKraken" ;;
+      mongodb-compass) _install_windows_app mongodb-compass "MongoDB Compass" "MongoDB.Compass.Full" "MongoDB Compass" ;;
+      redis-insight) install_redis_insight ;;
     esac
   done
 
   for db in "${SELECTED_DATABASES[@]}"; do
-    if is_app_processed "$db"; then
-      continue
-    fi
-    mark_app_processed "$db"
-
     case "$db" in
-      postgresql) winget_install "PostgreSQL.PostgreSQL" "PostgreSQL" ;;
-      redis) winget_install "Redis.Redis" "Redis" ;;
-      mysql) winget_install "Oracle.MySQL" "MySQL" ;;
-      mongodb) winget_install "MongoDB.Compass" "MongoDB Compass" ;;
+      postgresql) _install_windows_app postgresql psql "PostgreSQL.PostgreSQL" "PostgreSQL" ;;
+      redis) _install_windows_app redis redis-cli "Redis.Redis" "Redis" ;;
+      mysql) _install_windows_app mysql mysql "Oracle.MySQL" "MySQL" ;;
+      mariadb) _install_windows_app mariadb mariadb "MariaDB.Server" "MariaDB" ;;
+      mongodb) _install_windows_app mongodb mongod "MongoDB.Compass" "MongoDB Compass" ;;
     esac
   done
 
   for app in "${SELECTED_PRODUCTIVITY[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
     case "$app" in
-      slack) winget_install "SlackTechnologies.Slack" "Slack" ;;
-      notion) winget_install "Notion.Notion" "Notion" ;;
-      obsidian) winget_install "Obsidian.Obsidian" "Obsidian" ;;
+      slack) _install_windows_app slack slack "SlackTechnologies.Slack" "Slack" ;;
+      notion) _install_windows_app notion notion "Notion.Notion" "Notion" ;;
+      obsidian) _install_windows_app obsidian obsidian "Obsidian.Obsidian" "Obsidian" ;;
+      logseq) _install_windows_app logseq logseq "Logseq.Logseq" "Logseq" ;;
+      anki) _install_windows_app anki anki "Anki.Anki" "Anki" ;;
+      joplin) _install_windows_app joplin joplin "Joplin.Joplin" "Joplin" ;;
+      appflowy) _install_windows_app appflowy appflowy "AppFlowy.AppFlowy" "AppFlowy" ;;
     esac
   done
 
   for app in "${SELECTED_COMMUNICATION[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
     case "$app" in
-      discord) winget_install "Discord.Discord" "Discord" ;;
+      discord) _install_windows_app discord discord "Discord.Discord" "Discord" ;;
+      telegram) _install_windows_app telegram telegram "Telegram.TelegramDesktop" "Telegram" ;;
+      whatsapp) _install_windows_app whatsapp whatsapp "WhatsApp.WhatsApp" "WhatsApp" ;;
+      signal) _install_windows_app signal signal "OpenWhisperSystems.Signal" "Signal" ;;
+      teams) _install_windows_app teams teams "Microsoft.Teams" "Teams" ;;
+      zoom) _install_windows_app zoom zoom "Zoom.Zoom" "Zoom" ;;
+      thunderbird) _install_windows_app thunderbird thunderbird "Mozilla.Thunderbird" "Thunderbird" ;;
     esac
   done
 
   for app in "${SELECTED_MEDIA[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
     case "$app" in
-      vlc) winget_install "VideoLAN.VLC" "VLC" ;;
-      spotify) winget_install "Spotify.Spotify" "Spotify" ;;
+      vlc) _install_windows_app vlc vlc "VideoLAN.VLC" "VLC" ;;
+      spotify) _install_windows_app spotify spotify "Spotify.Spotify" "Spotify" ;;
+      obs-studio) _install_windows_app obs-studio obs "OBSProject.OBSStudio" "OBS Studio" ;;
+      gimp) _install_windows_app gimp gimp "GIMP.GIMP" "GIMP" ;;
+      inkscape) _install_windows_app inkscape inkscape "Inkscape.Inkscape" "Inkscape" ;;
+      blender) _install_windows_app blender blender "BlenderFoundation.Blender" "Blender" ;;
+      audacity) _install_windows_app audacity audacity "Audacity.Audacity" "Audacity" ;;
+      kdenlive) _install_windows_app kdenlive kdenlive "KDE.Kdenlive" "Kdenlive" ;;
     esac
   done
 
   for app in "${SELECTED_UTILITIES[@]}"; do
-    if is_app_processed "$app"; then
-      continue
-    fi
-    mark_app_processed "$app"
-
     case "$app" in
-      powertoys) winget_install "Microsoft.PowerToys" "PowerToys" ;;
-      sharex) winget_install "ShareX.ShareX" "ShareX" ;;
-      bitwarden) winget_install "Bitwarden.Bitwarden" "Bitwarden" ;;
-      1password) winget_install "AgileBits.1Password" "1Password" ;;
-      keepassxc) winget_install "KeePassXCTeam.KeePassXC" "KeePassXC" ;;
-      *) warn "Utilitário sem instalador automático no Windows: $app" ;;
+      powertoys) winget_install "Microsoft.PowerToys" "PowerToys" optional ;;
+      sharex) winget_install "ShareX.ShareX" "ShareX" optional ;;
+      bitwarden) _install_windows_app bitwarden bitwarden "Bitwarden.Bitwarden" "Bitwarden" ;;
+      1password) _install_windows_app 1password 1password "AgileBits.1Password" "1Password" ;;
+      keepassxc) _install_windows_app keepassxc keepassxc "KeePassXCTeam.KeePassXC" "KeePassXC" ;;
+      syncthing) _install_windows_app syncthing syncthing "Syncthing.Syncthing" "Syncthing" ;;
     esac
   done
 }
