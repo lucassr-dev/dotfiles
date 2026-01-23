@@ -66,8 +66,8 @@ print_post_install_report() {
   local username="${USER:-$(whoami)}"
   local hostname="${HOSTNAME:-$(hostname 2>/dev/null || echo 'localhost')}"
   local current_shell="${SHELL##*/}"
-  local current_date
-  current_date=$(date '+%d/%m/%Y %H:%M')
+  local host_ip
+  host_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "N/A")
 
   local GREEN='\033[0;32m'
   local YELLOW='\033[1;33m'
@@ -102,16 +102,13 @@ print_post_install_report() {
   echo -e "${GREEN}╰$(_hline "$inner_w")╯${NC}"
 
   echo ""
-  local info_label_w=12
-  local info_data_w=$((inner_w - info_label_w - 3))
+  local half_w=$(( (inner_w - 3) / 2 ))
   echo -e "${CYAN}╭─ ${BOLD}🖥️  SISTEMA${NC}${CYAN} $(_hline $((inner_w - 13)))╮${NC}"
-  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Host:" "$(_truncate "$info_data_w" "$hostname")"
-  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Usuário:" "$(_truncate "$info_data_w" "$username")"
-  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "SO:" "${TARGET_OS:-linux}"
-  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${GREEN}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Shell:" "$current_shell"
-  printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${DIM}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Data:" "$current_date"
+  printf "${CYAN}│${NC} ${WHITE}Host:${NC} ${GREEN}%-$((half_w - 6))s${NC} ${WHITE}Usuário:${NC} ${GREEN}%-$((half_w - 9))s${NC} ${CYAN}│${NC}\n" "$(_truncate $((half_w - 6)) "$hostname")" "$(_truncate $((half_w - 9)) "$username")"
+  printf "${CYAN}│${NC} ${WHITE}SO:${NC}   ${GREEN}%-$((half_w - 6))s${NC} ${WHITE}Shell:${NC}   ${GREEN}%-$((half_w - 9))s${NC} ${CYAN}│${NC}\n" "${TARGET_OS:-linux}" "$current_shell"
+  printf "${CYAN}│${NC} ${WHITE}IP:${NC}   ${DIM}%-$((inner_w - 7))s${NC} ${CYAN}│${NC}\n" "$host_ip"
   if [[ -d "$BACKUP_DIR" ]]; then
-    printf "${CYAN}│${NC} ${WHITE}%-${info_label_w}s${NC}${DIM}%-${info_data_w}s${NC} ${CYAN}│${NC}\n" "Backup:" "$(_truncate "$info_data_w" "$BACKUP_DIR")"
+    printf "${CYAN}│${NC} ${WHITE}Backup:${NC} ${DIM}%-$((inner_w - 10))s${NC} ${CYAN}│${NC}\n" "$(_truncate $((inner_w - 10)) "$BACKUP_DIR")"
   fi
   echo -e "${CYAN}╰$(_hline "$inner_w")╯${NC}"
 
