@@ -33,8 +33,25 @@ COPY_NVIM_CONFIG=1
 COPY_TMUX_CONFIG=1
 COPY_TERMINAL_CONFIG=1
 COPY_MISE_CONFIG=1
-COPY_SSH_KEYS=0 
+COPY_SSH_KEYS=0
 COPY_VSCODE_SETTINGS=1
+COPY_LAZYGIT_CONFIG=1
+COPY_YAZI_CONFIG=1
+COPY_BTOP_CONFIG=1
+COPY_KITTY_CONFIG=1
+COPY_ALACRITTY_CONFIG=1
+COPY_WEZTERM_CONFIG=1
+COPY_RIPGREP_CONFIG=1
+COPY_NPM_CONFIG=1
+COPY_PNPM_CONFIG=1
+COPY_YARN_CONFIG=1
+COPY_PIP_CONFIG=1
+COPY_CARGO_CONFIG=1
+COPY_ZED_CONFIG=1
+COPY_HELIX_CONFIG=1
+COPY_AIDER_CONFIG=1
+COPY_DOCKER_CONFIG=1
+COPY_DIRENV_CONFIG=1
 
 PRIVATE_DIR="${DOTFILES_PRIVATE_DIR:-}"
 PRIVATE_SHARED=""
@@ -332,6 +349,126 @@ normalize_crlf_to_lf() {
     fi
   fi
   return 0
+}
+
+get_ssh_key_fingerprint() {
+  local key_file="$1"
+  if [[ -f "$key_file" ]]; then
+    ssh-keygen -lf "$key_file" 2>/dev/null | awk '{print $2}' || echo "unknown"
+  else
+    echo "not_a_key"
+  fi
+}
+
+get_ssh_key_comment() {
+  local key_file="$1"
+  if [[ -f "$key_file" ]] && [[ "$key_file" == *.pub ]]; then
+    awk '{print $NF}' "$key_file" 2>/dev/null || echo ""
+  elif [[ -f "${key_file}.pub" ]]; then
+    awk '{print $NF}' "${key_file}.pub" 2>/dev/null || echo ""
+  fi
+  echo ""
+}
+
+manage_ssh_keys() {
+  local ssh_source="$1"
+  local ssh_dest="$HOME/.ssh"
+
+  mkdir -p "$ssh_dest"
+
+  local source_keys=()
+  while IFS= read -r -d '' key; do
+    source_keys+=("$key")
+  done < <(find "$ssh_source" -type f \( -name "id_*" -o -name "*.pub" -o -name "known_hosts*" -o -name "config" \) -print0 2>/dev/null)
+
+  if [[ ${#source_keys[@]} -eq 0 ]]; then
+    msg "  ℹ️  Nenhuma chave SSH encontrada em $ssh_source"
+    return
+  fi
+
+  msg "  🔐 Chaves SSH encontradas:"
+  msg ""
+
+  declare -A key_fingerprints
+  declare -A dest_fingerprints
+
+  if [[ -d "$ssh_dest" ]]; then
+    while IFS= read -r -d '' existing_key; do
+      local fp
+      fp=$(get_ssh_key_fingerprint "$existing_key")
+      [[ "$fp" != "unknown" ]] && [[ "$fp" != "not_a_key" ]] && dest_fingerprints["$fp"]="$existing_key"
+    done < <(find "$ssh_dest" -type f \( -name "id_*" ! -name "*.pub" \) -print0 2>/dev/null)
+  fi
+
+  for key_path in "${source_keys[@]}"; do
+    local key_name
+    key_name=$(basename "$key_path")
+    local fp
+    fp=$(get_ssh_key_fingerprint "$key_path")
+    local comment
+    comment=$(get_ssh_key_comment "$key_path")
+
+    if [[ "$fp" == "not_a_key" ]]; then
+      continue
+    fi
+
+    if [[ -n "$comment" ]]; then
+      msg "  📄 $key_name ($comment)"
+    else
+      msg "  📄 $key_name"
+    fi
+
+    if [[ "$fp" != "unknown" ]]; then
+      msg "     Fingerprint: $fp"
+
+      if [[ -n "${dest_fingerprints[$fp]:-}" ]]; then
+        local existing_name
+        existing_name=$(basename "${dest_fingerprints[$fp]}")
+        msg "     ⚠️  Chave duplicada já existe em ~/.ssh/ como: $existing_name"
+      fi
+    fi
+
+    msg ""
+  done
+
+  if ! confirm "Deseja copiar as chaves SSH?"; then
+    msg "  ⏭️  Cópia de chaves SSH cancelada"
+    return 1
+  fi
+
+  for key_path in "${source_keys[@]}"; do
+    local key_name
+    key_name=$(basename "$key_path")
+    local dest_path="$ssh_dest/$key_name"
+    local fp
+    fp=$(get_ssh_key_fingerprint "$key_path")
+
+    if [[ "$fp" != "unknown" ]] && [[ "$fp" != "not_a_key" ]] && [[ -n "${dest_fingerprints[$fp]:-}" ]]; then
+      local existing_path="${dest_fingerprints[$fp]}"
+      local existing_name
+      existing_name=$(basename "$existing_path")
+
+      if [[ "$existing_name" != "$key_name" ]]; then
+        msg "  ⚠️  $key_name duplica $existing_name (mesmo fingerprint)"
+        if confirm "   Deseja sobrescrever $existing_name?"; then
+          cp "$key_path" "$existing_path"
+          [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${existing_path}.pub"
+          msg "   ✓ Sobrescrito: $existing_name"
+        else
+          msg "   ⏭️  Mantido: $existing_name (original preservado)"
+        fi
+        continue
+      fi
+    fi
+
+    if [[ -f "$dest_path" ]] && ! confirm "   $key_name já existe. Sobrescrever?"; then
+      msg "   ⏭️  Preservado: $key_name (original mantido)"
+      continue
+    fi
+
+    cp "$key_path" "$dest_path"
+    msg "   ✓ Copiado: $key_name"
+  done
 }
 
 set_ssh_permissions() {
@@ -1071,6 +1208,91 @@ ask_configs_to_copy() {
     config_keys+=("COPY_VSCODE_SETTINGS")
   fi
 
+  if [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
+    config_options+=("lazygit-config  - Lazygit (theme + keybindings)")
+    config_keys+=("COPY_LAZYGIT_CONFIG")
+  fi
+
+  if [[ -d "$CONFIG_SHARED/yazi" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/yazi" 2>/dev/null)" ]]; then
+    config_options+=("yazi-config     - Yazi (file manager)")
+    config_keys+=("COPY_YAZI_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
+    config_options+=("btop-config     - Btop (resource monitor)")
+    config_keys+=("COPY_BTOP_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
+    config_options+=("kitty-config    - Kitty (terminal)")
+    config_keys+=("COPY_KITTY_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/alacritty/alacritty.yml" ]]; then
+    config_options+=("alacritty-config - Alacritty (terminal)")
+    config_keys+=("COPY_ALACRITTY_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
+    config_options+=("wezterm-config  - WezTerm (terminal)")
+    config_keys+=("COPY_WEZTERM_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
+    config_options+=("ripgrep-config  - Ripgrep (~/.ripgreprc)")
+    config_keys+=("COPY_RIPGREP_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
+    config_options+=("npm-config      - NPM (~/.npmrc)")
+    config_keys+=("COPY_NPM_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
+    config_options+=("pnpm-config     - PNPM (~/.config/pnpm/)")
+    config_keys+=("COPY_PNPM_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
+    config_options+=("yarn-config     - Yarn (~/.yarnrc)")
+    config_keys+=("COPY_YARN_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
+    config_options+=("pip-config      - Pip (~/.config/pip/)")
+    config_keys+=("COPY_PIP_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
+    config_options+=("cargo-config    - Cargo (~/.cargo/)")
+    config_keys+=("COPY_CARGO_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
+    config_options+=("zed-config      - Zed (editor)")
+    config_keys+=("COPY_ZED_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
+    config_options+=("helix-config    - Helix (editor)")
+    config_keys+=("COPY_HELIX_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
+    config_options+=("aider-config    - Aider (~/.aider.conf.yml)")
+    config_keys+=("COPY_AIDER_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
+    config_options+=("docker-config   - Docker (~/.docker/)")
+    config_keys+=("COPY_DOCKER_CONFIG")
+  fi
+
+  if [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
+    config_options+=("direnv-config   - Direnv (~/.config/direnv/)")
+    config_keys+=("COPY_DIRENV_CONFIG")
+  fi
+
   local ssh_source=""
   if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
     ssh_source="$PRIVATE_SHARED/.ssh"
@@ -1115,6 +1337,23 @@ ask_configs_to_copy() {
       "terminal-config") COPY_TERMINAL_CONFIG=1 ;;
       "mise-config")     COPY_MISE_CONFIG=1 ;;
       "vscode-config")   COPY_VSCODE_SETTINGS=1 ;;
+      "lazygit-config")  COPY_LAZYGIT_CONFIG=1 ;;
+      "yazi-config")     COPY_YAZI_CONFIG=1 ;;
+      "btop-config")     COPY_BTOP_CONFIG=1 ;;
+      "kitty-config")    COPY_KITTY_CONFIG=1 ;;
+      "alacritty-config") COPY_ALACRITTY_CONFIG=1 ;;
+      "wezterm-config")  COPY_WEZTERM_CONFIG=1 ;;
+      "ripgrep-config")  COPY_RIPGREP_CONFIG=1 ;;
+      "npm-config")      COPY_NPM_CONFIG=1 ;;
+      "pnpm-config")     COPY_PNPM_CONFIG=1 ;;
+      "yarn-config")     COPY_YARN_CONFIG=1 ;;
+      "pip-config")      COPY_PIP_CONFIG=1 ;;
+      "cargo-config")    COPY_CARGO_CONFIG=1 ;;
+      "zed-config")      COPY_ZED_CONFIG=1 ;;
+      "helix-config")    COPY_HELIX_CONFIG=1 ;;
+      "aider-config")    COPY_AIDER_CONFIG=1 ;;
+      "docker-config")   COPY_DOCKER_CONFIG=1 ;;
+      "direnv-config")   COPY_DIRENV_CONFIG=1 ;;
       "ssh-keys")        COPY_SSH_KEYS=1 ;;
     esac
   done
@@ -2082,6 +2321,86 @@ install_selected_gui_apps() {
       ;;
   esac
 }
+
+copy_tool_configs() {
+  msg "▶ Copiando configurações de ferramentas CLI"
+
+  if [[ ${COPY_LAZYGIT_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
+    copy_dir "$CONFIG_SHARED/lazygit" "$HOME/.config/lazygit"
+  fi
+
+  if [[ ${COPY_YAZI_CONFIG:-1} -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]]; then
+    copy_dir "$CONFIG_SHARED/yazi" "$HOME/.config/yazi"
+  fi
+
+  if [[ ${COPY_BTOP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
+    copy_dir "$CONFIG_SHARED/btop" "$HOME/.config/btop"
+  fi
+
+  if [[ ${COPY_KITTY_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
+    copy_dir "$CONFIG_SHARED/kitty" "$HOME/.config/kitty"
+  fi
+
+  if [[ ${COPY_ALACRITTY_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.yml" ]]; then
+    copy_dir "$CONFIG_SHARED/alacritty" "$HOME/.config/alacritty"
+  fi
+
+  if [[ ${COPY_WEZTERM_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
+    copy_dir "$CONFIG_SHARED/wezterm" "$HOME/.config/wezterm"
+  fi
+
+  if [[ ${COPY_RIPGREP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
+    copy_file "$CONFIG_SHARED/.ripgreprc" "$HOME/.ripgreprc"
+  fi
+
+  if [[ ${COPY_NPM_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
+    copy_file "$CONFIG_SHARED/npm/.npmrc" "$HOME/.npmrc"
+  fi
+
+  if [[ ${COPY_PNPM_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
+    mkdir -p "$HOME/.config/pnpm"
+    copy_file "$CONFIG_SHARED/pnpm/.pnpmrc" "$HOME/.config/pnpm/.pnpmrc"
+  fi
+
+  if [[ ${COPY_YARN_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
+    copy_file "$CONFIG_SHARED/yarn/.yarnrc" "$HOME/.yarnrc"
+  fi
+
+  if [[ ${COPY_PIP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
+    mkdir -p "$HOME/.config/pip"
+    copy_file "$CONFIG_SHARED/pip/pip.conf" "$HOME/.config/pip/pip.conf"
+  fi
+
+  if [[ ${COPY_CARGO_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
+    mkdir -p "$HOME/.cargo"
+    copy_file "$CONFIG_SHARED/cargo/config.toml" "$HOME/.cargo/config.toml"
+  fi
+
+  if [[ ${COPY_ZED_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
+    mkdir -p "$HOME/.config/zed"
+    copy_file "$CONFIG_SHARED/zed/settings.json" "$HOME/.config/zed/settings.json"
+  fi
+
+  if [[ ${COPY_HELIX_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
+    mkdir -p "$HOME/.config/helix"
+    copy_file "$CONFIG_SHARED/helix/config.toml" "$HOME/.config/helix/config.toml"
+  fi
+
+  if [[ ${COPY_AIDER_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
+    copy_file "$CONFIG_SHARED/aider/.aider.conf.yml" "$HOME/.aider.conf.yml"
+  fi
+
+  if [[ ${COPY_DOCKER_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
+    mkdir -p "$HOME/.docker"
+    copy_file "$CONFIG_SHARED/docker/config.json" "$HOME/.docker/config.json"
+  fi
+
+  if [[ ${COPY_DIRENV_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
+    mkdir -p "$HOME/.config/direnv"
+    copy_file "$CONFIG_SHARED/direnv/.direnvrc" "$HOME/.config/direnv/direnvrc"
+  fi
+}
+
 apply_shared_configs() {
   msg "▶ Copiando configs compartilhadas"
 
@@ -2186,6 +2505,8 @@ apply_shared_configs() {
     msg "  ⏭️  VS Code settings: usuário optou por não copiar"
   fi
 
+  copy_tool_configs
+
   if [[ ${COPY_SSH_KEYS:-0} -eq 1 ]]; then
     local ssh_source=""
     if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
@@ -2194,10 +2515,11 @@ apply_shared_configs() {
       ssh_source="$CONFIG_SHARED/.ssh"
     fi
     if [[ -n "$ssh_source" ]]; then
-      msg "  🔐 Copiando chaves SSH..."
-      copy_dir "$ssh_source" "$HOME/.ssh"
-      set_ssh_permissions
-      msg "  ✓ Chaves SSH copiadas com permissões corretas (700/600)"
+      msg "▶ Gerenciando Chaves SSH"
+      if manage_ssh_keys "$ssh_source"; then
+        set_ssh_permissions
+        msg "  ✓ Chaves SSH configuradas com permissões corretas (700/600)"
+      fi
     fi
   else
     msg "  ⏭️  SSH Keys: usuário optou por não copiar (padrão por segurança)"
@@ -2473,6 +2795,86 @@ export_configs() {
 
   export_vscode_settings
   export_vscode_extensions
+
+  msg "▶ Exportando configurações de ferramentas CLI"
+
+  if [[ -f "$HOME/.config/lazygit/config.yml" ]]; then
+    export_dir "$HOME/.config/lazygit" "$CONFIG_SHARED/lazygit"
+  fi
+
+  if [[ -d "$HOME/.config/yazi" ]]; then
+    export_dir "$HOME/.config/yazi" "$CONFIG_SHARED/yazi"
+  fi
+
+  if [[ -f "$HOME/.config/btop/btop.conf" ]]; then
+    export_dir "$HOME/.config/btop" "$CONFIG_SHARED/btop"
+  fi
+
+  if [[ -f "$HOME/.config/kitty/kitty.conf" ]]; then
+    export_dir "$HOME/.config/kitty" "$CONFIG_SHARED/kitty"
+  fi
+
+  if [[ -f "$HOME/.config/alacritty/alacritty.yml" ]]; then
+    export_dir "$HOME/.config/alacritty" "$CONFIG_SHARED/alacritty"
+  fi
+
+  if [[ -f "$HOME/.config/wezterm/wezterm.lua" ]]; then
+    export_dir "$HOME/.config/wezterm" "$CONFIG_SHARED/wezterm"
+  fi
+
+  if [[ -f "$HOME/.ripgreprc" ]]; then
+    export_file "$HOME/.ripgreprc" "$CONFIG_SHARED/.ripgreprc"
+  fi
+
+  if [[ -f "$HOME/.npmrc" ]]; then
+    mkdir -p "$CONFIG_SHARED/npm"
+    export_file "$HOME/.npmrc" "$CONFIG_SHARED/npm/.npmrc"
+  fi
+
+  if [[ -f "$HOME/.config/pnpm/.pnpmrc" ]]; then
+    mkdir -p "$CONFIG_SHARED/pnpm"
+    export_file "$HOME/.config/pnpm/.pnpmrc" "$CONFIG_SHARED/pnpm/.pnpmrc"
+  fi
+
+  if [[ -f "$HOME/.yarnrc" ]]; then
+    mkdir -p "$CONFIG_SHARED/yarn"
+    export_file "$HOME/.yarnrc" "$CONFIG_SHARED/yarn/.yarnrc"
+  fi
+
+  if [[ -f "$HOME/.config/pip/pip.conf" ]]; then
+    mkdir -p "$CONFIG_SHARED/pip"
+    export_file "$HOME/.config/pip/pip.conf" "$CONFIG_SHARED/pip/pip.conf"
+  fi
+
+  if [[ -f "$HOME/.cargo/config.toml" ]]; then
+    mkdir -p "$CONFIG_SHARED/cargo"
+    export_file "$HOME/.cargo/config.toml" "$CONFIG_SHARED/cargo/config.toml"
+  fi
+
+  if [[ -f "$HOME/.config/zed/settings.json" ]]; then
+    mkdir -p "$CONFIG_SHARED/zed"
+    export_file "$HOME/.config/zed/settings.json" "$CONFIG_SHARED/zed/settings.json"
+  fi
+
+  if [[ -f "$HOME/.config/helix/config.toml" ]]; then
+    mkdir -p "$CONFIG_SHARED/helix"
+    export_file "$HOME/.config/helix/config.toml" "$CONFIG_SHARED/helix/config.toml"
+  fi
+
+  if [[ -f "$HOME/.aider.conf.yml" ]]; then
+    mkdir -p "$CONFIG_SHARED/aider"
+    export_file "$HOME/.aider.conf.yml" "$CONFIG_SHARED/aider/.aider.conf.yml"
+  fi
+
+  if [[ -f "$HOME/.docker/config.json" ]]; then
+    mkdir -p "$CONFIG_SHARED/docker"
+    export_file "$HOME/.docker/config.json" "$CONFIG_SHARED/docker/config.json"
+  fi
+
+  if [[ -f "$HOME/.config/direnv/direnvrc" ]]; then
+    mkdir -p "$CONFIG_SHARED/direnv"
+    export_file "$HOME/.config/direnv/direnvrc" "$CONFIG_SHARED/direnv/.direnvrc"
+  fi
 
   export_brewfile
 

@@ -46,3 +46,6 @@ php = "latest"
 [settings]
 experimental = true
 legacy_version_file = true
+jobs = 4
+always_keep_download = false
+plugin_autoupdate_last_check_duration = "7d"

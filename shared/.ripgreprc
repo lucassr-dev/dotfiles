@@ -1,0 +1,163 @@
+# Ripgrep Configuration
+# Optimized for web development with smart ignores
+
+# Smart case search (case-insensitive if all lowercase, case-sensitive otherwise)
+--smart-case
+
+# Follow symlinks
+--follow
+
+# Search hidden files and directories
+--hidden
+
+# ===== IGNORE PATTERNS =====
+
+# Version control
+--glob=!.git/
+--glob=!.svn/
+--glob=!.hg/
+
+# Dependencies
+--glob=!node_modules/
+--glob=!bower_components/
+--glob=!vendor/
+--glob=!.pnpm-store/
+--glob=!.yarn/
+
+# Build outputs
+--glob=!dist/
+--glob=!build/
+--glob=!out/
+--glob=!.next/
+--glob=!.nuxt/
+--glob=!.output/
+--glob=!.svelte-kit/
+--glob=!.vercel/
+--glob=!.netlify/
+
+# Cache directories
+--glob=!.cache/
+--glob=!.parcel-cache/
+--glob=!.turbo/
+--glob=!.nx/
+--glob=!.vite/
+--glob=!.astro/
+
+# Coverage
+--glob=!coverage/
+--glob=!.nyc_output/
+
+# IDEs and editors
+--glob=!.vscode/
+--glob=!.idea/
+--glob=!.vs/
+--glob=!*.swp
+--glob=!*.swo
+--glob=!*~
+
+# OS files
+--glob=!.DS_Store
+--glob=!Thumbs.db
+--glob=!desktop.ini
+
+# Logs
+--glob=!*.log
+--glob=!logs/
+--glob=!npm-debug.log*
+--glob=!yarn-debug.log*
+--glob=!yarn-error.log*
+--glob=!pnpm-debug.log*
+--glob=!lerna-debug.log*
+
+# Testing
+--glob=!.jest/
+--glob=!.vitest/
+--glob=!.playwright/
+
+# Lock files (usually not needed in searches)
+--glob=!package-lock.json
+--glob=!yarn.lock
+--glob=!pnpm-lock.yaml
+--glob=!bun.lockb
+--glob=!Cargo.lock
+--glob=!composer.lock
+--glob=!Gemfile.lock
+--glob=!poetry.lock
+
+# Minified files
+--glob=!*.min.js
+--glob=!*.min.css
+--glob=!*.bundle.js
+
+# Source maps
+--glob=!*.map
+
+# Environment files (may contain secrets)
+--glob=!.env
+--glob=!.env.local
+--glob=!.env.*.local
+
+# Docker
+--glob=!.docker/
+
+# Database
+--glob=!*.sqlite
+--glob=!*.db
+
+# Compiled Python
+--glob=!__pycache__/
+--glob=!*.pyc
+--glob=!*.pyo
+--glob=!*.pyd
+
+# Rust
+--glob=!target/
+
+# Go
+--glob=!go.sum
+
+# ===== DISPLAY OPTIONS =====
+
+# Maximum number of columns to display
+--max-columns=150
+
+# Truncate lines longer than max-columns
+--max-columns-preview
+
+# Add colors for different match types
+--colors=path:fg:blue
+--colors=path:style:bold
+--colors=line:fg:green
+--colors=line:style:bold
+--colors=match:fg:red
+--colors=match:style:bold
+
+# Show line numbers
+--line-number
+
+# Show column numbers
+--column
+
+# Sort results by file path
+--sort=path
+
+# Use heading format (groups matches by file)
+--heading
+
+# Include context lines (0 by default, uncomment to enable)
+# --context=2
+
+# ===== PERFORMANCE =====
+
+# Use multiple threads (default: auto-detect)
+# --threads=4
+
+# Memory map files (faster for large files)
+--mmap
+
+# ===== SPECIAL TYPES =====
+
+# Define custom type for web development
+--type-add=web:*.{html,css,scss,sass,less,js,jsx,ts,tsx,vue,svelte}
+--type-add=config:*.{json,yaml,yml,toml,ini,conf}
+--type-add=docs:*.{md,mdx,txt,rst}

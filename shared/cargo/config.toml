@@ -1,0 +1,169 @@
+# Cargo Configuration
+# Optimized build settings for Rust development
+
+# ===== BUILD SETTINGS =====
+
+[build]
+# Number of parallel jobs (0 = auto-detect CPU cores)
+jobs = 0
+
+# Incremental compilation (faster rebuilds)
+incremental = true
+
+# Custom target directory (optional - uncomment to use)
+# target-dir = "target"
+
+# Default target triple (uncomment for cross-compilation)
+# target = "x86_64-unknown-linux-gnu"
+
+# ===== TARGET SETTINGS =====
+
+# Linux x86_64
+[target.x86_64-unknown-linux-gnu]
+# Custom linker (use mold for faster linking)
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# macOS ARM64 (M1/M2/M3)
+[target.aarch64-apple-darwin]
+# rustflags = ["-C", "link-arg=-fuse-ld=zld"]
+
+# Windows
+[target.x86_64-pc-windows-msvc]
+# rustflags = ["-C", "target-feature=+crt-static"]
+
+# ===== PROFILE SETTINGS =====
+
+# Development profile (fast compile, slow runtime)
+[profile.dev]
+# Optimization level (0-3, or "s"/"z" for size)
+opt-level = 0
+# Debug info
+debug = true
+# Split debug info to separate file
+# split-debuginfo = "unpacked"
+# Overflow checks
+overflow-checks = true
+# Link-time optimization
+lto = false
+# Panic behavior
+panic = 'unwind'
+# Incremental compilation
+incremental = true
+# Code generation units (higher = faster compile, slower runtime)
+codegen-units = 256
+
+# Release profile (slow compile, fast runtime)
+[profile.release]
+opt-level = 3
+debug = false
+# split-debuginfo = "off"
+overflow-checks = false
+# LTO for smaller/faster binaries
+lto = "thin"
+panic = 'abort'
+incremental = false
+codegen-units = 16
+# Strip symbols
+strip = "symbols"
+
+# Fast development builds (faster compile than dev)
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 1
+debug = false
+incremental = true
+
+# Production release with full optimization
+[profile.release-lto]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+
+# ===== ALIAS SHORTCUTS =====
+
+[alias]
+# Fast check without building
+c = "check"
+# Fast check with all features
+ca = "check --all-features"
+# Build
+b = "build"
+# Build release
+br = "build --release"
+# Run
+r = "run"
+# Run release
+rr = "run --release"
+# Test
+t = "test"
+# Test release
+tr = "test --release"
+# Bench
+bench = "bench"
+# Clean
+cl = "clean"
+# Update dependencies
+up = "update"
+# Tree of dependencies
+tree = "tree"
+# Audit dependencies for vulnerabilities
+audit = "audit"
+# Watch for changes and rebuild
+w = "watch"
+# Expand macros
+expand = "expand"
+# Format code
+fmt = "fmt --all"
+# Lint with clippy
+clippy = "clippy --all-targets --all-features"
+# Fix clippy warnings
+fix = "clippy --fix --all-targets --all-features"
+
+# ===== REGISTRY SETTINGS =====
+
+[registry]
+# Default registry
+default = "crates-io"
+
+[registries.crates-io]
+protocol = "sparse"
+
+# ===== NET SETTINGS =====
+
+[net]
+# Retry failed downloads
+retry = 3
+# Git fetch with CLI (faster on some systems)
+git-fetch-with-cli = true
+
+# ===== HTTP SETTINGS =====
+
+[http]
+# Enable HTTP/2 multiplexing
+multiplexing = true
+# User agent
+# user-agent = "cargo"
+# Timeout for HTTP requests (seconds)
+timeout = 30
+
+# ===== TERM SETTINGS =====
+
+[term]
+# Colored output
+color = "auto"
+# Progress bar
+progress.when = "auto"
+progress.width = 80
+
+# ===== FUTURE INCOMPATIBILITY =====
+
+[future-incompat-report]
+frequency = "always"
+
+# ===== CARGO FEATURES =====
+
+[features]
+# Resolver version (use "2" for new projects)
+# resolver = "2"

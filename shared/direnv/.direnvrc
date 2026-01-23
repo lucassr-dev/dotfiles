@@ -1,0 +1,267 @@
+# Direnv Configuration
+# Custom layouts and utilities for development environments
+
+# ===== UTILITY FUNCTIONS =====
+
+# Source parent .envrc files (for nested projects)
+source_up() {
+  if [[ $# != 0 ]]; then
+    # Source specific file in parent directory
+    source_env "$(find_up "$@")"
+  else
+    # Source .envrc in parent directory
+    local parent_dir
+    parent_dir="$(dirname "$PWD")"
+
+    while [[ "$parent_dir" != "/" ]]; do
+      if [[ -f "$parent_dir/.envrc" ]]; then
+        source_env "$parent_dir/.envrc"
+        return 0
+      fi
+      parent_dir="$(dirname "$parent_dir")"
+    done
+
+    return 1
+  fi
+}
+
+# Find file in parent directories
+find_up() {
+  local filename="$1"
+  local dir="$PWD"
+
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/$filename" ]]; then
+      echo "$dir/$filename"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+
+  return 1
+}
+
+# Load .env files (dotenv support)
+dotenv() {
+  local envfile="${1:-.env}"
+
+  if [[ -f "$envfile" ]]; then
+    # shellcheck disable=SC1090
+    dotenv_if_exists "$envfile"
+  fi
+}
+
+# ===== LANGUAGE LAYOUTS =====
+
+# Node.js layout using mise/asdf
+layout_node() {
+  local node_version="${1:-lts}"
+
+  if has mise; then
+    mise use "node@${node_version}"
+  elif has asdf; then
+    asdf local nodejs "$node_version"
+  else
+    echo "direnv: mise or asdf not found, skipping Node.js setup"
+    return 1
+  fi
+
+  # Add node_modules/.bin to PATH
+  PATH_add node_modules/.bin
+}
+
+# Python layout using mise/asdf + virtualenv
+layout_python() {
+  local python_version="${1:-3.11}"
+  local venv_dir="${2:-.venv}"
+
+  if has mise; then
+    mise use "python@${python_version}"
+  elif has asdf; then
+    asdf local python "$python_version"
+  else
+    echo "direnv: mise or asdf not found, skipping Python setup"
+    return 1
+  fi
+
+  # Create and activate virtualenv
+  if [[ ! -d "$venv_dir" ]]; then
+    python -m venv "$venv_dir"
+  fi
+
+  source "$venv_dir/bin/activate"
+
+  # Add to PATH
+  PATH_add "$venv_dir/bin"
+}
+
+# Python with Poetry
+layout_poetry() {
+  if has poetry; then
+    local venv_path
+    venv_path="$(poetry env info --path 2>/dev/null)"
+
+    if [[ -z "$venv_path" ]]; then
+      poetry install --no-root 2>/dev/null
+      venv_path="$(poetry env info --path)"
+    fi
+
+    if [[ -n "$venv_path" ]]; then
+      export VIRTUAL_ENV="$venv_path"
+      PATH_add "$venv_path/bin"
+    fi
+  else
+    echo "direnv: poetry not found"
+    return 1
+  fi
+}
+
+# Rust layout using mise/asdf
+layout_rust() {
+  local rust_version="${1:-stable}"
+
+  if has mise; then
+    mise use "rust@${rust_version}"
+  elif has asdf; then
+    asdf local rust "$rust_version"
+  else
+    echo "direnv: mise or asdf not found, skipping Rust setup"
+    return 1
+  fi
+
+  # Add cargo bin to PATH
+  PATH_add "$HOME/.cargo/bin"
+}
+
+# Go layout using mise/asdf
+layout_go() {
+  local go_version="${1:-latest}"
+
+  if has mise; then
+    mise use "go@${go_version}"
+  elif has asdf; then
+    asdf local golang "$go_version"
+  else
+    echo "direnv: mise or asdf not found, skipping Go setup"
+    return 1
+  fi
+
+  # Set GOPATH to local directory
+  export GOPATH="${PWD}/.go"
+  PATH_add "${GOPATH}/bin"
+}
+
+# PHP layout using mise/asdf
+layout_php() {
+  local php_version="${1:-8.3}"
+
+  if has mise; then
+    mise use "php@${php_version}"
+  elif has asdf; then
+    asdf local php "$php_version"
+  else
+    echo "direnv: mise or asdf not found, skipping PHP setup"
+    return 1
+  fi
+
+  # Add composer bin to PATH
+  PATH_add "$HOME/.config/composer/vendor/bin"
+  PATH_add vendor/bin
+}
+
+# Bun layout using mise
+layout_bun() {
+  local bun_version="${1:-latest}"
+
+  if has mise; then
+    mise use "bun@${bun_version}"
+  else
+    echo "direnv: mise not found, skipping Bun setup"
+    return 1
+  fi
+
+  # Add node_modules/.bin to PATH
+  PATH_add node_modules/.bin
+}
+
+# Deno layout using mise
+layout_deno() {
+  local deno_version="${1:-latest}"
+
+  if has mise; then
+    mise use "deno@${deno_version}"
+  else
+    echo "direnv: mise not found, skipping Deno setup"
+    return 1
+  fi
+}
+
+# ===== WEB FRAMEWORK LAYOUTS =====
+
+# Next.js layout
+layout_nextjs() {
+  layout_node "${1:-lts}"
+  dotenv
+  dotenv .env.local
+}
+
+# Nuxt layout
+layout_nuxt() {
+  layout_node "${1:-lts}"
+  dotenv
+  dotenv .env.local
+}
+
+# Vite layout
+layout_vite() {
+  layout_node "${1:-lts}"
+  dotenv
+  dotenv .env.local
+}
+
+# Astro layout
+layout_astro() {
+  layout_node "${1:-lts}"
+  dotenv
+}
+
+# ===== MONOREPO LAYOUTS =====
+
+# Turborepo layout
+layout_turborepo() {
+  layout_node "${1:-lts}"
+
+  # Use pnpm if available
+  if has pnpm; then
+    export PNPM_HOME="${HOME}/.local/share/pnpm"
+    PATH_add "${PNPM_HOME}"
+  fi
+
+  dotenv
+}
+
+# ===== DOCKER COMPOSE =====
+
+# Docker Compose layout
+layout_docker() {
+  dotenv
+
+  # Export compose file location if exists
+  if [[ -f "docker-compose.yml" ]]; then
+    export COMPOSE_FILE="docker-compose.yml"
+  fi
+
+  if [[ -f "docker-compose.override.yml" ]]; then
+    export COMPOSE_FILE="docker-compose.yml:docker-compose.override.yml"
+  fi
+}
+
+# ===== EXAMPLE USAGE =====
+
+# In your project .envrc, use:
+# - layout_node 20
+# - layout_python 3.11
+# - layout_rust stable
+# - layout_nextjs
+# - source_up (to load parent .envrc)
+# - dotenv .env.local

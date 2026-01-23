@@ -1,0 +1,292 @@
+# Alacritty Configuration
+# Catppuccin Mocha Theme + JetBrainsMono Nerd Font
+
+# Import additional config files (optional)
+# import:
+#   - ~/.config/alacritty/catppuccin-mocha.yml
+
+# ===== GENERAL =====
+
+# Live config reload
+live_config_reload: true
+
+# ===== WINDOW =====
+
+window:
+  # Window dimensions
+  dimensions:
+    columns: 120
+    lines: 30
+
+  # Window padding
+  padding:
+    x: 8
+    y: 8
+
+  # Spread padding evenly around the terminal content
+  dynamic_padding: true
+
+  # Window decorations
+  decorations: full
+
+  # Background opacity
+  opacity: 0.95
+
+  # Startup mode
+  startup_mode: Windowed
+
+  # Window title
+  title: Alacritty
+
+  # Allow terminal applications to change title
+  dynamic_title: true
+
+  # Window class (Linux/BSD only)
+  class:
+    instance: Alacritty
+    general: Alacritty
+
+  # GTK theme variant (Linux/BSD only)
+  gtk_theme_variant: dark
+
+# ===== SCROLLING =====
+
+scrolling:
+  # Maximum number of lines in the scrollback buffer
+  history: 10000
+
+  # Number of lines scrolled per scroll action
+  multiplier: 3
+
+# ===== FONT =====
+
+font:
+  # Normal font face
+  normal:
+    family: JetBrainsMono Nerd Font
+    style: Regular
+
+  # Bold font face
+  bold:
+    family: JetBrainsMono Nerd Font
+    style: Bold
+
+  # Italic font face
+  italic:
+    family: JetBrainsMono Nerd Font
+    style: Italic
+
+  # Bold italic font face
+  bold_italic:
+    family: JetBrainsMono Nerd Font
+    style: Bold Italic
+
+  # Font size
+  size: 13.0
+
+  # Offset (y is useful for adjusting line spacing)
+  offset:
+    x: 0
+    y: 0
+
+  # Glyph offset
+  glyph_offset:
+    x: 0
+    y: 0
+
+  # Use thin strokes for antialiasing (macOS only)
+  use_thin_strokes: true
+
+# ===== COLORS - CATPPUCCIN MOCHA =====
+
+colors:
+  # Primary colors
+  primary:
+    background: '#1e1e2e' # base
+    foreground: '#cdd6f4' # text
+    dim_foreground: '#7f849c' # overlay1
+    bright_foreground: '#cdd6f4' # text
+
+  # Cursor colors
+  cursor:
+    text: '#1e1e2e' # base
+    cursor: '#f5e0dc' # rosewater
+
+  # Vi mode cursor
+  vi_mode_cursor:
+    text: '#1e1e2e' # base
+    cursor: '#b4befe' # lavender
+
+  # Search colors
+  search:
+    matches:
+      foreground: '#1e1e2e' # base
+      background: '#a6adc8' # subtext0
+    focused_match:
+      foreground: '#1e1e2e' # base
+      background: '#a6e3a1' # green
+    footer_bar:
+      foreground: '#1e1e2e' # base
+      background: '#a6adc8' # subtext0
+
+  # Hints
+  hints:
+    start:
+      foreground: '#1e1e2e' # base
+      background: '#f9e2af' # yellow
+    end:
+      foreground: '#1e1e2e' # base
+      background: '#a6adc8' # subtext0
+
+  # Selection colors
+  selection:
+    text: '#1e1e2e' # base
+    background: '#f5e0dc' # rosewater
+
+  # Normal colors
+  normal:
+    black:   '#45475a' # surface1
+    red:     '#f38ba8' # red
+    green:   '#a6e3a1' # green
+    yellow:  '#f9e2af' # yellow
+    blue:    '#89b4fa' # blue
+    magenta: '#f5c2e7' # pink
+    cyan:    '#94e2d5' # teal
+    white:   '#bac2de' # subtext1
+
+  # Bright colors
+  bright:
+    black:   '#585b70' # surface2
+    red:     '#f38ba8' # red
+    green:   '#a6e3a1' # green
+    yellow:  '#f9e2af' # yellow
+    blue:    '#89b4fa' # blue
+    magenta: '#f5c2e7' # pink
+    cyan:    '#94e2d5' # teal
+    white:   '#a6adc8' # subtext0
+
+  # Dim colors
+  dim:
+    black:   '#45475a' # surface1
+    red:     '#f38ba8' # red
+    green:   '#a6e3a1' # green
+    yellow:  '#f9e2af' # yellow
+    blue:    '#89b4fa' # blue
+    magenta: '#f5c2e7' # pink
+    cyan:    '#94e2d5' # teal
+    white:   '#bac2de' # subtext1
+
+  # Indexed colors (for 256-color support)
+  indexed_colors:
+    - { index: 16, color: '#fab387' } # peach
+    - { index: 17, color: '#f5e0dc' } # rosewater
+
+# ===== BELL =====
+
+bell:
+  # Visual bell animation effect
+  animation: EaseOutExpo
+  duration: 0
+  color: '#ffffff'
+
+# ===== SELECTION =====
+
+selection:
+  # Characters that delimit "semantic" boundaries
+  semantic_escape_chars: ",│`|:\"' ()[]{}<>\t"
+
+  # When set to true, selected text will be copied to clipboard
+  save_to_clipboard: true
+
+# ===== CURSOR =====
+
+cursor:
+  # Cursor style
+  style:
+    shape: Block
+    blinking: Off
+
+  # Vi mode cursor style
+  vi_mode_style:
+    shape: Block
+    blinking: Off
+
+  # Cursor blinking interval in milliseconds
+  blink_interval: 750
+
+  # If this is true, cursor will be rendered as a hollow box when unfocused
+  unfocused_hollow: true
+
+  # Thickness of the cursor (0.0 - 1.0)
+  thickness: 0.15
+
+# ===== MOUSE =====
+
+mouse:
+  # Click settings
+  double_click: { threshold: 300 }
+  triple_click: { threshold: 300 }
+
+  # Hide mouse cursor when typing
+  hide_when_typing: true
+
+# ===== HINTS =====
+
+hints:
+  # URL launcher
+  enabled:
+    - regex: "(ipfs:|ipns:|magnet:|mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)[^\u0000-\u001f\u007f-\u009f<>\"\\s{-}\\^⟨⟩`]+"
+      command: xdg-open
+      post_processing: true
+      mouse:
+        enabled: true
+        mods: Control
+      binding:
+        key: U
+        mods: Control|Shift
+
+# ===== KEYBOARD =====
+
+keyboard:
+  bindings:
+    # Clipboard
+    - { key: V,         mods: Control|Shift,           action: Paste            }
+    - { key: C,         mods: Control|Shift,           action: Copy             }
+    - { key: Insert,    mods: Shift,                   action: PasteSelection   }
+    - { key: Key0,      mods: Control,                 action: ResetFontSize    }
+    - { key: Equals,    mods: Control,                 action: IncreaseFontSize }
+    - { key: Plus,      mods: Control,                 action: IncreaseFontSize }
+    - { key: Minus,     mods: Control,                 action: DecreaseFontSize }
+
+    # Vi mode
+    - { key: Space,     mods: Control|Shift,           mode: ~Search,           action: ToggleViMode }
+    - { key: Escape,                                   mode: Vi|~Search,        action: ClearSelection }
+    - { key: I,                                        mode: Vi|~Search,        action: ToggleViMode }
+    - { key: I,                                        mode: Vi|~Search,        action: ScrollToBottom }
+    - { key: Y,         mods: Control,                 mode: Vi|~Search,        action: ScrollLineUp }
+    - { key: E,         mods: Control,                 mode: Vi|~Search,        action: ScrollLineDown }
+
+    # Search
+    - { key: F,         mods: Control|Shift,           mode: ~Search,           action: SearchForward }
+    - { key: B,         mods: Control|Shift,           mode: ~Search,           action: SearchBackward }
+
+    # Scrolling
+    - { key: PageUp,    mods: Shift,                   mode: ~Alt,              action: ScrollPageUp   }
+    - { key: PageDown,  mods: Shift,                   mode: ~Alt,              action: ScrollPageDown }
+    - { key: Home,      mods: Shift,                   mode: ~Alt,              action: ScrollToTop    }
+    - { key: End,       mods: Shift,                   mode: ~Alt,              action: ScrollToBottom }
+
+# ===== DEBUG =====
+
+debug:
+  # Display the time it takes to redraw each frame
+  render_timer: false
+
+  # Keep the log file after quitting
+  persistent_logging: false
+
+  # Log level: Off, Error, Warn, Info, Debug, Trace
+  log_level: Warn
+
+  # Print all received window events
+  print_events: false
