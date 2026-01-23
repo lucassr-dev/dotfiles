@@ -17,7 +17,7 @@ TARGET_OS=""
 LINUX_PKG_MANAGER=""
 LINUX_PKG_UPDATED=0
 MODE="install"
-FAIL_FAST=1
+FAIL_FAST="${FAIL_FAST:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_FISH="${INSTALL_FISH:-1}"
@@ -33,6 +33,7 @@ COPY_NVIM_CONFIG=1
 COPY_TMUX_CONFIG=1
 COPY_TERMINAL_CONFIG=1
 COPY_MISE_CONFIG=1
+COPY_STARSHIP_CONFIG=1
 COPY_SSH_KEYS=0
 COPY_VSCODE_SETTINGS=1
 COPY_LAZYGIT_CONFIG=1
@@ -73,6 +74,59 @@ declare -a OPTIONAL_ERRORS=()
 declare -a COPIED_PATHS=()
 declare -a INSTALLED_PACKAGES=()
 declare -a INSTALLED_MISC=()
+
+# ═══════════════════════════════════════════════════════════
+# Sistema de Checkpoint - Permite resumir instalação
+# ═══════════════════════════════════════════════════════════
+CHECKPOINT_FILE="$HOME/.dotfiles-checkpoint"
+CHECKPOINT_STAGE=""
+RESUME_MODE=0
+
+checkpoint_save() {
+  local stage="$1"
+  cat > "$CHECKPOINT_FILE" <<EOF
+# Dotfiles Checkpoint - $(date)
+CHECKPOINT_STAGE="$stage"
+INSTALL_ZSH=$INSTALL_ZSH
+INSTALL_FISH=$INSTALL_FISH
+INSTALL_NUSHELL=$INSTALL_NUSHELL
+INSTALL_OH_MY_ZSH=${INSTALL_OH_MY_ZSH:-0}
+INSTALL_STARSHIP=${INSTALL_STARSHIP:-0}
+INSTALL_OH_MY_POSH=${INSTALL_OH_MY_POSH:-0}
+INSTALL_POWERLEVEL10K=${INSTALL_POWERLEVEL10K:-0}
+GIT_CONFIGURE=${GIT_CONFIGURE:-0}
+SELECTED_CLI_TOOLS=(${SELECTED_CLI_TOOLS[*]})
+SELECTED_IA_TOOLS=(${SELECTED_IA_TOOLS[*]})
+SELECTED_TERMINALS=(${SELECTED_TERMINALS[*]})
+SELECTED_RUNTIMES=(${SELECTED_RUNTIMES[*]})
+SELECTED_NERD_FONTS=(${SELECTED_NERD_FONTS[*]})
+SELECTED_IDES=(${SELECTED_IDES[*]})
+SELECTED_BROWSERS=(${SELECTED_BROWSERS[*]})
+SELECTED_DEV_TOOLS=(${SELECTED_DEV_TOOLS[*]})
+SELECTED_DATABASES=(${SELECTED_DATABASES[*]})
+SELECTED_PRODUCTIVITY=(${SELECTED_PRODUCTIVITY[*]})
+SELECTED_COMMUNICATION=(${SELECTED_COMMUNICATION[*]})
+SELECTED_MEDIA=(${SELECTED_MEDIA[*]})
+SELECTED_UTILITIES=(${SELECTED_UTILITIES[*]})
+EOF
+}
+
+checkpoint_load() {
+  if [[ -f "$CHECKPOINT_FILE" ]]; then
+    # shellcheck source=/dev/null
+    source "$CHECKPOINT_FILE"
+    return 0
+  fi
+  return 1
+}
+
+checkpoint_clear() {
+  [[ -f "$CHECKPOINT_FILE" ]] && rm -f "$CHECKPOINT_FILE"
+}
+
+checkpoint_exists() {
+  [[ -f "$CHECKPOINT_FILE" ]]
+}
 
 for arg in "$@"; do
   case "$arg" in
@@ -1010,11 +1064,33 @@ review_selections() {
       [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} tmux") || cfg_items+=("${BANNER_DIM}○ tmux${BANNER_RESET}")
     }
 
+    local has_lazygit=0
+    for tool in "${SELECTED_CLI_TOOLS[@]}"; do [[ "$tool" == "lazygit" ]] && has_lazygit=1 && break; done
+    [[ $has_lazygit -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]] && {
+      [[ ${COPY_LAZYGIT_CONFIG:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} lazygit") || cfg_items+=("${BANNER_DIM}○ lazygit${BANNER_RESET}")
+    }
+
+    local has_yazi=0
+    for tool in "${SELECTED_CLI_TOOLS[@]}"; do [[ "$tool" == "yazi" ]] && has_yazi=1 && break; done
+    [[ $has_yazi -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]] && {
+      [[ ${COPY_YAZI_CONFIG:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} yazi") || cfg_items+=("${BANNER_DIM}○ yazi${BANNER_RESET}")
+    }
+
+    local has_btop=0
+    for tool in "${SELECTED_CLI_TOOLS[@]}"; do [[ "$tool" == "btop" ]] && has_btop=1 && break; done
+    [[ $has_btop -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]] && {
+      [[ ${COPY_BTOP_CONFIG:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} btop") || cfg_items+=("${BANNER_DIM}○ btop${BANNER_RESET}")
+    }
+
     if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
       [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} VS Code") || cfg_items+=("${BANNER_DIM}○ VS Code${BANNER_RESET}")
     fi
 
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Mise")
+
+    if [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]]; then
+      [[ ${COPY_STARSHIP_CONFIG:-1} -eq 1 ]] && cfg_items+=("${BANNER_GREEN}✓${BANNER_RESET} Starship") || cfg_items+=("${BANNER_DIM}○ Starship${BANNER_RESET}")
+    fi
 
     if [[ ${#cfg_items[@]} -gt 0 ]]; then
       local line_content=""
@@ -1203,6 +1279,11 @@ ask_configs_to_copy() {
     config_keys+=("COPY_MISE_CONFIG")
   fi
 
+  if [[ -f "$CONFIG_SHARED/starship.toml" ]] && [[ ${INSTALL_STARSHIP:-0} -eq 1 ]]; then
+    config_options+=("starship-config - Starship (~/.config/starship.toml)")
+    config_keys+=("COPY_STARSHIP_CONFIG")
+  fi
+
   if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
     config_options+=("vscode-config   - VS Code (settings + extensões)")
     config_keys+=("COPY_VSCODE_SETTINGS")
@@ -1336,6 +1417,7 @@ ask_configs_to_copy() {
       "tmux-config")     COPY_TMUX_CONFIG=1 ;;
       "terminal-config") COPY_TERMINAL_CONFIG=1 ;;
       "mise-config")     COPY_MISE_CONFIG=1 ;;
+      "starship-config") COPY_STARSHIP_CONFIG=1 ;;
       "vscode-config")   COPY_VSCODE_SETTINGS=1 ;;
       "lazygit-config")  COPY_LAZYGIT_CONFIG=1 ;;
       "yazi-config")     COPY_YAZI_CONFIG=1 ;;
@@ -2483,6 +2565,15 @@ apply_shared_configs() {
     msg "  ⚠️ Mise não encontrado, pulando config."
   fi
 
+  if has_cmd starship && [[ ${COPY_STARSHIP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]]; then
+    mkdir -p "$HOME/.config"
+    copy_file "$CONFIG_SHARED/starship.toml" "$HOME/.config/starship.toml"
+  elif [[ ${COPY_STARSHIP_CONFIG:-1} -eq 0 ]]; then
+    msg "  ⏭️  Starship config: usuário optou por não copiar"
+  elif ! has_cmd starship; then
+    msg "  ⚠️ Starship não encontrado, pulando config."
+  fi
+
   if has_cmd nvim && [[ ${COPY_NVIM_CONFIG:-1} -eq 1 ]]; then
     copy_dir "$CONFIG_SHARED/nvim" "$HOME/.config/nvim"
   elif [[ ${COPY_NVIM_CONFIG:-1} -eq 0 ]]; then
@@ -2959,6 +3050,29 @@ main() {
   fi
 
   if [[ "$MODE" == "install" || "$MODE" == "sync" ]]; then
+    # Verificar se existe checkpoint anterior
+    if checkpoint_exists && [[ "$RESUME_MODE" -ne 1 ]]; then
+      echo ""
+      echo "╭──────────────────────────────────────────────────────────╮"
+      echo "│  🔄 Checkpoint encontrado de instalação anterior         │"
+      echo "│     Deseja retomar de onde parou?                        │"
+      echo "├──────────────────────────────────────────────────────────┤"
+      echo "│  Enter = Retomar    N = Nova instalação                  │"
+      echo "╰──────────────────────────────────────────────────────────╯"
+      local resume_choice
+      read -r -p "  → " resume_choice
+      if [[ "${resume_choice,,}" != "n" ]]; then
+        checkpoint_load
+        RESUME_MODE=1
+        msg "  ✅ Checkpoint carregado. Retomando instalação..."
+        sleep 1
+      else
+        checkpoint_clear
+        msg "  🗑️  Checkpoint removido. Iniciando nova instalação..."
+        sleep 1
+      fi
+    fi
+
     show_banner
     pause_before_next_section "Pressione Enter para começar a configuração..." "true"
   fi
@@ -2966,33 +3080,43 @@ main() {
   clear_screen
 
   # ══════════════════════════════════════════════════════════════
-  # ETAPA 1: Seleções Essenciais
+  # ETAPA 1: Seleções Essenciais (pular se resumindo)
   # ══════════════════════════════════════════════════════════════
-  ask_base_dependencies
-  pause_before_next_section
-  install_prerequisites
-  ask_shells
-  ask_themes
-  [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
-  [[ $INSTALL_STARSHIP -eq 1 ]] && ask_starship_preset
-  [[ $INSTALL_OH_MY_POSH -eq 1 ]] && ask_oh_my_posh_theme
-  [[ $INSTALL_FISH -eq 1 ]] && ask_fish_plugins
-  ask_nerd_fonts
+  if [[ "$RESUME_MODE" -ne 1 ]]; then
+    ask_base_dependencies
+    pause_before_next_section
+    install_prerequisites
+    ask_shells
+    ask_themes
+    [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
+    [[ $INSTALL_STARSHIP -eq 1 ]] && ask_starship_preset
+    [[ $INSTALL_OH_MY_POSH -eq 1 ]] && ask_oh_my_posh_theme
+    [[ $INSTALL_FISH -eq 1 ]] && ask_fish_plugins
+    ask_nerd_fonts
 
-  # ══════════════════════════════════════════════════════════════
-  # ETAPA 2: Apps e Ferramentas
-  # ══════════════════════════════════════════════════════════════
-  ask_terminals
-  ask_cli_tools
-  ask_ia_tools
-  ask_gui_apps
-  ask_runtimes
-  ask_git_configuration
+    # ══════════════════════════════════════════════════════════════
+    # ETAPA 2: Apps e Ferramentas
+    # ══════════════════════════════════════════════════════════════
+    ask_terminals
+    ask_cli_tools
+    ask_ia_tools
+    ask_gui_apps
+    ask_runtimes
+    ask_git_configuration
 
-  # ══════════════════════════════════════════════════════════════
-  # Confirmação Final
-  # ══════════════════════════════════════════════════════════════
-  review_selections
+    # ══════════════════════════════════════════════════════════════
+    # Confirmação Final e Checkpoint
+    # ══════════════════════════════════════════════════════════════
+    review_selections
+
+    # Salvar checkpoint antes de começar a instalação
+    checkpoint_save "install"
+    msg "  💾 Checkpoint salvo. Se a instalação falhar, execute novamente para retomar."
+    sleep 1
+  else
+    msg "  ⏩ Retomando instalação do checkpoint..."
+  fi
+
   clear_screen
   install_selected_shells
   install_selected_cli_tools
@@ -3013,6 +3137,11 @@ main() {
   install_nerd_fonts
   install_selected_themes
   clear_screen
+
+  # Limpar checkpoint após conclusão bem sucedida
+  if [[ ${#CRITICAL_ERRORS[@]} -eq 0 ]]; then
+    checkpoint_clear
+  fi
 
   print_post_install_report
 
