@@ -202,6 +202,8 @@ ensure_snap_app() {
   local flatpak_ref="${3:-}"
   local cmd="${4:-}"
   local level="${5:-optional}"
+  shift 5 2>/dev/null || true
+  local snap_args=("$@")
 
   has_cmd snap || return 0
 
@@ -215,7 +217,7 @@ ensure_snap_app() {
     return 0
   fi
 
-  snap_install_or_refresh "$pkg" "$friendly" "$level"
+  snap_install_or_refresh "$pkg" "$friendly" "$level" "${snap_args[@]}"
 }
 
 flatpak_install_or_update() {
@@ -1069,25 +1071,41 @@ review_selections() {
     [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && themes_selected+=("Starship")
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && themes_selected+=("OMP")
 
-    local col_w=$(( (w - 3) / 2 ))
-    local data_w=$((col_w - 12))  # Mais espaço para dados
+    local col_gap=5
+    local col_w=$(( (w - 3 - col_gap) / 2 ))
+    local data_w=$((col_w - 14))
     [[ $data_w -lt 1 ]] && data_w=1
+    local gap_spaces
+    gap_spaces=$(printf '%*s' "$col_gap" '')
 
     echo ""
-    echo -e "${BANNER_CYAN}╭─ ${BANNER_BOLD}🐚 AMBIENTE${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $((col_w - 14))))┬─ ${BANNER_RESET}${BANNER_BOLD}🔧 FERRAMENTAS${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $((col_w - 17))))╮${BANNER_RESET}"
+    local left_header_pad=$((col_w - 13))
+    local right_header_pad=$((col_w - 16))
+    [[ $left_header_pad -lt 0 ]] && left_header_pad=0
+    [[ $right_header_pad -lt 0 ]] && right_header_pad=0
+    echo -e "${BANNER_CYAN}╭─ ${BANNER_BOLD}🐚 AMBIENTE${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $left_header_pad))┬$(printf '─%.0s' $(seq 1 $col_gap))┬─ ${BANNER_RESET}${BANNER_BOLD}🔧 FERRAMENTAS${BANNER_RESET}${BANNER_CYAN} $(printf '─%.0s' $(seq 1 $right_header_pad))╮${BANNER_RESET}"
 
     _2col_box() {
       local l1="$1" v1="$2" l2="$3" v2="$4"
-      local left="${l1} ${v1}"
-      local right="${l2} ${v2}"
+      local left right
+      if [[ -n "$l1" ]]; then
+        left="${BANNER_BOLD}${l1}:${BANNER_RESET} ${v1}"
+      else
+        left="${v1}"
+      fi
+      if [[ -n "$l2" ]]; then
+        right="${BANNER_BOLD}${l2}:${BANNER_RESET} ${v2}"
+      else
+        right="${v2}"
+      fi
       local left_visual right_visual
       left_visual=$(_visible_len "$left")
       right_visual=$(_visible_len "$right")
-      local left_pad=$((col_w - 1 - left_visual))
-      local right_pad=$((col_w - 1 - right_visual))
+      local left_pad=$((col_w - left_visual))
+      local right_pad=$((col_w - right_visual))
       [[ $left_pad -lt 0 ]] && left_pad=0
       [[ $right_pad -lt 0 ]] && right_pad=0
-      echo -e "${BANNER_CYAN}│${BANNER_RESET} ${left}$(printf '%*s' "$left_pad" '')${BANNER_CYAN}│${BANNER_RESET} ${right}$(printf '%*s' "$right_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
+      echo -e "${BANNER_CYAN}│${BANNER_RESET} ${left}$(printf '%*s' "$left_pad" '')${BANNER_CYAN}│${BANNER_RESET}${gap_spaces}${BANNER_CYAN}│${BANNER_RESET} ${right}$(printf '%*s' "$right_pad" '')${BANNER_CYAN}│${BANNER_RESET}"
     }
 
     _format_items_multiline() {
@@ -1141,20 +1159,20 @@ review_selections() {
       cli_second=""
     fi
 
-    _2col_box "${BANNER_WHITE}Shells${BANNER_RESET}" "(${#selected_shells[@]}) $shells_str" "${BANNER_WHITE}CLI Tools${BANNER_RESET}" "(${#SELECTED_CLI_TOOLS[@]}) $cli_first"
+    _2col_box "Shells" "(${#selected_shells[@]}) $shells_str" "CLI Tools" "(${#SELECTED_CLI_TOOLS[@]}) $cli_first"
     if [[ -n "$cli_second" ]]; then
-      _2col_box "${BANNER_WHITE}Temas${BANNER_RESET}" "(${#themes_selected[@]}) $themes_str" "" "     $cli_second"
-      _2col_box "${BANNER_WHITE}Terminal${BANNER_RESET}" "$term_str" "${BANNER_WHITE}IA Tools${BANNER_RESET}" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
+      _2col_box "Temas" "(${#themes_selected[@]}) $themes_str" "" "     $cli_second"
+      _2col_box "Terminal" "$term_str" "IA Tools" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
     else
-      _2col_box "${BANNER_WHITE}Temas${BANNER_RESET}" "(${#themes_selected[@]}) $themes_str" "${BANNER_WHITE}IA Tools${BANNER_RESET}" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
-      _2col_box "${BANNER_WHITE}Terminal${BANNER_RESET}" "$term_str" "${BANNER_WHITE}Runtimes${BANNER_RESET}" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
+      _2col_box "Temas" "(${#themes_selected[@]}) $themes_str" "IA Tools" "(${#SELECTED_IA_TOOLS[@]}) $ia_str"
+      _2col_box "Terminal" "$term_str" "Runtimes" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
     fi
     if [[ -n "$cli_second" ]]; then
-      _2col_box "${BANNER_WHITE}Fonts${BANNER_RESET}" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "${BANNER_WHITE}Runtimes${BANNER_RESET}" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
+      _2col_box "Fonts" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "Runtimes" "(${#SELECTED_RUNTIMES[@]}) $rt_str"
     else
-      _2col_box "${BANNER_WHITE}Fonts${BANNER_RESET}" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "" ""
+      _2col_box "Fonts" "(${#SELECTED_NERD_FONTS[@]}) $fonts_str" "" ""
     fi
-    echo -e "${BANNER_CYAN}╰$(printf '─%.0s' $(seq 1 "$col_w"))┴$(printf '─%.0s' $(seq 1 "$col_w"))╯${BANNER_RESET}"
+    echo -e "${BANNER_CYAN}╰$(printf '─%.0s' $(seq 1 "$col_w"))┴$(printf '─%.0s' $(seq 1 "$col_gap"))┴$(printf '─%.0s' $(seq 1 "$col_w"))╯${BANNER_RESET}"
 
     # ═══════════════════════════════════════════════════════════════════════════
     # APLICATIVOS GUI (com nomes)

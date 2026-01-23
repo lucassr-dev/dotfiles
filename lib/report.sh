@@ -16,7 +16,7 @@ get_version() {
     starship) starship --version 2>/dev/null | head -n 1 | awk '{print $2}' ;;
     mise) mise --version 2>/dev/null | head -n 1 | awk '{print $1}' ;;
     code) code --version 2>&1 | head -n 1 ;;
-    docker) docker --version 2>&1 | awk '{print $3}' | tr -d ',' ;;
+    docker) docker --version 2>/dev/null | grep -oP 'Docker version \K[0-9.]+' || echo "" ;;
     lazygit) lazygit --version 2>/dev/null | grep -o "version='[^']*'" | sed "s/version='//;s/'//" | cut -d'+' -f1 ;;
     node) node --version 2>/dev/null | tr -d 'v' ;;
     python) python3 --version 2>/dev/null | awk '{print $2}' ;;
@@ -118,12 +118,14 @@ print_post_install_report() {
   echo -e "${DIM}$(_draw_line $w "╰" "╯")${NC}"
   echo ""
 
-  local col_total=$((w - 7))
+  local gap=3
+  local col_total=$((w - 4 - gap))
   local col_w_left=$((col_total / 2))
   local col_w_right=$((col_total - col_w_left))
-  local left_line right_line
+  local left_line right_line gap_line
   left_line=$(printf '─%.0s' $(seq 1 $((col_w_left + 2))))
   right_line=$(printf '─%.0s' $(seq 1 $((col_w_right + 2))))
+  gap_line=$(printf '─%.0s' $(seq 1 $gap))
 
   # ═══════════════════════════════════════════════════════════════════════════
   # FERRAMENTAS | RUNTIMES
@@ -151,25 +153,25 @@ print_post_install_report() {
   has_cmd deno && runtimes+=("$(_fmt_tool "🦕" "Deno" "$(get_version deno)" $col_w_right)")
   [[ ${#runtimes[@]} -eq 0 ]] && runtimes+=("$(_truncate_text "$col_w_right" "(nenhum)")")
 
-  echo -e "${CYAN}╭${left_line}┬${right_line}╮${NC}"
+  echo -e "${CYAN}╭${left_line}┬${gap_line}┬${right_line}╮${NC}"
   local tools_title="🛠️ FERRAMENTAS"
   local rt_title="🚀 RUNTIMES"
-  local tools_pad=$((col_w_left - ${#tools_title}))
-  local rt_pad=$((col_w_right - ${#rt_title}))
+  local tools_pad=$((col_w_left - ${#tools_title} + 1))
+  local rt_pad=$((col_w_right - ${#rt_title} + 1))
   [[ $tools_pad -lt 0 ]] && tools_pad=0
   [[ $rt_pad -lt 0 ]] && rt_pad=0
-  printf "${CYAN}│${NC} ${WHITE}%s${NC}%*s ${CYAN}│${NC} ${WHITE}%s${NC}%*s ${CYAN}│${NC}\n" "$tools_title" "$tools_pad" "" "$rt_title" "$rt_pad" ""
-  echo -e "${CYAN}├${left_line}┼${right_line}┤${NC}"
+  printf "${CYAN}│${NC} ${WHITE}%s${NC}%*s${CYAN}│${NC}%*s${CYAN}│${NC} ${WHITE}%s${NC}%*s${CYAN}│${NC}\n" "$tools_title" "$tools_pad" "" "$gap" "" "$rt_title" "$rt_pad" ""
+  echo -e "${CYAN}├${left_line}┼${gap_line}┼${right_line}┤${NC}"
 
   local max=${#tools[@]}
   [[ ${#runtimes[@]} -gt $max ]] && max=${#runtimes[@]}
   for (( i=0; i<max; i++ )); do
     local left="${tools[i]:-}"
     local right="${runtimes[i]:-}"
-    printf "${CYAN}│${NC} %-${col_w_left}s ${CYAN}│${NC} %-${col_w_right}s ${CYAN}│${NC}\n" "$left" "$right"
+    printf "${CYAN}│${NC} %-${col_w_left}s ${CYAN}│${NC}%*s${CYAN}│${NC} %-${col_w_right}s ${CYAN}│${NC}\n" "$left" "$gap" "" "$right"
   done
 
-  echo -e "${CYAN}╰${left_line}┴${right_line}╯${NC}"
+  echo -e "${CYAN}╰${left_line}┴${gap_line}┴${right_line}╯${NC}"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # PRÓXIMO PASSO | COMANDOS ÚTEIS
@@ -193,25 +195,25 @@ print_post_install_report() {
   has_cmd zoxide && commands+=("$(_truncate_text "$col_w_right" "z <pasta> - navegar")")
   [[ ${#commands[@]} -eq 0 ]] && commands+=("$(_truncate_text "$col_w_right" "(nenhum)")")
 
-  echo -e "${GREEN}╭${left_line}┬${right_line}╮${NC}"
+  echo -e "${GREEN}╭${left_line}┬${gap_line}┬${right_line}╮${NC}"
   local next_title="⚡ PRÓXIMO PASSO"
   local cmd_title="💡 COMANDOS UTEIS"
-  local next_pad=$((col_w_left - ${#next_title}))
-  local cmd_pad=$((col_w_right - ${#cmd_title}))
+  local next_pad=$((col_w_left - ${#next_title} + 1))
+  local cmd_pad=$((col_w_right - ${#cmd_title} + 1))
   [[ $next_pad -lt 0 ]] && next_pad=0
   [[ $cmd_pad -lt 0 ]] && cmd_pad=0
-  printf "${GREEN}│${NC} ${WHITE}%s${NC}%*s ${GREEN}│${NC} ${DIM}%s${NC}%*s ${GREEN}│${NC}\n" "$next_title" "$next_pad" "" "$cmd_title" "$cmd_pad" ""
-  echo -e "${GREEN}├${left_line}┼${right_line}┤${NC}"
+  printf "${GREEN}│${NC} ${WHITE}%s${NC}%*s${GREEN}│${NC}%*s${GREEN}│${NC} ${DIM}%s${NC}%*s${GREEN}│${NC}\n" "$next_title" "$next_pad" "" "$gap" "" "$cmd_title" "$cmd_pad" ""
+  echo -e "${GREEN}├${left_line}┼${gap_line}┼${right_line}┤${NC}"
 
   local steps_max=${#next_steps[@]}
   [[ ${#commands[@]} -gt $steps_max ]] && steps_max=${#commands[@]}
   for (( i=0; i<steps_max; i++ )); do
     local left="${next_steps[i]:-}"
     local right="${commands[i]:-}"
-    printf "${GREEN}│${NC} ${WHITE}%-${col_w_left}s${NC} ${GREEN}│${NC} ${DIM}%-${col_w_right}s${NC} ${GREEN}│${NC}\n" "$left" "$right"
+    printf "${GREEN}│${NC} ${WHITE}%-${col_w_left}s${NC}${GREEN}│${NC}%*s${GREEN}│${NC} ${DIM}%-${col_w_right}s${NC}${GREEN}│${NC}\n" "$left" "$gap" "" "$right"
   done
 
-  echo -e "${GREEN}╰${left_line}┴${right_line}╯${NC}"
+  echo -e "${GREEN}╰${left_line}┴${gap_line}┴${right_line}╯${NC}"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # MISE (compacto - 5 comandos essenciais)

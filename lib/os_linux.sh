@@ -498,7 +498,7 @@ install_linux_selected_apps() {
     for app in "${SELECTED_DEV_TOOLS[@]}"; do
       case "$app" in
         postman) ensure_snap_app postman "Postman" com.getpostman.Postman postman optional ;;
-        dbeaver) ensure_snap_app dbeaver-ce "DBeaver" io.dbeaver.DBeaverCommunity dbeaver optional ;;
+        dbeaver) ensure_snap_app dbeaver-ce "DBeaver" io.dbeaver.DBeaverCommunity dbeaver optional --classic ;;
       esac
     done
   fi
