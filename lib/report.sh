@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FUNÇÕES AUXILIARES
-# ══════════════════════════════════════════════════════════════════════════════
-
 get_version() {
   local cmd="$1"
   case "$cmd" in
@@ -28,14 +24,12 @@ get_version() {
   esac
 }
 
-# Gera linha horizontal
 _hline() {
   local width="$1"
   local char="${2:--}"
   printf '%*s' "$width" '' | tr ' ' "$char"
 }
 
-# Trunca texto para caber em largura máxima
 _truncate() {
   local max="$1"
   local text="$2"
@@ -48,7 +42,6 @@ _truncate() {
   fi
 }
 
-# Formata ferramenta com versão
 _fmt_tool() {
   local name="$1"
   local version="$2"
@@ -58,7 +51,6 @@ _fmt_tool() {
   _truncate "$max_w" "$text"
 }
 
-# Helper: adiciona ferramenta à lista somente se versão foi obtida
 _add_tool_if_version() {
   local -n arr="$1"
   local name="$2"
@@ -71,15 +63,10 @@ _add_tool_if_version() {
   fi
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# RELATÓRIO PÓS-INSTALAÇÃO
-# ══════════════════════════════════════════════════════════════════════════════
-
 print_post_install_report() {
   local username="${USER:-$(whoami)}"
   local hostname="${HOSTNAME:-$(hostname 2>/dev/null || echo 'localhost')}"
 
-  # Cores
   local GREEN='\033[0;32m'
   local YELLOW='\033[1;33m'
   local BLUE='\033[0;34m'
@@ -90,80 +77,70 @@ print_post_install_report() {
   local DIM='\033[2m'
   local NC='\033[0m'
 
-  # Largura do terminal
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
-  local w=$((term_w > 78 ? 78 : term_w - 2))
-  [[ $w -lt 50 ]] && w=50
+
+  local col_w=36
+  [[ $term_w -lt 78 ]] && col_w=30
+  [[ $term_w -lt 66 ]] && col_w=24
+
+  local total_w=$((col_w * 2 + 3))
+  local inner_w=$((total_w - 2))
+  local cell_w=$((col_w - 2))
+
+  local full_line col_line header_line
+  full_line=$(_hline "$inner_w" "-")
+  col_line=$(_hline "$col_w" "-")
+  header_line=$(_hline "$inner_w" "=")
 
   [[ -t 1 ]] && clear
 
   echo ""
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # HEADER
-  # ═══════════════════════════════════════════════════════════════════════════
-  local hline
-  hline=$(_hline $((w - 2)) "=")
-  echo -e "${GREEN}+${hline}+${NC}"
+  echo -e "${GREEN}+${header_line}+${NC}"
   local title="INSTALACAO CONCLUIDA!"
-  local title_pad=$(( (w - 2 - ${#title}) / 2 ))
-  printf "${GREEN}|${NC}%*s${YELLOW}${BOLD}%s${NC}%*s${GREEN}|${NC}\n" "$title_pad" "" "$title" "$((w - 2 - title_pad - ${#title}))" ""
-  echo -e "${GREEN}+${hline}+${NC}"
+  local title_pad=$(( (inner_w - ${#title}) / 2 ))
+  printf "${GREEN}|${NC}%*s${YELLOW}${BOLD}%s${NC}%*s${GREEN}|${NC}\n" "$title_pad" "" "$title" "$((inner_w - title_pad - ${#title}))" ""
+  echo -e "${GREEN}+${header_line}+${NC}"
   echo ""
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # INFO DO AMBIENTE
-  # ═══════════════════════════════════════════════════════════════════════════
-  local inner_w=$((w - 4))
-  local line
-  line=$(_hline $((w - 2)) "-")
+  local info_w=$((inner_w - 2))
 
-  echo -e "${DIM}+${line}+${NC}"
-  printf "${DIM}|${NC} ${CYAN}Usuario:${NC} %-*s ${DIM}|${NC}\n" "$((inner_w - 9))" "$username"
-  printf "${DIM}|${NC} ${CYAN}Host:${NC}    %-*s ${DIM}|${NC}\n" "$((inner_w - 9))" "$hostname"
-  printf "${DIM}|${NC} ${CYAN}SO:${NC}      %-*s ${DIM}|${NC}\n" "$((inner_w - 9))" "${TARGET_OS:-linux}"
+  echo -e "${DIM}+${full_line}+${NC}"
+  printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "Usuario:" "$((info_w - 10))" "$(_truncate $((info_w - 10)) "$username")"
+  printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "Host:" "$((info_w - 10))" "$(_truncate $((info_w - 10)) "$hostname")"
+  printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "SO:" "$((info_w - 10))" "${TARGET_OS:-linux}"
   if [[ -d "$BACKUP_DIR" ]]; then
-    printf "${DIM}|${NC} ${CYAN}Backup:${NC}  %-*s ${DIM}|${NC}\n" "$((inner_w - 9))" "$BACKUP_DIR"
+    printf "${DIM}|${NC} ${CYAN}%-10s${NC}%-*s ${DIM}|${NC}\n" "Backup:" "$((info_w - 10))" "$(_truncate $((info_w - 10)) "$BACKUP_DIR")"
   fi
-  echo -e "${DIM}+${line}+${NC}"
+  echo -e "${DIM}+${full_line}+${NC}"
   echo ""
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # COLUNAS: FERRAMENTAS | RUNTIMES
-  # ═══════════════════════════════════════════════════════════════════════════
-  local col_total=$((w - 5))
-  local col_w=$((col_total / 2))
-  local col_line
-  col_line=$(_hline "$col_w" "-")
-
-  # Coletar dados
   local tools=()
-  _add_tool_if_version tools "Git" git "$col_w"
-  _add_tool_if_version tools "Zsh" zsh "$col_w"
-  _add_tool_if_version tools "Fish" fish "$col_w"
-  _add_tool_if_version tools "Tmux" tmux "$col_w"
-  _add_tool_if_version tools "Neovim" nvim "$col_w"
-  _add_tool_if_version tools "Starship" starship "$col_w"
-  _add_tool_if_version tools "VS Code" code "$col_w"
-  _add_tool_if_version tools "Docker" docker "$col_w"
-  _add_tool_if_version tools "Mise" mise "$col_w"
-  _add_tool_if_version tools "Lazygit" lazygit "$col_w"
+  _add_tool_if_version tools "Git" git "$cell_w"
+  _add_tool_if_version tools "Zsh" zsh "$cell_w"
+  _add_tool_if_version tools "Fish" fish "$cell_w"
+  _add_tool_if_version tools "Tmux" tmux "$cell_w"
+  _add_tool_if_version tools "Neovim" nvim "$cell_w"
+  _add_tool_if_version tools "Starship" starship "$cell_w"
+  _add_tool_if_version tools "VS Code" code "$cell_w"
+  _add_tool_if_version tools "Docker" docker "$cell_w"
+  _add_tool_if_version tools "Mise" mise "$cell_w"
+  _add_tool_if_version tools "Lazygit" lazygit "$cell_w"
   [[ ${#tools[@]} -eq 0 ]] && tools+=("(nenhuma)")
 
   local runtimes=()
-  _add_tool_if_version runtimes "Node" node "$col_w"
-  _add_tool_if_version runtimes "Python" python "$col_w"
-  _add_tool_if_version runtimes "PHP" php "$col_w"
-  _add_tool_if_version runtimes "Rust" rust "$col_w"
-  _add_tool_if_version runtimes "Go" go "$col_w"
-  _add_tool_if_version runtimes "Bun" bun "$col_w"
-  _add_tool_if_version runtimes "Deno" deno "$col_w"
+  _add_tool_if_version runtimes "Node" node "$cell_w"
+  _add_tool_if_version runtimes "Python" python "$cell_w"
+  _add_tool_if_version runtimes "PHP" php "$cell_w"
+  _add_tool_if_version runtimes "Rust" rust "$cell_w"
+  _add_tool_if_version runtimes "Go" go "$cell_w"
+  _add_tool_if_version runtimes "Bun" bun "$cell_w"
+  _add_tool_if_version runtimes "Deno" deno "$cell_w"
   [[ ${#runtimes[@]} -eq 0 ]] && runtimes+=("(nenhum)")
 
-  # Desenhar tabela
   echo -e "${CYAN}+${col_line}+${col_line}+${NC}"
-  printf "${CYAN}|${NC} ${WHITE}${BOLD}%-*s${NC}${CYAN}|${NC} ${WHITE}${BOLD}%-*s${NC}${CYAN}|${NC}\n" "$((col_w - 1))" "FERRAMENTAS" "$((col_w - 1))" "RUNTIMES"
+  printf "${CYAN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${CYAN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${CYAN}|${NC}\n" "$cell_w" "FERRAMENTAS" "$cell_w" "RUNTIMES"
   echo -e "${CYAN}+${col_line}+${col_line}+${NC}"
 
   local max=${#tools[@]}
@@ -171,14 +148,11 @@ print_post_install_report() {
   for (( i=0; i<max; i++ )); do
     local left="${tools[i]:-}"
     local right="${runtimes[i]:-}"
-    printf "${CYAN}|${NC} ${GREEN}%-*s${NC}${CYAN}|${NC} ${MAGENTA}%-*s${NC}${CYAN}|${NC}\n" "$((col_w - 1))" "$left" "$((col_w - 1))" "$right"
+    printf "${CYAN}|${NC} ${GREEN}%-*s${NC} ${CYAN}|${NC} ${MAGENTA}%-*s${NC} ${CYAN}|${NC}\n" "$cell_w" "$left" "$cell_w" "$right"
   done
 
   echo -e "${CYAN}+${col_line}+${col_line}+${NC}"
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # COLUNAS: PROXIMO PASSO | COMANDOS UTEIS
-  # ═══════════════════════════════════════════════════════════════════════════
   echo ""
 
   local next_steps=()
@@ -197,7 +171,7 @@ print_post_install_report() {
   has_cmd zoxide && commands+=("z <dir>")
 
   echo -e "${GREEN}+${col_line}+${col_line}+${NC}"
-  printf "${GREEN}|${NC} ${WHITE}${BOLD}%-*s${NC}${GREEN}|${NC} ${WHITE}${BOLD}%-*s${NC}${GREEN}|${NC}\n" "$((col_w - 1))" "PROXIMO PASSO" "$((col_w - 1))" "COMANDOS UTEIS"
+  printf "${GREEN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${GREEN}|${NC} ${WHITE}${BOLD}%-*s${NC} ${GREEN}|${NC}\n" "$cell_w" "PROXIMO PASSO" "$cell_w" "COMANDOS UTEIS"
   echo -e "${GREEN}+${col_line}+${col_line}+${NC}"
 
   local steps_max=${#next_steps[@]}
@@ -205,27 +179,23 @@ print_post_install_report() {
   for (( i=0; i<steps_max; i++ )); do
     local left="${next_steps[i]:-}"
     local right="${commands[i]:-}"
-    printf "${GREEN}|${NC} ${YELLOW}%-*s${NC}${GREEN}|${NC} ${DIM}%-*s${NC}${GREEN}|${NC}\n" "$((col_w - 1))" "$left" "$((col_w - 1))" "$right"
+    printf "${GREEN}|${NC} ${YELLOW}%-*s${NC} ${GREEN}|${NC} ${DIM}%-*s${NC} ${GREEN}|${NC}\n" "$cell_w" "$left" "$cell_w" "$right"
   done
 
   echo -e "${GREEN}+${col_line}+${col_line}+${NC}"
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # MISE (se instalado)
-  # ═══════════════════════════════════════════════════════════════════════════
   if has_cmd mise; then
     echo ""
-    echo -e "${DIM}+-- ${WHITE}Mise${DIM} $(_hline $((w - 10)) "-")+${NC}"
-    printf "${DIM}|${NC}  %-24s ${DIM}%-*s${NC} ${DIM}|${NC}\n" "mise ls" "$((inner_w - 27))" "Listar instalados"
-    printf "${DIM}|${NC}  %-24s ${DIM}%-*s${NC} ${DIM}|${NC}\n" "mise use -g node@lts" "$((inner_w - 27))" "Node LTS global"
-    printf "${DIM}|${NC}  %-24s ${DIM}%-*s${NC} ${DIM}|${NC}\n" "mise use python@latest" "$((inner_w - 27))" "Python no projeto"
-    printf "${DIM}|${NC}  %-24s ${DIM}%-*s${NC} ${DIM}|${NC}\n" "mise install" "$((inner_w - 27))" "Instalar do .mise.toml"
-    echo -e "${DIM}+${line}+${NC}"
+    local mise_title="Mise"
+    local mise_line_w=$((inner_w - ${#mise_title} - 4))
+    echo -e "${DIM}+-- ${WHITE}${mise_title}${DIM} $(_hline "$mise_line_w" "-")+${NC}"
+    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise ls" "$((info_w - 26))" "Listar instalados"
+    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise use -g node@lts" "$((info_w - 26))" "Node LTS global"
+    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise use python@latest" "$((info_w - 26))" "Python no projeto"
+    printf "${DIM}|${NC}  %-24s %-*s ${DIM}|${NC}\n" "mise install" "$((info_w - 26))" "Instalar do .mise.toml"
+    echo -e "${DIM}+${full_line}+${NC}"
   fi
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # FOOTER
-  # ═══════════════════════════════════════════════════════════════════════════
   echo ""
   echo -e "  ${BLUE}lucassr.dev${NC} ${DIM}|${NC} ${GREEN}github.com/lucassr-dev/.config${NC}"
   echo ""
