@@ -16,7 +16,7 @@ get_version() {
     starship) starship --version 2>/dev/null | head -n 1 | awk '{print $2}' ;;
     mise) mise --version 2>/dev/null | head -n 1 | awk '{print $1}' ;;
     code) code --version 2>&1 | head -n 1 ;;
-    docker) docker --version 2>/dev/null | grep -oP 'Docker version \K[0-9.]+' || echo "" ;;
+    docker) docker --version 2>&1 | sed -n 's/.*Docker version \([0-9.]*\).*/\1/p' ;;
     lazygit) lazygit --version 2>/dev/null | grep -o "version='[^']*'" | sed "s/version='//;s/'//" | cut -d'+' -f1 ;;
     node) node --version 2>/dev/null | tr -d 'v' ;;
     python) python3 --version 2>/dev/null | awk '{print $2}' ;;
@@ -60,6 +60,20 @@ _fmt_tool() {
   local text="$icon $name"
   [[ -n "$version" ]] && text+=" $version"
   _truncate_text "$max_w" "$text"
+}
+
+# Helper: adiciona ferramenta à lista somente se versão foi obtida
+_add_tool_if_version() {
+  local -n arr="$1"
+  local icon="$2"
+  local name="$3"
+  local cmd="$4"
+  local width="$5"
+  local version
+  version=$(get_version "$cmd")
+  if [[ -n "$version" ]]; then
+    arr+=("$(_fmt_tool "$icon" "$name" "$version" "$width")")
+  fi
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -131,26 +145,26 @@ print_post_install_report() {
   # FERRAMENTAS | RUNTIMES
   # ═══════════════════════════════════════════════════════════════════════════
   local tools=()
-  has_cmd git && tools+=("$(_fmt_tool "📚" "Git" "$(get_version git)" $col_w_left)")
-  has_cmd zsh && tools+=("$(_fmt_tool "🐚" "Zsh" "$(get_version zsh)" $col_w_left)")
-  has_cmd fish && tools+=("$(_fmt_tool "🐟" "Fish" "$(get_version fish)" $col_w_left)")
-  has_cmd tmux && tools+=("$(_fmt_tool "📺" "Tmux" "$(get_version tmux)" $col_w_left)")
-  has_cmd nvim && tools+=("$(_fmt_tool "📝" "Neovim" "$(get_version nvim)" $col_w_left)")
-  has_cmd starship && tools+=("$(_fmt_tool "🚀" "Starship" "$(get_version starship)" $col_w_left)")
-  has_cmd code && tools+=("$(_fmt_tool "💻" "VS Code" "$(get_version code)" $col_w_left)")
-  has_cmd docker && tools+=("$(_fmt_tool "🐳" "Docker" "$(get_version docker)" $col_w_left)")
-  has_cmd mise && tools+=("$(_fmt_tool "📦" "Mise" "$(get_version mise)" $col_w_left)")
-  has_cmd lazygit && tools+=("$(_fmt_tool "🔀" "Lazygit" "$(get_version lazygit)" $col_w_left)")
+  _add_tool_if_version tools "📚" "Git" git "$col_w_left"
+  _add_tool_if_version tools "🐚" "Zsh" zsh "$col_w_left"
+  _add_tool_if_version tools "🐟" "Fish" fish "$col_w_left"
+  _add_tool_if_version tools "📺" "Tmux" tmux "$col_w_left"
+  _add_tool_if_version tools "📝" "Neovim" nvim "$col_w_left"
+  _add_tool_if_version tools "🚀" "Starship" starship "$col_w_left"
+  _add_tool_if_version tools "💻" "VS Code" code "$col_w_left"
+  _add_tool_if_version tools "🐳" "Docker" docker "$col_w_left"
+  _add_tool_if_version tools "📦" "Mise" mise "$col_w_left"
+  _add_tool_if_version tools "🔀" "Lazygit" lazygit "$col_w_left"
   [[ ${#tools[@]} -eq 0 ]] && tools+=("$(_truncate_text "$col_w_left" "(nenhuma)")")
 
   local runtimes=()
-  has_cmd node && runtimes+=("$(_fmt_tool "🟢" "Node" "$(get_version node)" $col_w_right)")
-  has_cmd python3 && runtimes+=("$(_fmt_tool "🐍" "Python" "$(get_version python)" $col_w_right)")
-  has_cmd php && runtimes+=("$(_fmt_tool "🐘" "PHP" "$(get_version php)" $col_w_right)")
-  has_cmd rustc && runtimes+=("$(_fmt_tool "🦀" "Rust" "$(get_version rust)" $col_w_right)")
-  has_cmd go && runtimes+=("$(_fmt_tool "🔷" "Go" "$(get_version go)" $col_w_right)")
-  has_cmd bun && runtimes+=("$(_fmt_tool "🧅" "Bun" "$(get_version bun)" $col_w_right)")
-  has_cmd deno && runtimes+=("$(_fmt_tool "🦕" "Deno" "$(get_version deno)" $col_w_right)")
+  _add_tool_if_version runtimes "🟢" "Node" node "$col_w_right"
+  _add_tool_if_version runtimes "🐍" "Python" python "$col_w_right"
+  _add_tool_if_version runtimes "🐘" "PHP" php "$col_w_right"
+  _add_tool_if_version runtimes "🦀" "Rust" rust "$col_w_right"
+  _add_tool_if_version runtimes "🔷" "Go" go "$col_w_right"
+  _add_tool_if_version runtimes "🧅" "Bun" bun "$col_w_right"
+  _add_tool_if_version runtimes "🦕" "Deno" deno "$col_w_right"
   [[ ${#runtimes[@]} -eq 0 ]] && runtimes+=("$(_truncate_text "$col_w_right" "(nenhum)")")
 
   echo -e "${CYAN}╭${left_line}┬${gap_line}┬${right_line}╮${NC}"
