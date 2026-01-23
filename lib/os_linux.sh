@@ -530,14 +530,6 @@ install_linux_selected_apps() {
     done
   fi
 }
-ensure_ghostty_linux() {
-  if has_cmd ghostty; then
-    return 0
-  fi
-
-  msg "  ℹ️  Ghostty para Linux: requer build manual ou binário pré-compilado"
-  msg "      Visite: https://github.com/mitchellh/ghostty"
-}
 
 install_wezterm_linux() {
   if has_cmd wezterm; then
