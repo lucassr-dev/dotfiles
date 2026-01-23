@@ -69,31 +69,31 @@ install_linux_packages() {
   linux_pkg_update_cache
   case "$LINUX_PKG_MANAGER" in
     apt-get)
-      if run_with_sudo apt-get install -qq -y "${packages[@]}" >/dev/null 2>&1; then
-        INSTALLED_PACKAGES+=("apt: ${packages[*]}")
-      else
+      if ! run_with_sudo apt-get install -y "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (apt) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("apt: ${packages[*]}")
       fi
       ;;
     dnf)
-      if run_with_sudo dnf install -q -y "${packages[@]}" >/dev/null 2>&1; then
-        INSTALLED_PACKAGES+=("dnf: ${packages[*]}")
-      else
+      if ! run_with_sudo dnf install -y "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (dnf) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("dnf: ${packages[*]}")
       fi
       ;;
     pacman)
-      if run_with_sudo pacman -Sy --noconfirm --needed "${packages[@]}" >/dev/null 2>&1; then
-        INSTALLED_PACKAGES+=("pacman: ${packages[*]}")
-      else
+      if ! run_with_sudo pacman -Sy --noconfirm --needed "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (pacman) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("pacman: ${packages[*]}")
       fi
       ;;
     zypper)
-      if run_with_sudo zypper install -y "${packages[@]}" >/dev/null 2>&1; then
-        INSTALLED_PACKAGES+=("zypper: ${packages[*]}")
-      else
+      if ! run_with_sudo zypper install -y "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (zypper) ${packages[*]}"
+      else
+        INSTALLED_PACKAGES+=("zypper: ${packages[*]}")
       fi
       ;;
   esac
