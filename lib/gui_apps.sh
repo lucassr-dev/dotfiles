@@ -315,7 +315,7 @@ ask_gui_apps() {
     local gui_summary="$gui_total apps selecionados"
     [[ $gui_total -eq 0 ]] && gui_summary="(nenhum)"
 
-    if confirm_selection "🖥️  GUI Apps" "$gui_summary"; then
+    if confirm_selection "🖥️  Apps GUI" "$gui_summary"; then
       break
     fi
   done
@@ -331,49 +331,49 @@ _show_gui_selection_summary() {
   if [[ ${#SELECTED_IDES[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_IDES[@]}"); items="${items%, }"
-    echo -e "  ⌨️  ${UI_CYAN}IDEs:${UI_RESET} $items"
+    echo -e "  ⌨️  ${UI_BOLD}${UI_YELLOW}IDEs:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_BROWSERS[@]}"); items="${items%, }"
-    echo -e "  🌐 ${UI_CYAN}Navegadores:${UI_RESET} $items"
+    echo -e "  🌐 ${UI_BOLD}${UI_YELLOW}Navegadores:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_DEV_TOOLS[@]}"); items="${items%, }"
-    echo -e "  💻 ${UI_CYAN}Dev Tools:${UI_RESET} $items"
+    echo -e "  💻 ${UI_BOLD}${UI_YELLOW}Ferr. Dev:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_DATABASES[@]}"); items="${items%, }"
-    echo -e "  🗄️  ${UI_CYAN}Bancos:${UI_RESET} $items"
+    echo -e "  🗄️  ${UI_BOLD}${UI_YELLOW}Bancos:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_PRODUCTIVITY[@]}"); items="${items%, }"
-    echo -e "  📝 ${UI_CYAN}Produtividade:${UI_RESET} $items"
+    echo -e "  📝 ${UI_BOLD}${UI_YELLOW}Produtividade:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_COMMUNICATION[@]}"); items="${items%, }"
-    echo -e "  💬 ${UI_CYAN}Comunicação:${UI_RESET} $items"
+    echo -e "  💬 ${UI_BOLD}${UI_YELLOW}Comunicação:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_MEDIA[@]}"); items="${items%, }"
-    echo -e "  🎵 ${UI_CYAN}Mídia:${UI_RESET} $items"
+    echo -e "  🎵 ${UI_BOLD}${UI_YELLOW}Mídia:${UI_RESET} $items"
   fi
 
   if [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]; then
     has_any=1
     local items; items=$(printf "%s, " "${SELECTED_UTILITIES[@]}"); items="${items%, }"
-    echo -e "  🛠️  ${UI_CYAN}Utilitários:${UI_RESET} $items"
+    echo -e "  🛠️  ${UI_BOLD}${UI_YELLOW}Utilitários:${UI_RESET} $items"
   fi
 
   if [[ $has_any -eq 0 ]]; then

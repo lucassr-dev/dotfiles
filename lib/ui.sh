@@ -5,16 +5,17 @@
 # CONFIGURAÇÃO E DETECÇÃO
 # ═══════════════════════════════════════════════════════════
 
-declare -g UI_CYAN='\033[0;36m'
-declare -g UI_GREEN='\033[0;32m'
-declare -g UI_YELLOW='\033[1;33m'
-declare -g UI_RED='\033[0;31m'
-declare -g UI_BLUE='\033[0;34m'
-declare -g UI_MAGENTA='\033[0;35m'
-declare -g UI_WHITE='\033[1;37m'
-declare -g UI_BOLD='\033[1m'
-declare -g UI_DIM='\033[2m'
-declare -g UI_RESET='\033[0m'
+# Paleta Catppuccin Mocha — pastéis vibrantes para fundo escuro.
+declare -g UI_CYAN=$'\033[38;2;137;220;235m'
+declare -g UI_GREEN=$'\033[38;2;166;227;161m'
+declare -g UI_YELLOW=$'\033[38;2;249;226;175m'
+declare -g UI_RED=$'\033[38;2;243;139;168m'
+declare -g UI_BLUE=$'\033[38;2;137;180;250m'
+declare -g UI_MAGENTA=$'\033[38;2;203;166;247m'
+declare -g UI_WHITE=$'\033[38;2;205;214;244m'
+declare -g UI_BOLD=$'\033[1m'
+declare -g UI_DIM=$'\033[2m'
+declare -g UI_RESET=$'\033[0m'
 
 declare -g UI_CHECK="✓"
 declare -g UI_UNCHECK="○"
@@ -583,7 +584,8 @@ ui_confirm() {
   fi
 
   local answer
-  read -r -p "  $question $prompt " answer
+  printf "  %s %b " "$question" "$prompt"
+  read -r answer
   answer="${answer:-$default}"
 
   case "$answer" in
@@ -656,4 +658,3 @@ ui_status_box() {
   echo -e "${color}${UI_BOX_V}${UI_RESET}  $message"
   echo -e "${color}${UI_BOX_BL}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_BR}${UI_RESET}"
 }
-

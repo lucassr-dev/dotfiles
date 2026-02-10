@@ -54,7 +54,7 @@ cli_tool_installed() {
 
 install_selected_cli_tools() {
   [[ ${#SELECTED_CLI_TOOLS[@]} -eq 0 ]] && return 0
-  msg "▶ Instalando CLI Tools selecionadas"
+  msg "▶ Instalando Ferramentas CLI selecionadas"
 
   case "$TARGET_OS" in
     linux|wsl2) install_cli_tools_linux ;;
@@ -89,7 +89,7 @@ install_cli_tools_linux() {
     else
       case "$tool" in
         tmux|jq|direnv) apt_batch+=("$tool") ;;
-        *) warn "CLI tool '$tool' não encontrada no catálogo" ;;
+        *) warn "Ferramenta CLI '$tool' não encontrada no catálogo" ;;
       esac
     fi
   done
@@ -126,7 +126,7 @@ install_cli_tools_macos() {
     if [[ -n "${APP_SOURCES[$tool]:-}" ]]; then
       install_with_priority "$tool" "$cmd_check" optional
     else
-      warn "CLI tool '$tool' não encontrada no catálogo"
+      warn "Ferramenta CLI '$tool' não encontrada no catálogo"
     fi
   done
 }
@@ -152,15 +152,15 @@ install_cli_tools_windows() {
     if [[ -n "${APP_SOURCES[$tool]:-}" ]]; then
       install_with_priority "$tool" "$cmd_check" optional
     else
-      warn "CLI tool '$tool' não encontrada no catálogo"
+      warn "Ferramenta CLI '$tool' não encontrada no catálogo"
     fi
   done
 }
 
 install_selected_ia_tools() {
   [[ ${#SELECTED_IA_TOOLS[@]} -eq 0 ]] && return 0
-  msg "▶ Instalando IA Tools selecionadas"
-  print_selection_summary "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"
+  msg "▶ Instalando Ferramentas IA selecionadas"
+  print_selection_summary "🤖 Ferramentas IA" "${SELECTED_IA_TOOLS[@]}"
 
   local tool
   for tool in "${SELECTED_IA_TOOLS[@]}"; do

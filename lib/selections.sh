@@ -380,13 +380,13 @@ ask_cli_tools() {
   while true; do
     SELECTED_CLI_TOOLS=()
     clear_screen
-    show_section_header "🛠️  CLI TOOLS - Ferramentas de Linha de Comando"
+    show_section_header "🛠️  FERRAMENTAS CLI - Linha de Comando"
 
     msg "Ferramentas modernas para melhorar sua experiência na linha de comando."
     msg ""
 
     local selected_desc=()
-    select_multiple_items "🛠️  Selecione as CLI Tools" selected_desc "${tools_with_desc[@]}"
+    select_multiple_items "🛠️  Selecione as Ferramentas CLI" selected_desc "${tools_with_desc[@]}"
 
     for item in "${selected_desc[@]}"; do
       local tool_name
@@ -394,7 +394,7 @@ ask_cli_tools() {
       SELECTED_CLI_TOOLS+=("$tool_name")
     done
 
-    if confirm_selection "🛠️  CLI Tools" "${SELECTED_CLI_TOOLS[@]}"; then
+    if confirm_selection "🛠️  Ferramentas CLI" "${SELECTED_CLI_TOOLS[@]}"; then
       break
     fi
   done
@@ -422,7 +422,7 @@ ask_ia_tools() {
   while true; do
     SELECTED_IA_TOOLS=()
     clear_screen
-    show_section_header "🤖 IA TOOLS - Ferramentas de Desenvolvimento com IA"
+    show_section_header "🤖 FERRAMENTAS IA - Desenvolvimento Assistido"
 
     msg "Ferramentas que usam IA para auxiliar no desenvolvimento."
     msg ""
@@ -431,7 +431,7 @@ ask_ia_tools() {
     msg ""
 
     local selected_desc=()
-    select_multiple_items "🤖 Selecione as IA Tools" selected_desc "${tools_with_desc[@]}"
+    select_multiple_items "🤖 Selecione as Ferramentas IA" selected_desc "${tools_with_desc[@]}"
 
     for item in "${selected_desc[@]}"; do
       local tool_name
@@ -439,7 +439,7 @@ ask_ia_tools() {
       SELECTED_IA_TOOLS+=("$tool_name")
     done
 
-    if confirm_selection "🤖 IA Tools" "${SELECTED_IA_TOOLS[@]}"; then
+    if confirm_selection "🤖 Ferramentas IA" "${SELECTED_IA_TOOLS[@]}"; then
       break
     fi
   done

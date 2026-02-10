@@ -756,7 +756,7 @@ ask_fish_plugins() {
     done
 
     if [[ $has_zoxide -eq 1 ]] || [[ $has_fzf -eq 1 ]]; then
-      msg "⚠️  AVISO: Você já selecionou ferramentas similares em CLI Tools:"
+      msg "⚠️  AVISO: Você já selecionou ferramentas similares em Ferramentas CLI:"
       [[ $has_zoxide -eq 1 ]] && msg "  • zoxide já foi selecionado (similar ao plugin 'z')"
       [[ $has_fzf -eq 1 ]] && msg "  • fzf já foi selecionado (integração via plugin 'fzf.fish')"
       msg ""
