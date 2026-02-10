@@ -181,6 +181,7 @@ show_progress_bar() {
 INSTALL_STEP=0
 INSTALL_TOTAL_STEPS=0
 INSTALL_START_TIME=0
+STEP_BEGIN_TIME=0
 
 _format_elapsed() {
   local elapsed="$1"
@@ -204,25 +205,26 @@ step_begin() {
   local label="$1"
   local detail="${2:-}"
   ((INSTALL_STEP++))
-  local elapsed=$((SECONDS - INSTALL_START_TIME))
-  local time_str=""
-  if [[ $elapsed -gt 0 ]]; then
-    time_str=" ($(_format_elapsed "$elapsed"))"
-  fi
+  STEP_BEGIN_TIME=$SECONDS
 
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
-  local box_w=$((term_w > 60 ? 56 : term_w - 4))
+  local box_w=$((term_w > 76 ? 70 : term_w - 6))
+  [[ $box_w -lt 40 ]] && box_w=40
+
+  local pct=$((INSTALL_STEP * 100 / INSTALL_TOTAL_STEPS))
+  local pct_str="${pct}%"
+
   local header="[${INSTALL_STEP}/${INSTALL_TOTAL_STEPS}] ${label}"
   local header_len=${#header}
-  local time_len=${#time_str}
-  local fill=$((box_w - header_len - time_len - 4))
+  local pct_len=${#pct_str}
+  local fill=$((box_w - header_len - pct_len - 6))
   [[ $fill -lt 1 ]] && fill=1
   local h_fill=""
   for ((i=0; i<fill; i++)); do h_fill+="$UI_BOX_H"; done
 
   msg ""
-  msg "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H} ${UI_BOLD}${UI_WHITE}${header}${UI_RESET}${UI_DIM}${time_str}${UI_RESET} ${UI_CYAN}${h_fill}${UI_BOX_TR}${UI_RESET}"
+  msg "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H} ${UI_BOLD}${UI_WHITE}${header}${UI_RESET} ${UI_CYAN}${h_fill} ${UI_DIM}${pct_str}${UI_RESET} ${UI_CYAN}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
   if [[ -n "$detail" ]]; then
     msg "${UI_CYAN}${UI_BOX_V}${UI_RESET}  ${UI_DIM}${detail}${UI_RESET}"
   fi
@@ -232,18 +234,35 @@ step_end() {
   local status="${1:-success}"
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
-  local box_w=$((term_w > 60 ? 56 : term_w - 4))
-  local status_text fill_len h_fill
+  local box_w=$((term_w > 76 ? 70 : term_w - 6))
+  [[ $box_w -lt 40 ]] && box_w=40
+
+  local status_text status_vis
   case "$status" in
-    success) status_text="${UI_GREEN}${UI_CHECK} Concluido${UI_RESET}" ;;
-    warning) status_text="${UI_YELLOW}⚠ Com avisos${UI_RESET}" ;;
-    error)   status_text="${UI_RED}✗ Com erros${UI_RESET}" ;;
+    success) status_text="${UI_GREEN}${UI_CHECK} Concluido${UI_RESET}"; status_vis=11 ;;
+    warning) status_text="${UI_YELLOW}⚠ Com avisos${UI_RESET}"; status_vis=12 ;;
+    error)   status_text="${UI_RED}✗ Com erros${UI_RESET}"; status_vis=11 ;;
   esac
-  fill_len=$((box_w - 16))
+
+  local time_str="" time_vis=0
+  if [[ "${STEP_BEGIN_TIME:-0}" -gt 0 ]]; then
+    local step_elapsed=$((SECONDS - STEP_BEGIN_TIME))
+    if [[ $step_elapsed -gt 0 ]]; then
+      time_str="$(_format_elapsed "$step_elapsed")"
+      time_vis=$((${#time_str} + 4))
+    fi
+  fi
+
+  local fill_len=$((box_w - status_vis - time_vis - 5))
   [[ $fill_len -lt 1 ]] && fill_len=1
-  h_fill=""
+  local h_fill=""
   for ((i=0; i<fill_len; i++)); do h_fill+="$UI_BOX_H"; done
-  msg "${UI_CYAN}${UI_BOX_BL}${UI_BOX_H} ${status_text} ${UI_CYAN}${h_fill}${UI_BOX_BR}${UI_RESET}"
+
+  if [[ -n "$time_str" ]]; then
+    msg "${UI_CYAN}${UI_BOX_BL}${UI_BOX_H} ${status_text} ${UI_CYAN}${h_fill} ${UI_DIM}${time_str}${UI_RESET} ${UI_CYAN}${UI_BOX_H}${UI_BOX_BR}${UI_RESET}"
+  else
+    msg "${UI_CYAN}${UI_BOX_BL}${UI_BOX_H} ${status_text} ${UI_CYAN}${h_fill}${UI_BOX_BR}${UI_RESET}"
+  fi
 }
 
 # ═══════════════════════════════════════════════════════════

@@ -13,13 +13,9 @@ _visible_len() {
   local text="$1"
   local clean
   clean=$(printf '%s' "$text" | _strip_ansi)
-  local width
-  width=$(printf '%s' "$clean" | wc -L 2>/dev/null) || width=${#clean}
-  local emoji_adjust=0
-  if [[ "$clean" =~ [🚀📦📚🐚🐟📺📝💻🐳🔀🟢🐍🐘🦀🔷🧅🦕⚡💡🛠️📋🔧💾🐧👤🖥️📂⌨️🌐💬📝🗄️🎵🔒✨❌⚠️✅] ]]; then
-    emoji_adjust=1
-  fi
-  echo $((width + emoji_adjust))
+  local display_w
+  display_w=$(printf '%s' "$clean" | wc -L 2>/dev/null) || display_w=${#clean}
+  echo "$display_w"
 }
 
 _wrap_text() {
