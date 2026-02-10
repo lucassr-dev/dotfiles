@@ -90,7 +90,7 @@ print_post_install_report() {
   local inner_w=$((total_w - 2))
   local cell_w=$((col_w - 2))
 
-  [[ -t 1 ]] && clear
+  clear_screen
 
   echo ""
 

@@ -3072,7 +3072,6 @@ main() {
   TARGET_OS="$(detect_os)"
 
   INSTALL_LOG="$HOME/.dotfiles-install-$(date +%Y%m%d-%H%M%S).log"
-  exec > >(tee -a "$INSTALL_LOG") 2>&1
 
   if [[ "$MODE" == "export" ]]; then
     export_configs
@@ -3155,6 +3154,7 @@ main() {
   fi
 
   clear_screen
+  exec > >(tee -a "$INSTALL_LOG") 2>&1
   step_init 12
 
   local _shell_desc=""

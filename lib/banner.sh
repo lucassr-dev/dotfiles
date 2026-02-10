@@ -18,7 +18,9 @@ declare -g BANNER_RESET="${UI_RESET:-\033[0m}"
 # FUNÇÕES UTILITÁRIAS
 # ══════════════════════════════════════════════════════════════════════════════
 clear_screen() {
-  [[ -t 1 ]] && printf '\033[2J\033[H\033[3J'
+  if [[ "${IS_TTY:-0}" -eq 1 ]]; then
+    printf '\033[2J\033[H\033[3J' > /dev/tty 2>/dev/null || true
+  fi
 }
 
 get_term_width() {
