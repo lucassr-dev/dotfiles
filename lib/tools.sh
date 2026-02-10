@@ -69,31 +69,43 @@ install_cli_tools_linux() {
   ensure_rust_cargo
   has_cmd cargo && ensure_cargo_binstall
 
+  local apt_batch=()
+  local individual_tools=()
   local tool cmd_check
-  for tool in "${SELECTED_CLI_TOOLS[@]}"; do
-    case "$tool" in
-      ripgrep) cmd_check="rg" ;;
-      tealdeer) cmd_check="tldr" ;;
-      *) cmd_check="$tool" ;;
-    esac
 
+  for tool in "${SELECTED_CLI_TOOLS[@]}"; do
     if cli_tool_installed "$tool"; then
       msg "  ✅ $tool já instalado"
       continue
     fi
 
     if [[ -n "${APP_SOURCES[$tool]:-}" ]]; then
-      install_with_priority "$tool" "$cmd_check" optional
+      local best
+      best="$(_get_best_install_method "$tool")"
+      case "$best" in
+        apt:*) apt_batch+=("${best#apt:}") ;;
+        *) individual_tools+=("$tool") ;;
+      esac
     else
       case "$tool" in
-        tmux|jq|direnv)
-          install_linux_packages optional "$tool"
-          ;;
-        *)
-          warn "CLI tool '$tool' não encontrada no catálogo"
-          ;;
+        tmux|jq|direnv) apt_batch+=("$tool") ;;
+        *) warn "CLI tool '$tool' não encontrada no catálogo" ;;
       esac
     fi
+  done
+
+  if [[ ${#apt_batch[@]} -gt 0 ]]; then
+    msg "  📦 Batch apt: ${#apt_batch[@]} pacotes (${apt_batch[*]})"
+    install_linux_packages optional "${apt_batch[@]}"
+  fi
+
+  for tool in "${individual_tools[@]}"; do
+    case "$tool" in
+      ripgrep) cmd_check="rg" ;;
+      tealdeer) cmd_check="tldr" ;;
+      *) cmd_check="$tool" ;;
+    esac
+    install_with_priority "$tool" "$cmd_check" optional
   done
 }
 

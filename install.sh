@@ -25,6 +25,9 @@ LINUX_PKG_UPDATED=0
 MODE="install"
 FAIL_FAST="${FAIL_FAST:-0}"
 DRY_RUN="${DRY_RUN:-0}"
+SCRIPT_VERSION="1.0.0"
+VERBOSE="${VERBOSE:-0}"
+QUIET="${QUIET:-0}"
 INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_FISH="${INSTALL_FISH:-1}"
 INSTALL_NUSHELL="${INSTALL_NUSHELL:-0}"
@@ -98,14 +101,57 @@ trap 'echo ""; echo "⚠️  Interrupção detectada (Ctrl+C)"; exit 130' INT TE
 
 source "$SCRIPT_DIR/lib/checkpoint.sh"
 
+show_version() {
+  echo "dotfiles-installer v${SCRIPT_VERSION}"
+}
+
+show_usage() {
+  local c="" b="" r=""
+  if [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]]; then
+    c='\033[0;36m' b='\033[1m' r='\033[0m'
+  fi
+  echo -e "${b}dotfiles-installer${r} v${SCRIPT_VERSION}"
+  echo ""
+  echo -e "${b}Uso:${r} bash install.sh [COMANDO] [OPCOES]"
+  echo ""
+  echo -e "${b}Comandos:${r}"
+  echo -e "  ${c}install${r}     Instalar dotfiles no sistema (padrao)"
+  echo -e "  ${c}export${r}      Exportar configs do sistema para o repo"
+  echo -e "  ${c}sync${r}        Sincronizacao bidirecional"
+  echo ""
+  echo -e "${b}Opcoes:${r}"
+  echo -e "  ${c}-h${r}, ${c}--help${r}          Mostrar esta ajuda"
+  echo -e "  ${c}-v${r}, ${c}--version${r}       Mostrar versao"
+  echo -e "  ${c}-n${r}, ${c}--dry-run${r}       Simular sem alterar o sistema"
+  echo -e "  ${c}-q${r}, ${c}--quiet${r}         Saida reduzida"
+  echo -e "  ${c}--verbose${r}           Saida detalhada"
+  echo -e "  ${c}--no-color${r}          Desativar cores (equivale a NO_COLOR=1)"
+  echo ""
+  echo -e "${b}Variaveis de ambiente:${r}"
+  echo -e "  DRY_RUN=1           Mesmo que --dry-run"
+  echo -e "  NO_COLOR=1          Mesmo que --no-color"
+  echo -e "  FORCE_UI_MODE=bash  Forcar modo de UI (fzf/gum/bash)"
+  echo ""
+  echo -e "${b}Exemplos:${r}"
+  echo -e "  bash install.sh                    Instalacao interativa"
+  echo -e "  bash install.sh --dry-run          Simular instalacao"
+  echo -e "  bash install.sh export             Exportar configs atuais"
+  echo -e "  bash install.sh sync --verbose     Sync com saida detalhada"
+}
+
 for arg in "$@"; do
   case "$arg" in
-    install|export|sync)
-      MODE="$arg"
-      ;;
+    install|export|sync) MODE="$arg" ;;
+    -h|--help) show_usage; exit 0 ;;
+    -v|--version) show_version; exit 0 ;;
+    -n|--dry-run) DRY_RUN=1 ;;
+    -q|--quiet) QUIET=1 ;;
+    --verbose) VERBOSE=1 ;;
+    --no-color) export NO_COLOR=1 ;;
     *)
-      echo "❌ Argumento desconhecido: $arg" >&2
-      echo "Uso: bash install.sh [install|export|sync]" >&2
+      echo "Argumento desconhecido: $arg" >&2
+      echo "" >&2
+      show_usage >&2
       exit 1
       ;;
   esac
@@ -233,15 +279,18 @@ ensure_flatpak_app() {
 record_failure() {
   local level="$1"
   local message="$2"
+  local fix_hint="${3:-}"
   if [[ "$level" == "critical" ]]; then
     CRITICAL_ERRORS+=("$message")
     warn "❌ $message"
+    [[ -n "$fix_hint" ]] && warn "💡 $fix_hint"
     if [[ "$FAIL_FAST" -eq 1 ]]; then
       print_final_summary 1
     fi
   else
     OPTIONAL_ERRORS+=("$message")
     warn "$message"
+    [[ -n "$fix_hint" ]] && warn "💡 $fix_hint"
   fi
 }
 
@@ -686,6 +735,7 @@ INSTALL_BREWFILE=true
 [[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
 
 [[ -f "$SCRIPT_DIR/lib/ui.sh" ]] && source "$SCRIPT_DIR/lib/ui.sh"
+detect_terminal_capabilities
 detect_ui_mode
 [[ -f "$SCRIPT_DIR/lib/banner.sh" ]] && source "$SCRIPT_DIR/lib/banner.sh"
 [[ -f "$SCRIPT_DIR/lib/selections.sh" ]] && source "$SCRIPT_DIR/lib/selections.sh"
@@ -1531,6 +1581,11 @@ print_final_summary() {
 
     msg ""
   fi
+
+  if [[ -n "${INSTALL_LOG:-}" ]] && [[ -f "${INSTALL_LOG:-}" ]]; then
+    msg "  📄 Log completo: ${INSTALL_LOG}"
+  fi
+
   exit "$exit_code"
 }
 
@@ -3016,6 +3071,9 @@ main() {
 
   TARGET_OS="$(detect_os)"
 
+  INSTALL_LOG="$HOME/.dotfiles-install-$(date +%Y%m%d-%H%M%S).log"
+  exec > >(tee -a "$INSTALL_LOG") 2>&1
+
   if [[ "$MODE" == "export" ]]; then
     export_configs
     exit 0
@@ -3097,24 +3155,64 @@ main() {
   fi
 
   clear_screen
-  install_selected_shells
-  install_selected_cli_tools
-  install_selected_gui_apps
-  install_selected_ia_tools
-  install_vscode_extensions
-  apply_shared_configs
-  install_git_configuration
+  step_init 12
 
+  local _shell_desc=""
+  [[ ${INSTALL_ZSH:-0} -eq 1 ]] && _shell_desc+="Zsh "
+  [[ ${INSTALL_FISH:-0} -eq 1 ]] && _shell_desc+="Fish "
+  [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && _shell_desc+="Nushell "
+  step_begin "Shells" "${_shell_desc:+${_shell_desc% }}"
+  install_selected_shells
+  step_end
+
+  step_begin "CLI Tools" "${#SELECTED_CLI_TOOLS[@]} ferramentas selecionadas"
+  install_selected_cli_tools
+  step_end
+
+  step_begin "GUI Apps"
+  install_selected_gui_apps
+  step_end
+
+  step_begin "IA Tools" "${#SELECTED_IA_TOOLS[@]} ferramentas selecionadas"
+  install_selected_ia_tools
+  step_end
+
+  step_begin "VS Code Extensions"
+  install_vscode_extensions
+  step_end
+
+  step_begin "Configs Compartilhados"
+  apply_shared_configs
+  step_end
+
+  step_begin "Git" "${GIT_CONFIGURE:+configuracao interativa}"
+  install_git_configuration
+  step_end
+
+  step_begin "Configs de Plataforma" "${TARGET_OS}"
   case "$TARGET_OS" in
     linux|wsl2) apply_linux_configs ;;
     macos) apply_macos_configs ;;
     windows) apply_windows_configs ;;
   esac
+  step_end
 
+  step_begin "Runtimes" "${#SELECTED_RUNTIMES[@]} runtimes selecionados"
   install_selected_runtimes
+  step_end
+
+  step_begin "Editores"
   install_selected_editors
+  step_end
+
+  step_begin "Nerd Fonts" "${#SELECTED_NERD_FONTS[@]} fontes selecionadas"
   install_nerd_fonts
+  step_end
+
+  step_begin "Temas"
   install_selected_themes
+  step_end
+
   clear_screen
 
   if [[ ${#CRITICAL_ERRORS[@]} -eq 0 ]]; then

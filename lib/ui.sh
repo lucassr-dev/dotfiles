@@ -26,6 +26,71 @@ declare -g UI_BOX_TR="╮"
 declare -g UI_BOX_BL="╰"
 declare -g UI_BOX_BR="╯"
 
+HAS_COLOR=1
+HAS_UNICODE=1
+IS_TTY=1
+IS_CI=0
+
+detect_terminal_capabilities() {
+  IS_TTY=0
+  [[ -t 1 ]] && IS_TTY=1
+
+  IS_CI=0
+  if [[ -n "${CI:-}" ]] || [[ -n "${GITHUB_ACTIONS:-}" ]] || [[ -n "${GITLAB_CI:-}" ]] || [[ -n "${JENKINS_URL:-}" ]] || [[ -n "${TRAVIS:-}" ]]; then
+    IS_CI=1
+  fi
+
+  HAS_COLOR=1
+  if [[ -n "${NO_COLOR:-}" ]]; then
+    HAS_COLOR=0
+  elif [[ "$IS_TTY" -eq 0 ]]; then
+    HAS_COLOR=0
+  elif [[ "${TERM:-}" == "dumb" ]]; then
+    HAS_COLOR=0
+  else
+    local num_colors=0
+    num_colors=$(tput colors 2>/dev/null || echo 0)
+    [[ "$num_colors" -lt 8 ]] && HAS_COLOR=0
+  fi
+
+  HAS_UNICODE=1
+  local lang_val="${LANG:-}${LC_ALL:-}${LC_CTYPE:-}"
+  case "$lang_val" in
+    *UTF-8*|*utf-8*|*utf8*|*UTF8*) ;;
+    *)
+      if [[ "${TERM:-}" == "dumb" ]] || [[ "${TERM:-}" == "linux" ]]; then
+        HAS_UNICODE=0
+      fi
+      ;;
+  esac
+
+  if [[ "$HAS_COLOR" -eq 0 ]]; then
+    UI_CYAN=""
+    UI_GREEN=""
+    UI_YELLOW=""
+    UI_RED=""
+    UI_BLUE=""
+    UI_MAGENTA=""
+    UI_WHITE=""
+    UI_BOLD=""
+    UI_DIM=""
+    UI_RESET=""
+  fi
+
+  if [[ "$HAS_UNICODE" -eq 0 ]]; then
+    UI_CHECK="+"
+    UI_UNCHECK="-"
+    UI_ARROW=">"
+    UI_BOX_H="-"
+    UI_BOX_V="|"
+    UI_BOX_TL="+"
+    UI_BOX_TR="+"
+    UI_BOX_BL="+"
+    UI_BOX_BR="+"
+    SPINNER_FRAMES=("-" "\\" "|" "/")
+  fi
+}
+
 detect_ui_mode() {
   [[ -n "${UI_MODE:-}" ]] && return 0
 
@@ -107,6 +172,78 @@ show_progress_bar() {
     "$UI_ARROW" "$bar" "$percent" "$label"
 
   [[ $current -eq $total ]] && echo ""
+}
+
+# ═══════════════════════════════════════════════════════════
+# STEP COUNTER (ETAPAS DE INSTALAÇÃO)
+# ═══════════════════════════════════════════════════════════
+
+INSTALL_STEP=0
+INSTALL_TOTAL_STEPS=0
+INSTALL_START_TIME=0
+
+_format_elapsed() {
+  local elapsed="$1"
+  local mins=$((elapsed / 60))
+  local secs=$((elapsed % 60))
+  if [[ $mins -gt 0 ]]; then
+    printf '%dm %ds' "$mins" "$secs"
+  else
+    printf '%ds' "$secs"
+  fi
+}
+
+step_init() {
+  local total="$1"
+  INSTALL_TOTAL_STEPS=$total
+  INSTALL_STEP=0
+  INSTALL_START_TIME=$SECONDS
+}
+
+step_begin() {
+  local label="$1"
+  local detail="${2:-}"
+  ((INSTALL_STEP++))
+  local elapsed=$((SECONDS - INSTALL_START_TIME))
+  local time_str=""
+  if [[ $elapsed -gt 0 ]]; then
+    time_str=" ($(_format_elapsed "$elapsed"))"
+  fi
+
+  local term_w
+  term_w=$(tput cols 2>/dev/null || echo 80)
+  local box_w=$((term_w > 60 ? 56 : term_w - 4))
+  local header="[${INSTALL_STEP}/${INSTALL_TOTAL_STEPS}] ${label}"
+  local header_len=${#header}
+  local time_len=${#time_str}
+  local fill=$((box_w - header_len - time_len - 4))
+  [[ $fill -lt 1 ]] && fill=1
+  local h_fill=""
+  for ((i=0; i<fill; i++)); do h_fill+="$UI_BOX_H"; done
+
+  msg ""
+  msg "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H} ${UI_BOLD}${UI_WHITE}${header}${UI_RESET}${UI_DIM}${time_str}${UI_RESET} ${UI_CYAN}${h_fill}${UI_BOX_TR}${UI_RESET}"
+  if [[ -n "$detail" ]]; then
+    msg "${UI_CYAN}${UI_BOX_V}${UI_RESET}  ${UI_DIM}${detail}${UI_RESET}"
+  fi
+}
+
+step_end() {
+  local status="${1:-success}"
+  local term_w
+  term_w=$(tput cols 2>/dev/null || echo 80)
+  local box_w=$((term_w > 60 ? 56 : term_w - 4))
+  local status_text fill_len h_fill
+  case "$status" in
+    success) status_text="${UI_GREEN}${UI_CHECK} Concluido${UI_RESET}" ;;
+    warning) status_text="${UI_YELLOW}⚠ Com avisos${UI_RESET}" ;;
+    error)   status_text="${UI_RED}✗ Com erros${UI_RESET}" ;;
+  esac
+  fill_len=$((box_w - 16))
+  [[ $fill_len -lt 1 ]] && fill_len=1
+  h_fill=""
+  for ((i=0; i<fill_len; i++)); do h_fill+="$UI_BOX_H"; done
+  msg "${UI_CYAN}${UI_BOX_BL}${UI_BOX_H} ${status_text} ${UI_CYAN}${h_fill}${UI_BOX_BR}${UI_RESET}"
 }
 
 # ═══════════════════════════════════════════════════════════

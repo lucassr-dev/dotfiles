@@ -351,36 +351,69 @@ install_nerd_fonts() {
   fi
 
   if ! has_cmd curl; then
-    record_failure "critical" "curl não encontrado - necessário para download de fontes"
+    record_failure "critical" "curl não encontrado - necessário para download de fontes" "Instale: sudo apt-get install -y curl"
     return 1
   fi
 
   if ! has_cmd unzip; then
-    record_failure "critical" "unzip não encontrado - necessário para extrair fontes"
+    record_failure "critical" "unzip não encontrado - necessário para extrair fontes" "Instale: sudo apt-get install -y unzip"
     return 1
   fi
 
   ensure_fonts_dir || return 1
 
-  local installed_count=0
-  local failed_count=0
-  local current=0
+  local MAX_PARALLEL=${MAX_PARALLEL_DOWNLOADS:-4}
+  local results_file="/tmp/dotfiles-fonts-results-$$"
+  > "$results_file"
 
-  for font in "${SELECTED_NERD_FONTS[@]}"; do
-    ((current++))
-    msg "  [$current/$total_fonts] Processando $font..."
-
+  _download_font_job() {
+    local font="$1"
+    local rfile="$2"
     if download_and_install_font "$font"; then
-      ((installed_count++))
+      echo "OK:$font" >> "$rfile"
     elif download_and_install_font "$font"; then
-      msg "  ✅ Sucesso na 2ª tentativa para $font"
-      ((installed_count++))
+      echo "OK:$font" >> "$rfile"
     else
-      ((failed_count++))
-      msg "  ❌ Falha ao instalar $font após 2 tentativas"
-      record_failure "optional" "Falha ao instalar fonte: $font"
+      echo "FAIL:$font" >> "$rfile"
+    fi
+  }
+
+  msg "  ⚡ Baixando $total_fonts fontes ($MAX_PARALLEL simultâneas)..."
+  msg ""
+
+  local -a pids=()
+  for font in "${SELECTED_NERD_FONTS[@]}"; do
+    _download_font_job "$font" "$results_file" &
+    pids+=($!)
+
+    if [[ ${#pids[@]} -ge $MAX_PARALLEL ]]; then
+      wait "${pids[0]}" 2>/dev/null || true
+      pids=("${pids[@]:1}")
     fi
   done
+
+  for pid in "${pids[@]}"; do
+    wait "$pid" 2>/dev/null || true
+  done
+
+  local installed_count=0
+  local failed_count=0
+  while IFS= read -r line; do
+    case "$line" in
+      OK:*)
+        ((installed_count++))
+        local fname="${line#OK:}"
+        INSTALLED_MISC+=("nerd-font: $fname")
+        ;;
+      FAIL:*)
+        ((failed_count++))
+        local fname="${line#FAIL:}"
+        record_failure "optional" "Falha ao instalar fonte: $fname"
+        ;;
+    esac
+  done < "$results_file"
+
+  rm -f "$results_file" 2>/dev/null
 
   msg ""
   msg "  📊 Resumo da instalação:"

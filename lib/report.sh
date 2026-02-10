@@ -112,6 +112,19 @@ print_post_install_report() {
   fi
   echo -e "${CYAN}╰$(_hline "$inner_w")╯${NC}"
 
+  local pkg_count=${#INSTALLED_PACKAGES[@]}
+  local misc_count=${#INSTALLED_MISC[@]}
+  local total_installed=$((pkg_count + misc_count))
+  local critical_count=${#CRITICAL_ERRORS[@]}
+  local optional_count=${#OPTIONAL_ERRORS[@]}
+  local total_errors=$((critical_count + optional_count))
+  local configs_count=${#COPIED_PATHS[@]}
+
+  echo ""
+  echo -e "${CYAN}╭─ ${BOLD}📊 RESUMO${NC}${CYAN} $(_hline $((inner_w - 11)))╮${NC}"
+  printf "${CYAN}│${NC} ${GREEN}✅ Instalados: %-5d${NC} ${YELLOW}⚠ Falhas: %-5d${NC} ${BLUE}📁 Configs: %-5d${NC}${CYAN}│${NC}\n" "$total_installed" "$total_errors" "$configs_count"
+  echo -e "${CYAN}╰$(_hline "$inner_w")╯${NC}"
+
   echo ""
 
   local tools=()
@@ -204,6 +217,18 @@ print_post_install_report() {
     printf "${DIM}│${NC}  ${WHITE}%-${cmd_w}s${NC}${DIM}%-${desc_w}s${NC} ${DIM}│${NC}\n" "mise use python@latest" "Python no projeto"
     printf "${DIM}│${NC}  ${WHITE}%-${cmd_w}s${NC}${DIM}%-${desc_w}s${NC} ${DIM}│${NC}\n" "mise install" "Instalar do .mise.toml"
     echo -e "${DIM}╰$(_hline "$inner_w")╯${NC}"
+  fi
+
+  if [[ -n "${INSTALL_START_TIME:-}" ]] && [[ "${INSTALL_START_TIME:-0}" -gt 0 ]]; then
+    local total_elapsed=$((SECONDS - INSTALL_START_TIME))
+    local total_time
+    total_time=$(_format_elapsed "$total_elapsed")
+    echo ""
+    echo -e "  ${DIM}⏱  Tempo total: ${WHITE}${total_time}${NC}"
+  fi
+
+  if [[ -n "${INSTALL_LOG:-}" ]] && [[ -f "${INSTALL_LOG:-}" ]]; then
+    echo -e "  ${DIM}📄 Log: ${WHITE}${INSTALL_LOG}${NC}"
   fi
 
   echo ""

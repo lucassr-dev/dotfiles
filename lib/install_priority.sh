@@ -546,6 +546,37 @@ _install_via_choco() {
 # Função principal: instalar app usando prioridade configurada
 # ═══════════════════════════════════════════════════════════════════════════════
 
+_get_best_install_method() {
+  local app="$1"
+  local sources="${APP_SOURCES[$app]:-}"
+  [[ -z "$sources" ]] && return
+
+  local priority
+  priority="$(get_install_priority)"
+  IFS=',' read -ra priority_list <<< "$priority"
+
+  for method in "${priority_list[@]}"; do
+    IFS=',' read -ra source_list <<< "$sources"
+    for source_entry in "${source_list[@]}"; do
+      local source_method="${source_entry%%:*}"
+      local source_pkg="${source_entry#*:}"
+      if [[ "$source_method" == "$method" ]]; then
+        case "$method" in
+          apt)     [[ "${LINUX_PKG_MANAGER:-}" == "apt-get" ]] && echo "apt:$source_pkg" && return ;;
+          cargo)   has_cmd cargo && echo "cargo:$source_pkg" && return ;;
+          snap)    has_cmd snap && echo "snap:$source_pkg" && return ;;
+          flatpak) has_cmd flatpak && echo "flatpak:$source_pkg" && return ;;
+          brew)    has_cmd brew && echo "brew:$source_pkg" && return ;;
+          winget)  has_cmd winget && echo "winget:$source_pkg" && return ;;
+          scoop)   has_cmd scoop && echo "scoop:$source_pkg" && return ;;
+          choco)   has_cmd choco && echo "choco:$source_pkg" && return ;;
+          official) echo "official:$source_pkg" && return ;;
+        esac
+      fi
+    done
+  done
+}
+
 install_with_priority() {
   local app="$1"
   local cmd_check="${2:-$app}"
@@ -630,7 +661,7 @@ install_with_priority() {
     esac
   done
 
-  record_failure "$level" "Nenhum método de instalação funcionou para $app"
+  record_failure "$level" "Nenhum método de instalação funcionou para $app" "Verifique se apt/snap/cargo estão disponíveis, ou instale manualmente"
   return 1
 }
 
