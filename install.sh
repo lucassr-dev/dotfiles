@@ -2,6 +2,14 @@
 set -uo pipefail
 # shellcheck disable=SC2034,SC2329,SC1091
 
+if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+  echo "bash 4+ necessario. Versao atual: ${BASH_VERSION}" >&2
+  if [[ "$OSTYPE" == darwin* ]]; then
+    echo "macOS: instale via 'brew install bash' e use '/opt/homebrew/bin/bash install.sh'" >&2
+  fi
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_SHARED="$SCRIPT_DIR/shared"
 CONFIG_LINUX="$SCRIPT_DIR/linux"
@@ -830,10 +838,24 @@ INSTALL_BREWFILE=true
 [[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
 
 [[ -f "$SCRIPT_DIR/lib/ui.sh" ]] && source "$SCRIPT_DIR/lib/ui.sh"
+detect_ui_mode
 [[ -f "$SCRIPT_DIR/lib/banner.sh" ]] && source "$SCRIPT_DIR/lib/banner.sh"
 [[ -f "$SCRIPT_DIR/lib/selections.sh" ]] && source "$SCRIPT_DIR/lib/selections.sh"
 [[ -f "$SCRIPT_DIR/lib/nerd_fonts.sh" ]] && source "$SCRIPT_DIR/lib/nerd_fonts.sh"
 [[ -f "$SCRIPT_DIR/lib/themes.sh" ]] && source "$SCRIPT_DIR/lib/themes.sh"
+
+declare -A APPS_PROCESSED
+
+mark_app_processed() {
+  local app="$1"
+  APPS_PROCESSED["$app"]=1
+}
+
+is_app_processed() {
+  local app="$1"
+  [[ "${APPS_PROCESSED[$app]:-0}" == "1" ]]
+}
+
 [[ -f "$SCRIPT_DIR/lib/install_priority.sh" ]] && source "$SCRIPT_DIR/lib/install_priority.sh"
 [[ -f "$SCRIPT_DIR/lib/os_linux.sh" ]] && source "$SCRIPT_DIR/lib/os_linux.sh"
 [[ -f "$SCRIPT_DIR/lib/os_macos.sh" ]] && source "$SCRIPT_DIR/lib/os_macos.sh"

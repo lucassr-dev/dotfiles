@@ -2,27 +2,11 @@
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
-# Rastreamento de apps processados
-# ═══════════════════════════════════════════════════════════
-
-declare -A APPS_PROCESSED
-
-mark_app_processed() {
-  local app="$1"
-  APPS_PROCESSED["$app"]=1
-}
-
-is_app_processed() {
-  local app="$1"
-  [[ "${APPS_PROCESSED[$app]:-0}" == "1" ]]
-}
-
-# ═══════════════════════════════════════════════════════════
 # Detecção de gerenciador de pacotes
 # ═══════════════════════════════════════════════════════════
 
 detect_linux_pkg_manager() {
-  [[ -n "$LINUX_PKG_MANAGER" ]] && return
+  [[ -n "${LINUX_PKG_MANAGER:-}" ]] && return 0
   for candidate in apt-get dnf pacman zypper; do
     if has_cmd "$candidate"; then
       LINUX_PKG_MANAGER="$candidate"
@@ -287,7 +271,7 @@ install_nushell_linux() {
   esac
 
   local nu_version
-  nu_version=$(curl -fsSL "https://api.github.com/repos/nushell/nushell/releases/latest" 2>/dev/null | grep -Po '"tag_name": "\K[^"]+' || echo "")
+  nu_version=$(curl -fsSL "https://api.github.com/repos/nushell/nushell/releases/latest" 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' || echo "")
 
   if [[ -z "$nu_version" ]]; then
     warn "Não foi possível obter versão do Nushell"

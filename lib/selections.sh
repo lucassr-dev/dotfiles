@@ -357,7 +357,6 @@ ask_cli_tools() {
   local tools_with_desc=()
   for tool in "${CLI_TOOLS[@]}"; do
     case "$tool" in
-      fzf)        tools_with_desc+=("fzf        - Busca fuzzy interativa (arquivos, histórico, comandos)") ;;
       zoxide)     tools_with_desc+=("zoxide     - 'cd' inteligente que aprende seus diretórios favoritos") ;;
       eza)        tools_with_desc+=("eza        - Substituto moderno do 'ls' com cores e ícones") ;;
       bat)        tools_with_desc+=("bat        - 'cat' com syntax highlighting e integração com Git") ;;

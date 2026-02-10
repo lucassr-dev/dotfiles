@@ -38,6 +38,19 @@ ask_runtimes() {
   done
 }
 
+_mise_install_runtime() {
+  local runtime="$1"
+  local label="$2"
+  local version="$3"
+
+  msg "  📦 ${label} (${version}) via mise..."
+  if mise use -g -y "${runtime}@${version}"; then
+    INSTALLED_MISC+=("${runtime}: mise ${version}")
+  else
+    record_failure "optional" "Falha ao instalar ${label} (${version}) via mise"
+  fi
+}
+
 install_selected_runtimes() {
   [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] || return 0
 
@@ -52,33 +65,24 @@ install_selected_runtimes() {
 
   mkdir -p "$HOME/.config/mise" >/dev/null 2>&1 || true
 
+  local RUNTIME_MAP=(
+    "node:Node.js:lts"
+    "python:Python:latest"
+    "go:Go:latest"
+    "bun:Bun:latest"
+    "deno:Deno:latest"
+    "elixir:Elixir:latest"
+    "java:Java:lts"
+    "ruby:Ruby:latest"
+  )
+
   for runtime in "${SELECTED_RUNTIMES[@]}"; do
     case "$runtime" in
-      node)
-        msg "  📦 Node.js (LTS) via mise..."
-        if mise use -g -y node@lts; then
-          INSTALLED_MISC+=("node: mise lts")
-        else
-          record_failure "optional" "Falha ao instalar Node.js (LTS) via mise"
-        fi
-        ;;
-      python)
-        msg "  📦 Python (latest) via mise..."
-        if mise use -g -y python@latest; then
-          INSTALLED_MISC+=("python: mise latest")
-        else
-          record_failure "optional" "Falha ao instalar Python (latest) via mise"
-        fi
-        ;;
       php)
         msg "  📦 PHP (latest) via mise..."
         case "${TARGET_OS:-}" in
-          linux|wsl2)
-            install_php_build_deps_linux
-            ;;
-          macos)
-            install_php_build_deps_macos
-            ;;
+          linux|wsl2) install_php_build_deps_linux ;;
+          macos) install_php_build_deps_macos ;;
           windows)
             if install_php_windows; then
               continue
@@ -117,53 +121,20 @@ install_selected_runtimes() {
           record_failure "optional" "Falha ao instalar Rust via mise"
         fi
         ;;
-      go)
-        msg "  📦 Go (latest) via mise..."
-        if mise use -g -y go@latest; then
-          INSTALLED_MISC+=("go: mise latest")
-        else
-          record_failure "optional" "Falha ao instalar Go via mise"
-        fi
-        ;;
-      bun)
-        msg "  📦 Bun (latest) via mise..."
-        if mise use -g -y bun@latest; then
-          INSTALLED_MISC+=("bun: mise latest")
-        else
-          record_failure "optional" "Falha ao instalar Bun via mise"
-        fi
-        ;;
-      deno)
-        msg "  📦 Deno (latest) via mise..."
-        if mise use -g -y deno@latest; then
-          INSTALLED_MISC+=("deno: mise latest")
-        else
-          record_failure "optional" "Falha ao instalar Deno via mise"
-        fi
-        ;;
-      elixir)
-        msg "  📦 Elixir (latest) via mise..."
-        if mise use -g -y elixir@latest; then
-          INSTALLED_MISC+=("elixir: mise latest")
-        else
-          record_failure "optional" "Falha ao instalar Elixir via mise"
-        fi
-        ;;
-      java)
-        msg "  📦 Java (LTS) via mise..."
-        if mise use -g -y java@lts; then
-          INSTALLED_MISC+=("java: mise lts")
-        else
-          record_failure "optional" "Falha ao instalar Java (LTS) via mise"
-        fi
-        ;;
-      ruby)
-        msg "  📦 Ruby (latest) via mise..."
-        if mise use -g -y ruby@latest; then
-          INSTALLED_MISC+=("ruby: mise latest")
-        else
-          record_failure "optional" "Falha ao instalar Ruby via mise"
-        fi
+      *)
+        local matched=0
+        for entry in "${RUNTIME_MAP[@]}"; do
+          local r="${entry%%:*}"
+          local rest="${entry#*:}"
+          local l="${rest%%:*}"
+          local v="${rest#*:}"
+          if [[ "$runtime" == "$r" ]]; then
+            _mise_install_runtime "$r" "$l" "$v"
+            matched=1
+            break
+          fi
+        done
+        [[ $matched -eq 0 ]] && _mise_install_runtime "$runtime" "$runtime" "latest"
         ;;
     esac
   done

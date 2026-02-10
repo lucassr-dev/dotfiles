@@ -2,22 +2,6 @@
 # shellcheck disable=SC2034,SC2329,SC1091
 
 # ═══════════════════════════════════════════════════════════
-# Anti-duplicidade: rastrear apps já processados nesta execução
-# ═══════════════════════════════════════════════════════════
-
-declare -A APPS_PROCESSED
-
-mark_app_processed() {
-  local app="$1"
-  APPS_PROCESSED["$app"]=1
-}
-
-is_app_processed() {
-  local app="$1"
-  [[ "${APPS_PROCESSED[$app]:-0}" == "1" ]]
-}
-
-# ═══════════════════════════════════════════════════════════
 # Funções de suporte para winget
 # ═══════════════════════════════════════════════════════════
 

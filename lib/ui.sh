@@ -27,6 +27,8 @@ declare -g UI_BOX_BL="╰"
 declare -g UI_BOX_BR="╯"
 
 detect_ui_mode() {
+  [[ -n "${UI_MODE:-}" ]] && return 0
+
   if [[ -n "${FORCE_UI_MODE:-}" ]]; then
     UI_MODE="$FORCE_UI_MODE"
     return

@@ -19,6 +19,32 @@ GIT_EDITOR="nvim"
 GIT_PAGER="delta"
 GIT_CONFIGURE=0
 
+_find_ssh_keys() {
+  local -n _out_keys="$1"
+  _out_keys=()
+
+  if [[ -d "$HOME/.ssh" ]]; then
+    while IFS= read -r key; do
+      _out_keys+=("$key")
+    done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
+  fi
+
+  if [[ -n "${SCRIPT_DIR:-}" ]] && [[ -d "$SCRIPT_DIR/shared/.ssh" ]]; then
+    while IFS= read -r key; do
+      local key_basename
+      key_basename="$(basename "$key")"
+      local found=0
+      for existing in "${_out_keys[@]}"; do
+        if [[ "$(basename "$existing")" == "$key_basename" ]]; then
+          found=1
+          break
+        fi
+      done
+      [[ $found -eq 0 ]] && _out_keys+=("$key")
+    done < <(find "$SCRIPT_DIR/shared/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
+  fi
+}
+
 # ═══════════════════════════════════════════════════════════
 # Tela de informação sobre Git multi-conta
 # ═══════════════════════════════════════════════════════════
@@ -111,27 +137,7 @@ ask_git_configuration() {
   msg ""
 
   local ssh_keys=()
-
-  if [[ -d "$HOME/.ssh" ]]; then
-    while IFS= read -r key; do
-      ssh_keys+=("$key")
-    done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
-  fi
-
-  if [[ -n "${SCRIPT_DIR:-}" ]] && [[ -d "$SCRIPT_DIR/shared/.ssh" ]]; then
-    while IFS= read -r key; do
-      local key_basename
-      key_basename="$(basename "$key")"
-      local found=0
-      for existing in "${ssh_keys[@]}"; do
-        if [[ "$(basename "$existing")" == "$key_basename" ]]; then
-          found=1
-          break
-        fi
-      done
-      [[ $found -eq 0 ]] && ssh_keys+=("$key")
-    done < <(find "$SCRIPT_DIR/shared/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
-  fi
+  _find_ssh_keys ssh_keys
 
   if [[ ${#ssh_keys[@]} -gt 0 ]]; then
     msg "  Chaves SSH encontradas:"
@@ -194,27 +200,7 @@ ask_git_configuration() {
   msg ""
 
   local ssh_keys=()
-
-  if [[ -d "$HOME/.ssh" ]]; then
-    while IFS= read -r key; do
-      ssh_keys+=("$key")
-    done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
-  fi
-
-  if [[ -n "${SCRIPT_DIR:-}" ]] && [[ -d "$SCRIPT_DIR/shared/.ssh" ]]; then
-    while IFS= read -r key; do
-      local key_basename
-      key_basename="$(basename "$key")"
-      local found=0
-      for existing in "${ssh_keys[@]}"; do
-        if [[ "$(basename "$existing")" == "$key_basename" ]]; then
-          found=1
-          break
-        fi
-      done
-      [[ $found -eq 0 ]] && ssh_keys+=("$key")
-    done < <(find "$SCRIPT_DIR/shared/.ssh" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts*" ! -name "config" ! -name "authorized_keys*" 2>/dev/null)
-  fi
+  _find_ssh_keys ssh_keys
 
   if [[ ${#ssh_keys[@]} -gt 0 ]]; then
     msg "  Chaves SSH encontradas:"

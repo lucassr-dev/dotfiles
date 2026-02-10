@@ -208,7 +208,7 @@ _install_lazygit_official() {
   msg "  📦 Instalando lazygit via GitHub Releases..."
 
   local version=""
-  version="$(curl -fsSL "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" 2>/dev/null | grep -Po '"tag_name": *"v\K[^"]*' || echo "")"
+  version="$(curl -fsSL "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" 2>/dev/null | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p' || echo "")"
 
   if [[ -z "$version" ]]; then
     record_failure "$level" "Falha ao obter versão do lazygit do GitHub"
