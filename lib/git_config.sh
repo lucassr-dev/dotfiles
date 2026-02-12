@@ -332,6 +332,7 @@ EOF
   msg "  ✅ Criado: ~/.gitconfig-work"
 
   local gitconfig="$HOME/.gitconfig"
+  backup_if_exists "$gitconfig"
   cat > "$gitconfig" << 'EOF'
 [color]
     status = auto

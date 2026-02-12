@@ -52,6 +52,7 @@ install_windows_base_dependencies() {
   winget_install "Microsoft.WindowsTerminal" "Windows Terminal" "critical"
   winget_install "ImageMagick.ImageMagick" "ImageMagick" "critical"
   winget_install "junegunn.fzf" "fzf" "critical"
+  winget_install "charmbracelet.gum" "gum" "optional"
 
   if ! has_cmd curl; then
     msg "  📦 curl não encontrado, instalando..."

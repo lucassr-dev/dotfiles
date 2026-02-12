@@ -577,18 +577,17 @@ ask_base_dependencies() {
 
   case "$TARGET_OS" in
     linux|wsl2)
-      msg "  • build-essential  - Compiladores C/C++ e ferramentas de build"
-      msg "  • pkg-config       - Sistema de configuração de bibliotecas"
       msg "  • ca-certificates  - Certificados SSL/TLS"
       msg "  • git              - Sistema de controle de versão"
       msg "  • curl             - Ferramenta para transferência de dados"
       msg "  • wget             - Download de arquivos"
       msg "  • gnupg            - Criptografia e assinaturas digitais"
-      msg "  • unzip/zip        - Compressão e descompressão de arquivos"
+      msg "  • unzip            - Descompressão de arquivos"
       msg "  • fontconfig       - Gerenciamento de fontes"
-      msg "  • imagemagick      - Redimensionar prévias de imagem"
-      msg "  • chafa            - Preview de imagens no terminal (auto-detecta protocolo)"
+      msg "  • imagemagick      - Preview de imagens e temas"
+      msg "  • chafa            - Preview de imagens no terminal"
       msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
+      msg "  • gum              - UI interativa para terminal (fallback)"
       ;;
     macos)
       msg "  • git              - Sistema de controle de versão"
@@ -597,6 +596,7 @@ ask_base_dependencies() {
       msg "  • imagemagick      - Redimensionar prévias de imagem"
       msg "  • chafa            - Preview de imagens no terminal (auto-detecta protocolo)"
       msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
+      msg "  • gum              - UI interativa para terminal (fallback)"
       msg ""
       msg "  ℹ️  Instalação via Homebrew"
       ;;
@@ -606,6 +606,7 @@ ask_base_dependencies() {
       msg "  • ImageMagick      - Redimensionar prévias de imagem"
       msg "  • chafa            - Preview de imagens no terminal"
       msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
+      msg "  • gum              - UI interativa para terminal (fallback)"
       msg ""
       msg "  ℹ️  Instalação via winget"
       ;;

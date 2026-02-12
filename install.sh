@@ -2,8 +2,8 @@
 set -uo pipefail
 # shellcheck disable=SC2034,SC2329,SC1091
 
-if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
-  echo "bash 4+ necessario. Versao atual: ${BASH_VERSION}" >&2
+if [[ "${BASH_VERSINFO[0]}" -lt 4 ]] || { [[ "${BASH_VERSINFO[0]}" -eq 4 ]] && [[ "${BASH_VERSINFO[1]}" -lt 3 ]]; }; then
+  echo "bash 4.3+ necessario. Versao atual: ${BASH_VERSION}" >&2
   if [[ "$OSTYPE" == darwin* ]]; then
     echo "macOS: instale via 'brew install bash' e use '/opt/homebrew/bin/bash install.sh'" >&2
   fi
@@ -435,12 +435,45 @@ manage_ssh_keys() {
       fi
     fi
 
-    if [[ -f "$dest_path" ]] && ! ui_confirm "   $key_name já existe. Sobrescrever?"; then
-      msg "   ⏭️  Preservado: $key_name (original mantido)"
+    if [[ -f "$dest_path" ]]; then
+      msg "   ⚠️  $key_name já existe em ~/.ssh/"
+      echo ""
+      echo -e "  ${UI_BOLD}${UI_YELLOW}S${UI_RESET} Sobrescrever  │  ${UI_BOLD}${UI_CYAN}R${UI_RESET} Renomear  │  ${UI_BOLD}${UI_DIM}P${UI_RESET} Pular"
+      local ssh_choice
+      read -r -p "  → " ssh_choice
+      case "${ssh_choice,,}" in
+        s|sobrescrever)
+          cp "$key_path" "$dest_path"
+          [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${dest_path}.pub"
+          msg "   ✓ Sobrescrito: $key_name"
+          ;;
+        r|renomear)
+          local new_name=""
+          while true; do
+            read -r -p "  Novo nome (ex: id_ed25519_work): " new_name
+            if [[ -z "$new_name" ]]; then
+              msg "  Nome não pode ser vazio."
+              continue
+            fi
+            if [[ -f "$ssh_dest/$new_name" ]]; then
+              msg "  ⚠️  $new_name já existe. Escolha outro nome."
+              continue
+            fi
+            break
+          done
+          cp "$key_path" "$ssh_dest/$new_name"
+          [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "$ssh_dest/${new_name}.pub"
+          msg "   ✓ Copiado como: $new_name"
+          ;;
+        *)
+          msg "   ⏭️  Preservado: $key_name (original mantido)"
+          ;;
+      esac
       continue
     fi
 
     cp "$key_path" "$dest_path"
+    [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${dest_path}.pub"
     msg "   ✓ Copiado: $key_name"
   done
 }
@@ -1575,7 +1608,7 @@ ask_configs_to_copy() {
     config_keys+=("COPY_KITTY_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/alacritty/alacritty.yml" ]]; then
+  if [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
     config_options+=("alacritty-config - Alacritty (terminal)")
     config_keys+=("COPY_ALACRITTY_CONFIG")
   fi
@@ -2624,7 +2657,7 @@ copy_tool_configs() {
     copy_dir "$CONFIG_SHARED/kitty" "$HOME/.config/kitty"
   fi
 
-  if [[ ${COPY_ALACRITTY_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.yml" ]]; then
+  if [[ ${COPY_ALACRITTY_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
     copy_dir "$CONFIG_SHARED/alacritty" "$HOME/.config/alacritty"
   fi
 
@@ -2881,12 +2914,12 @@ apply_macos_configs() {
     msg "  ⏭️  Terminal config (Ghostty): usuário optou por não copiar"
   fi
 
-  if [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
     copy_file "$source_dir/rectangle/com.knollsoft.Rectangle.plist" "$HOME/Library/Preferences/com.knollsoft.Rectangle.plist"
     msg "  ✅ Rectangle configurado (reinicie o app para aplicar)"
   fi
 
-  if [[ -f "$source_dir/stats/com.exelban.Stats.plist" ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/stats/com.exelban.Stats.plist" ]]; then
     copy_file "$source_dir/stats/com.exelban.Stats.plist" "$HOME/Library/Preferences/com.exelban.Stats.plist"
     msg "  ✅ Stats configurado (reinicie o app para aplicar)"
   fi
@@ -3106,7 +3139,7 @@ export_configs() {
     export_dir "$HOME/.config/kitty" "$CONFIG_SHARED/kitty"
   fi
 
-  if [[ -f "$HOME/.config/alacritty/alacritty.yml" ]]; then
+  if [[ -f "$HOME/.config/alacritty/alacritty.toml" ]]; then
     export_dir "$HOME/.config/alacritty" "$CONFIG_SHARED/alacritty"
   fi
 
@@ -3288,6 +3321,8 @@ main() {
     ask_base_dependencies
     pause_before_next_section
     install_prerequisites
+    UI_MODE=""
+    detect_ui_mode
     ask_shells
     ask_themes
     [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
@@ -3305,6 +3340,7 @@ main() {
     ask_gui_apps
     ask_runtimes
     ask_git_configuration
+    ask_configs_to_copy
 
     # ══════════════════════════════════════════════════════════════
     # Confirmação Final e Checkpoint

@@ -1,11 +1,5 @@
 {
-  "$schema": "https://docs.docker.com/engine/reference/commandline/cli/#configuration-files",
-
   "auths": {},
-
-  "credsStore": "desktop",
-
-  "experimental": "enabled",
 
   "features": {
     "buildkit": true
@@ -14,67 +8,15 @@
   "builder": {
     "gc": {
       "enabled": true,
-      "defaultKeepStorage": "20GB",
-      "policy": [
-        {
-          "keepStorage": "10GB",
-          "filter": [
-            "unused-for=720h"
-          ]
-        },
-        {
-          "keepStorage": "50GB",
-          "all": true
-        }
-      ]
+      "defaultKeepStorage": "20GB"
     }
   },
 
-  "aliases": {
-    "builder": "buildx",
-    "ps": "ps -a",
-    "images": "images -a",
-    "rmi-dangling": "images -q -f dangling=true | xargs docker rmi",
-    "rmi-all": "images -q | xargs docker rmi -f",
-    "rm-all": "ps -a -q | xargs docker rm -f",
-    "prune-all": "system prune -a -f --volumes",
-    "logs": "logs -f --tail 100"
-  },
-
-  "cliPluginsExtraDirs": [],
-
   "currentContext": "default",
-
   "detachKeys": "ctrl-p,ctrl-q",
 
-  "httpHeaders": {
-    "User-Agent": "Docker-Client/development"
-  },
-
-  "plugins": {
-    "debug": false,
-    "required": []
-  },
-
-  "psFormat": "table {{.ID}}\\t{{.Image}}\\t{{.Command}}\\t{{.CreatedAt}}\\t{{.Status}}\\t{{.Ports}}\\t{{.Names}}",
-
-  "imagesFormat": "table {{.Repository}}:{{.Tag}}\\t{{.ID}}\\t{{.CreatedAt}}\\t{{.Size}}",
-
-  "statsFormat": "table {{.Container}}\\t{{.CPUPerc}}\\t{{.MemUsage}}\\t{{.MemPerc}}\\t{{.NetIO}}\\t{{.BlockIO}}",
-
-  "serviceInspectFormat": "pretty",
-
-  "servicesFormat": "table {{.ID}}\\t{{.Name}}\\t{{.Mode}}\\t{{.Replicas}}\\t{{.Image}}",
-
-  "nodesFormat": "table {{.ID}}\\t{{.Hostname}}\\t{{.Status}}\\t{{.Availability}}\\t{{.ManagerStatus}}",
-
-  "secretFormat": "table {{.ID}}\\t{{.Name}}\\t{{.CreatedAt}}\\t{{.UpdatedAt}}",
-
-  "configFormat": "table {{.ID}}\\t{{.Name}}\\t{{.CreatedAt}}\\t{{.UpdatedAt}}",
-
-  "pluginsFormat": "table {{.Name}}\\t{{.Enabled}}",
-
-  "stackOrchestrator": "swarm",
+  "psFormat": "table {{.ID}}\\t{{.Image}}\\t{{.Status}}\\t{{.Ports}}\\t{{.Names}}",
+  "imagesFormat": "table {{.Repository}}:{{.Tag}}\\t{{.ID}}\\t{{.Size}}",
 
   "proxies": {
     "default": {}

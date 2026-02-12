@@ -110,6 +110,7 @@ install_macos_base_dependencies() {
     imagemagick
     chafa
     fzf
+    gum
   )
 
   for formula in "${base_formulae[@]}"; do

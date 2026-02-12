@@ -1,203 +1,31 @@
 # PNPM Configuration
-# Optimized for monorepo and web development
 
-# ===== STORE SETTINGS =====
-
-# Store directory (global package cache)
-# Default: ~/.local/share/pnpm/store
-store-dir=~/.local/share/pnpm/store
-
-# Use symlinks (hard links on same filesystem)
-symlink=true
-
-# ===== DEPENDENCY RESOLUTION =====
-
-# Automatically install peer dependencies
+# Dependency resolution
 auto-install-peers=true
-
-# Strict peer dependencies (fail if peers are missing)
 strict-peer-dependencies=false
-
-# Dedupe peer dependencies
-dedupe-peer-dependents=true
-
-# Resolution mode: highest (pick highest version), time-based, lowest-direct
 resolution-mode=highest
 
-# ===== REGISTRY =====
-
-# Registry URL
-registry=https://registry.npmjs.org/
-
-# ===== LOCKFILE =====
-
-# Lockfile format: true (v6), false (v5)
-lockfile=true
-
-# Prefer frozen lockfile (fail if lockfile needs update)
-# Use in CI/CD
-# frozen-lockfile=true
-
-# Prefer workspace packages
-prefer-workspace-packages=true
-
-# ===== NODE MODULES =====
-
-# Node modules directory structure
-# Options: hoisted, nested, pnp
+# Node modules (hoisted for compatibility)
 node-linker=hoisted
-
-# Hoist all packages to root node_modules
 hoist=true
-
-# Hoist pattern
 hoist-pattern[]=*
 
-# Public hoist pattern (packages accessible to all workspace packages)
+# Public hoist pattern
 public-hoist-pattern[]=*eslint*
 public-hoist-pattern[]=*prettier*
 public-hoist-pattern[]=*typescript*
 public-hoist-pattern[]=@types*
 
-# Shamefully hoist (for compatibility with tools that expect flat node_modules)
-shamefully-hoist=false
-
-# ===== WORKSPACE SETTINGS =====
-
-# Link workspace packages
+# Workspace
 link-workspace-packages=true
-
-# Prefer workspace packages over registry
-prefer-workspace-packages=true
-
-# Shared workspace lockfile
-shared-workspace-lockfile=true
-
-# Save workspace protocol (preserve workspace: protocol in package.json)
 save-workspace-protocol=rolling
 
-# ===== INSTALLATION =====
-
-# Install recursively (for monorepos)
-recursive-install=true
-
-# Verify store integrity
-verify-store-integrity=true
-
-# Ignore scripts during install (for security)
-# ignore-scripts=false
-
-# Side effects cache
+# Performance
 side-effects-cache=true
-
-# Use running store server
-use-running-store-server=true
-
-# ===== PERFORMANCE =====
-
-# Fetch timeout (ms)
-fetch-timeout=60000
-
-# Fetch retries
-fetch-retries=3
-
-# Network concurrency
 network-concurrency=16
 
-# Child concurrency
-child-concurrency=5
-
-# ===== PACKAGE METADATA =====
-
-# Save exact versions (no ^ or ~)
-save-exact=false
-
-# Save prefix (^, ~, or empty for exact)
-save-prefix=^
-
-# Engine strict (fail if Node version doesn't match)
-engine-strict=false
-
-# ===== OUTPUT =====
-
-# Reporter (default, append-only, ndjson, silent)
-reporter=default
-
-# Use beta CLI features
-use-beta-cli=false
-
-# ===== SCRIPTS =====
-
-# Enable scripts parallel execution
+# Scripts
 enable-pre-post-scripts=true
 
-# Shell emulator
-shell-emulator=false
-
-# ===== MISCELLANEOUS =====
-
-# Prefer offline (use cache when possible)
-prefer-offline=false
-
-# Offline mode
-# offline=false
-
-# Update notifier
-update-notifier=true
-
-# Use stderr for output
-use-stderr=false
-
-# ===== GIT =====
-
-# Git checks
-git-checks=true
-
-# Git shallow clone
-git-shallow-hosts[]=github.com
-git-shallow-hosts[]=gitlab.com
-git-shallow-hosts[]=bitbucket.org
-
-# ===== NODE VERSION =====
-
-# Use Node version from .nvmrc or package.json engines
-# use-node-version=
-
-# ===== CATALOG =====
-
-# Use catalog protocol for workspace dependencies
-# use-lockfile-v6=true
-
-# ===== PATCHES =====
-
-# Patches directory
-patches-dir=patches
-
-# ===== OVERRIDES =====
-
-# Package overrides (for dependency resolution)
-# Use this to force specific versions of nested dependencies
-# Example:
-# overrides.foo=^1.0.0
-# overrides.bar=2.0.0
-
-# ===== PACKAGE EXTENSIONS =====
-
-# Extend package.json of dependencies
-# Useful for adding missing peer dependencies
-# Example:
-# package-extensions.react-redux.peerDependencies.react=*
-# package-extensions.react-redux.peerDependencies.react-dom=*
-
-# ===== WEB DEVELOPMENT SPECIFIC =====
-
-# Public hoist common web dev tools
-public-hoist-pattern[]=*vite*
-public-hoist-pattern[]=*webpack*
-public-hoist-pattern[]=*rollup*
-public-hoist-pattern[]=*esbuild*
-public-hoist-pattern[]=*postcss*
-public-hoist-pattern[]=*tailwindcss*
-public-hoist-pattern[]=*next*
-public-hoist-pattern[]=*nuxt*
-public-hoist-pattern[]=*astro*
+# Save prefix
+save-prefix=^

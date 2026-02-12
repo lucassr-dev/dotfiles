@@ -769,8 +769,11 @@ ask_fish_plugins() {
       "fzf.fish - Integração com fzf (busca fuzzy)"
       "done - Notificações quando comandos longos terminam"
       "autopair.fish - Fechar parênteses/aspas automaticamente"
-      "tide - Prompt customizável (alternativa ao Starship/Oh My Posh)"
     )
+
+    if [[ ${INSTALL_STARSHIP:-0} -eq 0 ]] && [[ ${INSTALL_OH_MY_POSH:-0} -eq 0 ]]; then
+      fish_plugins_desc+=("tide - Prompt customizável para Fish (tema completo)")
+    fi
 
     local selected_fish_desc=()
     select_multiple_items "🐟 Selecione os plugins do Fish" selected_fish_desc "${fish_plugins_desc[@]}"
@@ -1127,8 +1130,12 @@ install_oh_my_posh() {
 
       if [[ ${INSTALL_NUSHELL:-0} -eq 1 ]]; then
         local nu_config_dir="$HOME/.config/nushell"
-        mkdir -p "$nu_config_dir"
+        mkdir -p "$nu_config_dir/scripts"
         cp "$theme_file" "$nu_config_dir/omp-theme.json"
+        if has_cmd oh-my-posh; then
+          oh-my-posh init nu --config "$nu_config_dir/omp-theme.json" > "$nu_config_dir/scripts/omp.nu" 2>/dev/null || true
+          msg "  ✅ Oh My Posh init script gerado para Nushell"
+        fi
         msg "  ✅ Oh My Posh configurado para Nushell ($nu_config_dir/omp-theme.json)"
       fi
     else

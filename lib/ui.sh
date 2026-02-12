@@ -355,10 +355,38 @@ ui_select_multi_bash() {
   local total=${#options[@]}
   local -a selected_indices=()
   local input=""
+  local sel_count=0
+
+  _is_selected() {
+    local needle="$1"
+    local s
+    for s in "${selected_indices[@]}"; do
+      [[ $s -eq $needle ]] && return 0
+    done
+    return 1
+  }
+
+  _toggle_index() {
+    local idx="$1"
+    if _is_selected "$idx"; then
+      local -a tmp=()
+      local s
+      for s in "${selected_indices[@]}"; do
+        [[ $s -ne $idx ]] && tmp+=("$s")
+      done
+      selected_indices=("${tmp[@]}")
+    else
+      selected_indices+=("$idx")
+    fi
+  }
 
   while true; do
+    printf '\033[H\033[2J'
+    sel_count=${#selected_indices[@]}
+
     echo ""
-    echo -e "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H} ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
+    echo -e "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H}${UI_BOX_H} ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${UI_BOX_H}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
+    echo -e "  ${UI_DIM}${sel_count}/${total} selecionados${UI_RESET}"
     echo ""
 
     if [[ $total -gt 12 ]]; then
@@ -369,22 +397,26 @@ ui_select_multi_bash() {
         local left_idx=$((i + 1))
         local right_idx=$((mid + i + 1))
         local left_item="${options[i]}"
-        local right_item=""
 
         local left_check="$UI_UNCHECK"
-        local right_check="$UI_UNCHECK"
-
-        for s in "${selected_indices[@]}"; do
-          [[ $s -eq $i ]] && left_check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
-          [[ $s -eq $((mid + i)) ]] && right_check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
-        done
+        local left_color="$UI_DIM"
+        if _is_selected "$i"; then
+          left_check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
+          left_color="$UI_RESET"
+        fi
 
         if [[ $right_idx -le $total ]]; then
-          right_item="${options[mid + i]}"
-          printf "  ${UI_DIM}%2d${UI_RESET} [%b] %-${col_width}s  ${UI_DIM}%2d${UI_RESET} [%b] %s\n" \
+          local right_item="${options[mid + i]}"
+          local right_check="$UI_UNCHECK"
+          local right_color="$UI_DIM"
+          if _is_selected "$((mid + i))"; then
+            right_check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
+            right_color="$UI_RESET"
+          fi
+          printf "  ${UI_DIM}%2d${UI_RESET} [%b] ${left_color}%-${col_width}s${UI_RESET}  ${UI_DIM}%2d${UI_RESET} [%b] ${right_color}%s${UI_RESET}\n" \
             "$left_idx" "$left_check" "$left_item" "$right_idx" "$right_check" "$right_item"
         else
-          printf "  ${UI_DIM}%2d${UI_RESET} [%b] %s\n" "$left_idx" "$left_check" "$left_item"
+          printf "  ${UI_DIM}%2d${UI_RESET} [%b] ${left_color}%s${UI_RESET}\n" "$left_idx" "$left_check" "$left_item"
         fi
       done
     else
@@ -392,19 +424,19 @@ ui_select_multi_bash() {
         local idx=$((i + 1))
         local item="${options[i]}"
         local check="$UI_UNCHECK"
-
-        for s in "${selected_indices[@]}"; do
-          [[ $s -eq $i ]] && check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
-        done
-
-        printf "  ${UI_DIM}%2d${UI_RESET} [%b] %s\n" "$idx" "$check" "$item"
+        local color="$UI_DIM"
+        if _is_selected "$i"; then
+          check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
+          color="$UI_RESET"
+        fi
+        printf "  ${UI_DIM}%2d${UI_RESET} [%b] ${color}%s${UI_RESET}\n" "$idx" "$check" "$item"
       done
     fi
 
     echo ""
-    echo -e "  ${UI_CYAN}a${UI_RESET}) Todos   ${UI_CYAN}n${UI_RESET}) Nenhum   ${UI_CYAN}Enter${UI_RESET}) Confirmar"
+    echo -e "  ${UI_CYAN}Num${UI_RESET} toggle  ${UI_CYAN}a${UI_RESET} todos  ${UI_CYAN}n${UI_RESET} nenhum  ${UI_CYAN}Enter${UI_RESET} confirmar"
     echo ""
-    read -r -p "  Selecione (números separados por vírgula): " input
+    read -r -p "  → " input
 
     case "$input" in
       "")
@@ -413,49 +445,27 @@ ui_select_multi_bash() {
       a|A|all|todos|t|T|\*)
         selected_indices=()
         for ((i=0; i<total; i++)); do
-          selected_indices+=($i)
+          selected_indices+=("$i")
         done
-        break
         ;;
       n|N|none|nenhum)
         selected_indices=()
-        break
         ;;
       *)
-        local valid=1
-        local -a new_indices=()
         IFS=',' read -r -a nums <<< "$input"
-
+        local valid=1
         for n in "${nums[@]}"; do
           n="${n//[[:space:]]/}"
           [[ -z "$n" ]] && continue
-
           if [[ "$n" =~ ^[0-9]+$ ]] && (( n >= 1 )) && (( n <= total )); then
-            local idx=$((n - 1))
-            local found=0
-            local -a temp=()
-            for s in "${selected_indices[@]}"; do
-              if [[ $s -eq $idx ]]; then
-                found=1
-              else
-                temp+=($s)
-              fi
-            done
-
-            if [[ $found -eq 0 ]]; then
-              selected_indices+=($idx)
-            else
-              selected_indices=("${temp[@]}")
-            fi
+            _toggle_index "$((n - 1))"
           else
             valid=0
-            break
           fi
         done
-
         if [[ $valid -eq 0 ]]; then
-          echo -e "  ${UI_YELLOW}⚠ Entrada inválida. Use números de 1-$total${UI_RESET}"
-          sleep 1
+          echo -e "  ${UI_YELLOW}⚠ Use números de 1-$total${UI_RESET}"
+          sleep 0.8
         fi
         ;;
     esac

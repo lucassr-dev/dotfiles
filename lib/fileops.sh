@@ -8,12 +8,12 @@ _files_identical() {
     local sum_a sum_b
     sum_a=$(sha256sum "$file_a" 2>/dev/null | awk '{print $1}')
     sum_b=$(sha256sum "$file_b" 2>/dev/null | awk '{print $1}')
-    [[ "$sum_a" == "$sum_b" ]]
+    [[ -n "$sum_a" ]] && [[ "$sum_a" == "$sum_b" ]]
   elif has_cmd shasum; then
     local sum_a sum_b
     sum_a=$(shasum -a 256 "$file_a" 2>/dev/null | awk '{print $1}')
     sum_b=$(shasum -a 256 "$file_b" 2>/dev/null | awk '{print $1}')
-    [[ "$sum_a" == "$sum_b" ]]
+    [[ -n "$sum_a" ]] && [[ "$sum_a" == "$sum_b" ]]
   else
     cmp -s "$file_a" "$file_b"
   fi
@@ -42,7 +42,10 @@ backup_if_exists() {
     local backup_path="$BACKUP_DIR/$base_name"
     mkdir -p "$BACKUP_DIR"
     msg "  💾 Backup: $path -> $backup_path"
-    cp -a "$path" "$backup_path" 2>/dev/null || cp -R "$path" "$backup_path" 2>/dev/null || true
+    if ! cp -a "$path" "$backup_path" 2>/dev/null && ! cp -R "$path" "$backup_path" 2>/dev/null; then
+      record_failure "critical" "Falha ao fazer backup de: $path" "Verifique permissões e espaço em disco"
+      return 1
+    fi
   fi
 }
 
@@ -106,7 +109,9 @@ export_dir() {
     msg "  🔎 (dry-run) cp -R $src/. $dest/"
     return
   fi
-  cp -R "$src/." "$dest/"
+  if ! cp -R "$src/." "$dest/"; then
+    record_failure "optional" "Falha ao exportar diretório: $src -> $dest"
+  fi
 }
 
 export_file() {
@@ -124,7 +129,9 @@ export_file() {
     _show_diff "$src" "$dest"
     return
   fi
-  cp "$src" "$dest"
+  if ! cp "$src" "$dest"; then
+    record_failure "optional" "Falha ao exportar arquivo: $src -> $dest"
+  fi
 }
 
 normalize_crlf_to_lf() {

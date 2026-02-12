@@ -205,6 +205,7 @@ _install_via_official() {
 
 _install_lazygit_official() {
   local level="${1:-optional}"
+  [[ "$TARGET_OS" == "macos" ]] && return 1
   msg "  📦 Instalando lazygit via GitHub Releases..."
 
   local version=""
@@ -215,19 +216,26 @@ _install_lazygit_official() {
     return 1
   fi
 
-  local arch="x86_64"
-  [[ "$(uname -m)" == "aarch64" ]] && arch="arm64"
+  local arch
+  case "$(uname -m)" in
+    x86_64|amd64) arch="x86_64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) arch="$(uname -m)" ;;
+  esac
 
   local url="https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_Linux_${arch}.tar.gz"
   local tmp_dir=""
   tmp_dir="$(mktemp -d)"
 
   if curl -fsSL "$url" -o "$tmp_dir/lazygit.tar.gz" && \
-     tar xf "$tmp_dir/lazygit.tar.gz" -C "$tmp_dir" lazygit && \
-     run_with_sudo install "$tmp_dir/lazygit" -D -t /usr/local/bin/; then
-    INSTALLED_MISC+=("lazygit: v${version} (official)")
-    rm -rf "$tmp_dir" 2>/dev/null || true
-    return 0
+     tar xf "$tmp_dir/lazygit.tar.gz" -C "$tmp_dir" lazygit; then
+    run_with_sudo mkdir -p /usr/local/bin
+    if run_with_sudo cp "$tmp_dir/lazygit" /usr/local/bin/lazygit && \
+       run_with_sudo chmod 755 /usr/local/bin/lazygit; then
+      INSTALLED_MISC+=("lazygit: v${version} (official)")
+      rm -rf "$tmp_dir" 2>/dev/null || true
+      return 0
+    fi
   fi
 
   rm -rf "$tmp_dir" 2>/dev/null || true
@@ -237,6 +245,7 @@ _install_lazygit_official() {
 
 _install_gh_official() {
   local level="${1:-optional}"
+  [[ "$TARGET_OS" == "macos" ]] && return 1
   msg "  📦 Instalando GitHub CLI via repositório oficial..."
 
   case "$LINUX_PKG_MANAGER" in

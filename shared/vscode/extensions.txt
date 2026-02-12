@@ -6,6 +6,8 @@ beardedbear.beardedtheme
 bierner.markdown-preview-github-styles
 bmewburn.vscode-intelephense-client
 bradlc.vscode-tailwindcss
+catppuccin.catppuccin-vsc
+catppuccin.catppuccin-vsc-icons
 chakrounanas.turbo-console-log
 christian-kohler.npm-intellisense
 christian-kohler.path-intellisense

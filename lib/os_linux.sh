@@ -95,16 +95,12 @@ install_linux_base_dependencies() {
   case "$LINUX_PKG_MANAGER" in
     apt-get)
       base_packages=(
-        build-essential
-        pkg-config
         ca-certificates
         git
         curl
         wget
         gnupg
-        lsb-release
         unzip
-        zip
         fontconfig
         imagemagick
         chafa
@@ -112,17 +108,12 @@ install_linux_base_dependencies() {
       ;;
     dnf)
       base_packages=(
-        gcc
-        gcc-c++
-        make
-        pkg-config
         ca-certificates
         git
         curl
         wget
         gnupg
         unzip
-        zip
         fontconfig
         ImageMagick
         chafa
@@ -130,15 +121,12 @@ install_linux_base_dependencies() {
       ;;
     pacman)
       base_packages=(
-        base-devel
-        pkg-config
         ca-certificates
         git
         curl
         wget
         gnupg
         unzip
-        zip
         fontconfig
         imagemagick
         chafa
@@ -146,17 +134,12 @@ install_linux_base_dependencies() {
       ;;
     zypper)
       base_packages=(
-        gcc
-        gcc-c++
-        make
-        pkg-config
         ca-certificates-mozilla
         git
         curl
         wget
         gpg2
         unzip
-        zip
         fontconfig
         ImageMagick
         chafa
@@ -170,6 +153,7 @@ install_linux_base_dependencies() {
   fi
 
   install_fzf_latest
+  install_gum_fallback
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -205,6 +189,7 @@ install_fzf_latest() {
   fi
 
   if "$fzf_dir/install" --all --no-update-rc --no-bash --no-fish; then
+    export PATH="$HOME/.fzf/bin:$PATH"
     INSTALLED_MISC+=("fzf (git): latest")
     local installed_version
     installed_version=$("$fzf_dir/bin/fzf" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
@@ -214,6 +199,34 @@ install_fzf_latest() {
     msg "  ⚠️  Tentando fallback via package manager..."
     install_linux_packages "optional" fzf
   fi
+}
+
+# ═══════════════════════════════════════════════════════════
+# Instalação do gum (fallback UI caso fzf não esteja disponível)
+# ═══════════════════════════════════════════════════════════
+
+install_gum_fallback() {
+  has_cmd fzf && return 0
+  has_cmd gum && return 0
+
+  msg "  📦 Instalando gum (UI fallback)..."
+  case "$LINUX_PKG_MANAGER" in
+    apt-get)
+      if has_cmd gpg; then
+        run_with_sudo mkdir -p /etc/apt/keyrings 2>/dev/null
+        curl -fsSL https://repo.charm.sh/apt/gpg.key | run_with_sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg 2>/dev/null
+        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | run_with_sudo tee /etc/apt/sources.list.d/charm.list > /dev/null
+        LINUX_PKG_UPDATED=0
+        install_linux_packages "optional" gum
+      fi
+      ;;
+    dnf)
+      run_with_sudo dnf install -y gum 2>/dev/null || true
+      ;;
+    pacman)
+      run_with_sudo pacman -S --noconfirm gum 2>/dev/null || true
+      ;;
+  esac
 }
 
 # ═══════════════════════════════════════════════════════════
