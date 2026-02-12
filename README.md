@@ -2,82 +2,41 @@
 
 Sistema completo de gerenciamento de dotfiles para **Linux**, **macOS** e **Windows**.
 
-> ⚠️ **Repositório Privado** - Contém chaves SSH e configurações Git pessoais.
->
-> 📦 **Versão Pública**: [github.com/lucassr-dev/dotfiles](https://github.com/lucassr-dev/dotfiles)
+Instalador interativo com menus visuais, tema **Catppuccin Mocha** unificado, e suporte a 3 shells, 19+ CLI tools, 7 ferramentas IA, e 150+ apps GUI.
 
 ---
 
 ## 📋 Índice
 
-- [Primeira Instalação](#-primeira-instalação-máquina-nova)
+- [Instalação](#-instalação)
 - [Comandos](#-comandos)
 - [O que Instala](#-o-que-instala)
+- [Configurações Incluídas](#-configurações-incluídas)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Flags e Opções](#-flags-e-opções)
-- [Sincronizar Repo Público](#-sincronizar-repo-público)
+- [Personalização](#-personalização)
 - [Troubleshooting](#-troubleshooting)
 - [Recursos Úteis](#-recursos-úteis)
 
 ---
 
-## 🚀 Primeira Instalação (Máquina Nova)
-
-Na primeira instalação, as chaves SSH ainda não existem no sistema. Por isso, use **HTTPS com Personal Access Token**.
-
-### Criar Personal Access Token
-
-1. GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)**
-2. Scope: `repo` (Full control of private repositories)
-3. Copie o token gerado
-
-### macOS
+## 🚀 Instalação
 
 ```bash
-# 1. Instalar Homebrew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Clonar
+git clone https://github.com/lucassr-dev/dotfiles.git ~/.config
 
-# 2. Clonar via HTTPS
-git clone https://SEU_TOKEN@github.com/lucassr-dev/.config.git ~/.config
-
-# 3. Executar instalador
+# Executar
 cd ~/.config && bash install.sh
 ```
 
-### Linux (Ubuntu/Debian)
+> 💡 No macOS, o script instala o Homebrew automaticamente se necessário.
 
-```bash
-# 1. Instalar dependências
-sudo apt-get update && sudo apt-get install -y git curl
+### Requisitos
 
-# 2. Clonar via HTTPS
-git clone https://SEU_TOKEN@github.com/lucassr-dev/.config.git ~/.config
-
-# 3. Executar instalador
-cd ~/.config && bash install.sh
-```
-
-### Windows (Git Bash)
-
-```bash
-# 1. Instalar Git for Windows
-winget install Git.Git
-
-# 2. Abrir Git Bash e clonar
-git clone https://SEU_TOKEN@github.com/lucassr-dev/.config.git ~/.config
-
-# 3. Executar instalador
-cd ~/.config && bash install.sh
-```
-
-### 📝 Instalações Subsequentes
-
-Após a primeira instalação, as chaves SSH estarão configuradas:
-
-```bash
-git clone git@github.com-lucassr-dev:lucassr-dev/.config.git ~/.config
-cd ~/.config && bash install.sh
-```
+- **bash** 4.3+
+- **git** e **curl**
+- Linux, macOS ou Windows (Git Bash)
 
 ---
 
@@ -87,25 +46,28 @@ cd ~/.config && bash install.sh
 bash install.sh          # 📥 Instalar (repositório → sistema)
 bash install.sh export   # 📤 Exportar (sistema → repositório)
 bash install.sh sync     # 🔄 Sincronizar (exporta + instala)
-bash install.sh help     # ❓ Mostrar ajuda
 ```
 
 ---
 
 ## ✨ O que Instala
 
-O instalador é **interativo** - você escolhe o que instalar em cada categoria.
+O instalador é **interativo** — você escolhe o que instalar em cada categoria.
 
 ### 🐚 Shells & Temas
 
 | Item | Descrição |
 |------|-----------|
-| **Zsh** | Shell moderno com Oh My Zsh |
+| **Zsh** | Shell moderno com Oh My Zsh e plugins |
 | **Fish** | Shell amigável com auto-completions |
+| **Nushell** | Shell estruturado com pipelines tipados |
 | **Powerlevel10k** | Tema rápido e customizável para Zsh |
 | **Starship** | Prompt cross-shell minimalista |
+| **Oh My Posh** | Prompt cross-shell com temas ricos |
 
-### 🛠️ CLI Tools
+> O instalador oferece apenas temas compatíveis com o shell selecionado.
+
+### 🛠️ CLI Tools (19+)
 
 | Ferramenta | Descrição |
 |------------|-----------|
@@ -120,81 +82,135 @@ O instalador é **interativo** - você escolhe o que instalar em cada categoria.
 | **btop** | Monitor de sistema |
 | **tmux** | Multiplexador de terminal |
 | **atuin** | Histórico inteligente |
+| **yazi** | File manager no terminal |
+| **dust** | `du` com visualização em árvore |
+| **gum** | UI interativa para scripts |
+| **direnv** | Variáveis de ambiente por diretório |
+| **hyperfine** | Benchmark de comandos |
+| **tealdeer** | `tldr` rápido em Rust |
+
+### 🤖 Ferramentas IA (7)
+
+| Ferramenta | Descrição |
+|------------|-----------|
+| **Claude Code** | Assistente de código da Anthropic |
+| **Aider** | Pair programming com IA no terminal |
+| **Codex** | Assistente OpenAI para terminal |
+| **Continue** | Copilot open-source para IDEs |
+| **Goose** | Agente autônomo de desenvolvimento |
+| **Serena** | Assistente IA com contexto semântico |
+| **Spec Kit** | Gerador de specs com IA |
 
 ### 🚀 Runtimes (via mise)
 
-| Runtime | Versão |
-|---------|--------|
-| **Node.js** | LTS |
-| **Python** | Latest |
-| **PHP** | Latest |
-| **Rust** | Stable |
-| **Go** | Latest |
+| Runtime | Versão | Tipo |
+|---------|--------|------|
+| **Node.js** | LTS | Padrão |
+| **Python** | Latest | Padrão |
+| **PHP** | Latest | Padrão |
+| **Rust** | Stable | Opcional |
+| **Go** | Latest | Opcional |
+| **Bun** | Latest | Opcional |
+| **Deno** | Latest | Opcional |
 
-### 🖥️ Apps GUI (por categoria)
+### 🖥️ Apps GUI (150+ por categoria)
 
-```
-🌐 Navegadores     → Firefox, Chrome, Brave, Zen
-💻 Desenvolvimento → VS Code, Docker, Postman, DBeaver
-🗄️ Bancos de Dados → PostgreSQL, Redis, MySQL, pgAdmin
-📝 Produtividade   → Slack, Notion, Obsidian
-💬 Comunicação     → Discord
-🎵 Mídia           → VLC, Spotify
+```text
+🌐 Navegadores     → Firefox, Chrome, Brave, Zen, Arc, Vivaldi
+💻 Desenvolvimento → VS Code, Cursor, Docker, Postman, DBeaver
+🗄️ Bancos de Dados → PostgreSQL, Redis, MySQL, MongoDB, pgAdmin
+📝 Produtividade   → Slack, Notion, Obsidian, Todoist, Raycast
+💬 Comunicação     → Discord, Telegram, Teams
+🎵 Mídia           → VLC, Spotify, OBS Studio
+🔧 Utilitários     → Bitwarden, Rectangle, AppCleaner
 ```
 
 ### 🔤 Nerd Fonts
 
-Fontes baixadas dinamicamente da release oficial:
-- FiraCode
-- JetBrainsMono
-- Hack
-- Meslo
-- CascadiaCode
-- E mais...
+Download dinâmico de 100+ fontes do GitHub releases:
+
+- JetBrainsMono, FiraCode, Hack, Meslo, CascadiaCode, e mais...
 
 ### 🔐 Git Multi-conta
 
 Configuração automática para alternar entre contas:
 
-```
+```text
 ~/personal/*  → usa .gitconfig-personal
 ~/work/*      → usa .gitconfig-work
 ```
 
 ---
 
+## 🎨 Configurações Incluídas
+
+Todas as configs usam o tema **Catppuccin Mocha** para consistência visual.
+
+### Terminais
+
+| Config | Formato |
+|--------|---------|
+| **Alacritty** | TOML (v0.13+) |
+| **Kitty** | conf |
+| **WezTerm** | Lua |
+| **Ghostty** | config (Linux/macOS) |
+| **Windows Terminal** | JSON |
+
+### Editores
+
+| Config | Notas |
+|--------|-------|
+| **Neovim** | Config completa |
+| **VS Code** | settings.json + extensões |
+| **Helix** | Multi-language LSP |
+| **Zed** | Vim mode + AI assistant |
+
+### CLI Tools
+
+| Config | Notas |
+|--------|-------|
+| **Lazygit** | Custom commands + Catppuccin |
+| **Yazi** | File manager com previews |
+| **Btop** | Monitor de sistema |
+| **Tmux** | Vim-style + Catppuccin |
+| **Starship** | Prompt com contexto de dev |
+
+### Package Managers
+
+npm, pnpm, Yarn, Cargo, pip, Docker — configs otimizadas com apenas o essencial.
+
+---
+
 ## 📁 Estrutura do Projeto
 
-```
+```text
 .
-├── install.sh              # 🎯 Script principal (orquestrador)
-├── lib/                    # 📚 Módulos do instalador
-│   ├── banner.sh           #    Banner responsivo
-│   ├── report.sh           #    Dashboard pós-instalação
-│   ├── selections.sh       #    Menus de seleção
-│   ├── nerd_fonts.sh       #    Instalador de fontes
-│   ├── git_config.sh       #    Configuração Git
-│   ├── themes.sh           #    Temas (P10k, OMZ)
-│   ├── os_linux.sh         #    Funções Linux
-│   ├── os_macos.sh         #    Funções macOS
-│   └── os_windows.sh       #    Funções Windows
-├── data/                   # 📦 Catálogos
-│   ├── apps.sh             #    Apps GUI por categoria
-│   └── runtimes.sh         #    Runtimes disponíveis
-├── shared/                 # 🔗 Configs compartilhadas
-│   ├── .ssh/               #    🔑 Chaves SSH (PRIVADO!)
-│   ├── git/                #    Configs Git
-│   ├── fish/               #    Configs Fish
-│   ├── zsh/                #    Configs Zsh
-│   ├── nvim/               #    Configs Neovim
-│   ├── tmux/               #    Configs Tmux
-│   ├── vscode/             #    Configs VS Code
-│   └── starship.toml       #    Preset Starship
-├── linux/                  # 🐧 Específico Linux
-├── macos/                  # 🍎 Específico macOS
-├── windows/                # 🪟 Específico Windows
-└── scripts/                # 🔧 Utilitários
-    └── sync_public.sh      #    Sync para repo público
+├── install.sh              # Script principal (orquestrador)
+├── lib/                    # Módulos do instalador (17 arquivos)
+│   ├── ui.sh               #   Sistema de UI (fzf/gum/bash)
+│   ├── banner.sh           #   Banner ASCII responsivo
+│   ├── report.sh           #   Dashboard pós-instalação
+│   ├── selections.sh       #   Menus de seleção interativos
+│   ├── fileops.sh          #   Operações de arquivo (copy/backup/diff)
+│   ├── checkpoint.sh       #   Sistema de checkpoint (resume)
+│   ├── install_priority.sh #   Sistema de prioridade de instalação
+│   ├── nerd_fonts.sh       #   Instalador de Nerd Fonts
+│   ├── git_config.sh       #   Configuração Git multi-conta
+│   ├── themes.sh           #   Temas (P10k, Starship, Oh My Posh)
+│   ├── tools.sh            #   CLI tools
+│   ├── runtimes.sh         #   Runtimes via mise
+│   ├── gui_apps.sh         #   Instalação de apps GUI
+│   ├── app_installers.sh   #   Instaladores especiais
+│   ├── os_linux.sh         #   Funções específicas Linux
+│   ├── os_macos.sh         #   Funções específicas macOS
+│   └── os_windows.sh       #   Funções específicas Windows
+├── data/                   # Catálogos
+│   ├── apps.sh             #   Apps GUI por categoria
+│   └── runtimes.sh         #   Runtimes disponíveis
+├── shared/                 # Configs compartilhadas (cross-platform)
+├── linux/                  # Configs específicas Linux
+├── macos/                  # Configs específicas macOS
+└── windows/                # Configs específicas Windows
 ```
 
 ---
@@ -202,96 +218,113 @@ Configuração automática para alternar entre contas:
 ## 🎛️ Flags e Opções
 
 ```bash
-# Relatório detalhado pós-instalação
-VERBOSE_REPORT=1 bash install.sh
+# Parar na primeira falha
+FAIL_FAST=1 bash install.sh
 
-# Escolher preset do Starship
-STARSHIP_PRESET=catppuccin-powerline bash install.sh
+# Modo dry-run (simula sem executar)
+DRY_RUN=1 bash install.sh
+
+# Desabilitar shells específicos
+INSTALL_ZSH=0 bash install.sh
+INSTALL_FISH=0 bash install.sh
+INSTALL_NUSHELL=1 bash install.sh
+
+# Forçar modo de UI
+FORCE_UI_MODE=bash bash install.sh
+```
+
+### Prioridade de Instalação
+
+O instalador escolhe a fonte mais atualizada para cada ferramenta.
+
+| OS | Prioridade |
+|----|------------|
+| **Linux** | `official` → `cargo` → `snap` → `flatpak` → `apt` |
+| **macOS** | `official` → `cargo` → `brew` |
+| **Windows** | `official` → `cargo` → `winget` → `scoop` → `choco` |
+
+```bash
+# Personalizar prioridade
+INSTALL_PRIORITY_LINUX="official,cargo,flatpak,snap,apt" bash install.sh
 ```
 
 ---
 
-## 🔄 Sincronizar Repo Público
+## 🔧 Personalização
 
-O repo público não contém dados sensíveis (SSH, configs pessoais).
+### Configs Git
+
+Crie seus arquivos de identidade Git:
 
 ```bash
-# Sincronizar
-bash scripts/sync_public.sh
+# shared/git/.gitconfig-personal
+[user]
+  name = Seu Nome
+  email = seu@email.com
 
-# Ou especificar diretório
-DOTFILES_PUBLIC_DIR="/caminho/para/dotfiles" bash scripts/sync_public.sh
+# shared/git/.gitconfig-work
+[user]
+  name = Seu Nome (Work)
+  email = seu@empresa.com
 ```
 
-**Arquivos excluídos automaticamente:**
-- `shared/.ssh/` (chaves privadas)
-- `shared/git/.gitconfig-personal`
-- `shared/git/.gitconfig-work`
-- `scripts/sync_public.sh`
+### SSH Keys
+
+Coloque suas chaves SSH em `shared/.ssh/`. O instalador copia para `~/.ssh/` com permissões corretas.
+
+Consulte `shared/.ssh.example/` para a estrutura esperada.
 
 ---
 
 ## 🚦 Troubleshooting
 
-### Erro: "Ferramentas não foram instaladas"
-
-O script tenta instalar dependências automaticamente. Se falhar:
+### Ferramentas não foram instaladas
 
 ```bash
-# Rust/Cargo
+# Instalar Rust/Cargo manualmente
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# mise (para runtimes)
+# Instalar mise manualmente
 curl https://mise.run | sh
 
 # Depois execute novamente
 bash install.sh
 ```
 
-### Erro: "Fontes não aparecem"
+### Fontes não aparecem
 
 ```bash
-# Atualizar cache de fontes
-fc-cache -fv
-
+fc-cache -fv  # Atualizar cache de fontes
 # Reiniciar terminal e configurar fonte no emulador
 ```
 
-### Erro: "Git config não funciona"
+### Git config não funciona
 
 ```bash
-# Verificar origem do config
 git config --show-origin user.email
-
-# Verificar arquivos
 ls -la ~/.gitconfig*
 ```
 
-### Validar starship.toml
+### fzf não detectado após instalação
 
 ```bash
-STARSHIP_CONFIG="shared/starship.toml" starship print-config
+export PATH="$HOME/.fzf/bin:$PATH"
 ```
 
 ---
 
 ## 📚 Recursos Úteis
 
-### Documentação Oficial
-
 | Ferramenta | Link |
 |------------|------|
 | Oh My Zsh | [ohmyz.sh](https://ohmyz.sh/) |
 | Powerlevel10k | [github.com/romkatv/powerlevel10k](https://github.com/romkatv/powerlevel10k) |
 | Starship | [starship.rs](https://starship.rs/) |
+| Oh My Posh | [ohmyposh.dev](https://ohmyposh.dev/) |
 | Fish Shell | [fishshell.com](https://fishshell.com/) |
-| Atuin | [atuin.sh](https://atuin.sh/) |
+| Nushell | [nushell.sh](https://www.nushell.sh/) |
 | mise | [mise.jdx.dev](https://mise.jdx.dev/) |
-
-### CLI Tools
-
-| Ferramenta | Link |
-|------------|------|
+| Catppuccin | [catppuccin.com](https://catppuccin.com/) |
 | eza | [github.com/eza-community/eza](https://github.com/eza-community/eza) |
 | bat | [github.com/sharkdp/bat](https://github.com/sharkdp/bat) |
 | zoxide | [github.com/ajeetdsouza/zoxide](https://github.com/ajeetdsouza/zoxide) |
@@ -299,28 +332,33 @@ STARSHIP_CONFIG="shared/starship.toml" starship print-config
 | fzf | [github.com/junegunn/fzf](https://github.com/junegunn/fzf) |
 | lazygit | [github.com/jesseduffield/lazygit](https://github.com/jesseduffield/lazygit) |
 | delta | [github.com/dandavison/delta](https://github.com/dandavison/delta) |
-
----
-
-## 🔑 Segurança
-
-> ⚠️ **NUNCA** commite este repo como público - contém chaves privadas!
-
-- Chaves SSH em `shared/.ssh/`
-- Configs Git com dados pessoais em `shared/git/`
-- Use o repo público para compartilhar: [lucassr-dev/dotfiles](https://github.com/lucassr-dev/dotfiles)
+| yazi | [github.com/sxyazi/yazi](https://github.com/sxyazi/yazi) |
 
 ---
 
 ## 📜 Changelog
 
+### 2026-02
+
+- 🎨 **Catppuccin Mocha** como tema padrão em todas as ferramentas
+- 🐚 Suporte a **Nushell** e **Oh My Posh**
+- 🤖 Seção de **ferramentas IA** (Claude Code, Aider, Codex, Continue, Goose, Serena, Spec Kit)
+- 🔄 Migração **Alacritty YAML → TOML** (formato v0.13+)
+- 🔧 Lazygit config atualizada (propriedades deprecated removidas)
+- 🧹 Configs de package managers simplificadas
+- 🧹 Lista de apps auditada com descrições em todos os itens
+
+### 2026-01
+
+- ✨ Sistema de prioridade de instalação
+- ✨ Auto-instalação do Homebrew no macOS
+- 🗑️ Removido código morto de `app_installers.sh`
+
 ### 2025-01
 
-- ✨ Banner ASCII responsivo (3 tamanhos)
-- ✨ Dashboard pós-instalação em 2 colunas
-- 🐛 Correção de variáveis não inicializadas
-- 🔧 Funções helper para eliminar duplicação
-- 📝 README completo e organizado
+- ✨ Banner ASCII responsivo
+- ✨ Dashboard pós-instalação
+- 📝 README inicial
 
 ---
 
