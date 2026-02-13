@@ -5,17 +5,9 @@
 # CONFIGURAÇÃO E DETECÇÃO
 # ═══════════════════════════════════════════════════════════
 
-# Paleta Catppuccin Mocha — pastéis vibrantes para fundo escuro.
-declare -g UI_CYAN=$'\033[38;2;137;220;235m'
-declare -g UI_GREEN=$'\033[38;2;166;227;161m'
-declare -g UI_YELLOW=$'\033[38;2;249;226;175m'
-declare -g UI_RED=$'\033[38;2;243;139;168m'
-declare -g UI_BLUE=$'\033[38;2;137;180;250m'
-declare -g UI_MAGENTA=$'\033[38;2;203;166;247m'
-declare -g UI_WHITE=$'\033[38;2;205;214;244m'
-declare -g UI_BOLD=$'\033[1m'
-declare -g UI_DIM=$'\033[2m'
-declare -g UI_RESET=$'\033[0m'
+# Cores carregadas de lib/colors.sh (paleta Catppuccin Mocha completa)
+# Legacy alias para compatibilidade
+declare -g UI_MAGENTA="${UI_MAUVE:-$'\033[38;2;203;166;247m'}"
 
 declare -g UI_CHECK="✓"
 declare -g UI_UNCHECK="○"
@@ -66,16 +58,9 @@ detect_terminal_capabilities() {
   esac
 
   if [[ "$HAS_COLOR" -eq 0 ]]; then
-    UI_CYAN=""
-    UI_GREEN=""
-    UI_YELLOW=""
-    UI_RED=""
-    UI_BLUE=""
+    # colors.sh already handles NO_COLOR, but also handle terminal detection
+    _setup_color_mode 2>/dev/null || true
     UI_MAGENTA=""
-    UI_WHITE=""
-    UI_BOLD=""
-    UI_DIM=""
-    UI_RESET=""
   fi
 
   if [[ "$HAS_UNICODE" -eq 0 ]]; then

@@ -99,6 +99,7 @@ cleanup_on_exit() {
 trap cleanup_on_exit EXIT
 trap 'echo ""; echo "⚠️  Interrupção detectada (Ctrl+C)"; exit 130' INT TERM
 
+source "$SCRIPT_DIR/lib/state.sh"
 source "$SCRIPT_DIR/lib/checkpoint.sh"
 
 show_version() {
@@ -308,6 +309,48 @@ has_flatpak_ref() {
   flatpak list | grep -q "$1"
 }
 
+# Verifica se app está instalado em QUALQUER fonte (cmd, dpkg/rpm, snap, flatpak, brew, winget, choco, scoop)
+is_app_installed() {
+  local app="$1"
+  local cmd_check="${2:-$app}"
+
+  has_cmd "$cmd_check" && return 0
+
+  # Lazy-load catálogo se necessário
+  declare -F _ensure_catalog_loaded >/dev/null 2>&1 && _ensure_catalog_loaded
+
+  local sources="${APP_SOURCES[$app]:-}"
+  [[ -z "$sources" ]] && return 1
+
+  local apt_pkg snap_pkg flatpak_ref brew_pkg winget_pkg choco_pkg scoop_pkg
+  apt_pkg=$(echo "$sources" | grep -oP 'apt:\K[^,]+' || true)
+  snap_pkg=$(echo "$sources" | grep -oP 'snap:\K[^, ]+' || true)
+  flatpak_ref=$(echo "$sources" | grep -oP 'flatpak:\K[^,]+' || true)
+  brew_pkg=$(echo "$sources" | grep -oP 'brew:\K[^,]+' || true)
+  winget_pkg=$(echo "$sources" | grep -oP 'winget:\K[^,]+' || true)
+  choco_pkg=$(echo "$sources" | grep -oP 'choco:\K[^,]+' || true)
+  scoop_pkg=$(echo "$sources" | grep -oP 'scoop:\K[^,]+' || true)
+
+  # Linux: dpkg, rpm, snap, flatpak
+  [[ -n "$apt_pkg" ]] && has_cmd dpkg && dpkg -l "$apt_pkg" 2>/dev/null | grep -q '^ii' && return 0
+  [[ -n "$apt_pkg" ]] && has_cmd rpm && rpm -q "$apt_pkg" >/dev/null 2>&1 && return 0
+  [[ -n "$snap_pkg" ]] && has_snap_pkg "$snap_pkg" && return 0
+  [[ -n "$flatpak_ref" ]] && has_flatpak_ref "$flatpak_ref" && return 0
+
+  # macOS: brew (cask + formula)
+  if [[ -n "$brew_pkg" ]] && has_cmd brew; then
+    brew list --cask "$brew_pkg" &>/dev/null && return 0
+    brew list "$brew_pkg" &>/dev/null && return 0
+  fi
+
+  # Windows: winget, choco, scoop
+  [[ -n "$winget_pkg" ]] && has_cmd winget && winget list --id "$winget_pkg" 2>/dev/null | grep -q "$winget_pkg" && return 0
+  [[ -n "$choco_pkg" ]] && has_cmd choco && choco list --local-only "$choco_pkg" 2>/dev/null | grep -q "$choco_pkg" && return 0
+  [[ -n "$scoop_pkg" ]] && has_cmd scoop && scoop list 2>/dev/null | grep -q "$scoop_pkg" && return 0
+
+  return 1
+}
+
 run_with_sudo() {
   if is_truthy "$DRY_RUN"; then
     msg "  🔎 (dry-run) sudo $*"
@@ -337,11 +380,77 @@ get_ssh_key_fingerprint() {
 get_ssh_key_comment() {
   local key_file="$1"
   if [[ -f "$key_file" ]] && [[ "$key_file" == *.pub ]]; then
-    awk '{print $NF}' "$key_file" 2>/dev/null || echo ""
+    awk '{print $NF}' "$key_file" 2>/dev/null
+    return
   elif [[ -f "${key_file}.pub" ]]; then
-    awk '{print $NF}' "${key_file}.pub" 2>/dev/null || echo ""
+    awk '{print $NF}' "${key_file}.pub" 2>/dev/null
+    return
   fi
   echo ""
+}
+
+_ssh_print_key_preview() {
+  local label="$1" key_file="$2"
+  if [[ -f "$key_file" ]]; then
+    local fp comment key_type
+    fp=$(get_ssh_key_fingerprint "$key_file")
+    comment=$(get_ssh_key_comment "$key_file")
+    key_type=$(ssh-keygen -lf "$key_file" 2>/dev/null | awk '{print $NF}' | tr -d '()')
+    echo -e "    ${UI_MUTED}${label}:${UI_RESET}"
+    echo -e "      ${UI_MUTED}Tipo:${UI_RESET}        ${UI_TEXT}${key_type:-desconhecido}${UI_RESET}"
+    echo -e "      ${UI_MUTED}Fingerprint:${UI_RESET} ${UI_TEXT}${fp}${UI_RESET}"
+    [[ -n "$comment" ]] && echo -e "      ${UI_MUTED}Comentário:${UI_RESET}  ${UI_TEXT}${comment}${UI_RESET}"
+    if [[ "$key_file" == *.pub ]]; then
+      local pub_content
+      pub_content=$(head -c 80 "$key_file" 2>/dev/null)
+      echo -e "      ${UI_MUTED}Pub:${UI_RESET}         ${UI_DIM}${pub_content}...${UI_RESET}"
+    fi
+  fi
+}
+
+_ssh_resolve_conflict() {
+  local key_name="$1" src_path="$2" dest_path="$3" ssh_dest="$4"
+
+  echo ""
+  echo -e "  ${UI_WARNING}${UI_BOLD}Conflito:${UI_RESET} ${UI_TEXT}${key_name}${UI_RESET} ${UI_MUTED}já existe em ~/.ssh/${UI_RESET}"
+  echo ""
+
+  _ssh_print_key_preview "Backup (origem)" "$src_path"
+  echo ""
+  _ssh_print_key_preview "Sistema (destino)" "$dest_path"
+  echo ""
+
+  echo -e "  ${UI_PEACH}${UI_BOLD}S${UI_RESET} ${UI_TEXT}Substituir${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_SKY}${UI_BOLD}R${UI_RESET} ${UI_TEXT}Renomear${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_RED}${UI_BOLD}D${UI_RESET} ${UI_TEXT}Deletar existente${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_DIM}P${UI_RESET} ${UI_TEXT}Pular${UI_RESET}"
+  local ssh_choice
+  read -r -p "  → " ssh_choice
+  case "${ssh_choice,,}" in
+    s|substituir)
+      cp "$src_path" "$dest_path"
+      [[ -f "${src_path}.pub" ]] && cp "${src_path}.pub" "${dest_path}.pub"
+      echo -e "  ${UI_GREEN}✓ Substituído: ${key_name}${UI_RESET}"
+      ;;
+    r|renomear)
+      local new_name=""
+      while true; do
+        read -r -p "  Novo nome (ex: id_ed25519_work): " new_name
+        [[ -z "$new_name" ]] && { echo -e "  ${UI_WARNING}Nome não pode ser vazio.${UI_RESET}"; continue; }
+        [[ -f "$ssh_dest/$new_name" ]] && { echo -e "  ${UI_WARNING}${new_name} já existe.${UI_RESET}"; continue; }
+        break
+      done
+      cp "$src_path" "$ssh_dest/$new_name"
+      [[ -f "${src_path}.pub" ]] && cp "${src_path}.pub" "$ssh_dest/${new_name}.pub"
+      echo -e "  ${UI_GREEN}✓ Copiado como: ${new_name}${UI_RESET}"
+      ;;
+    d|deletar)
+      rm -f "$dest_path" "${dest_path}.pub"
+      cp "$src_path" "$dest_path"
+      [[ -f "${src_path}.pub" ]] && cp "${src_path}.pub" "${dest_path}.pub"
+      echo -e "  ${UI_GREEN}✓ Existente removido e substituído: ${key_name}${UI_RESET}"
+      ;;
+    *)
+      echo -e "  ${UI_MUTED}⏭ Mantido: ${key_name} (original preservado)${UI_RESET}"
+      ;;
+  esac
 }
 
 manage_ssh_keys() {
@@ -350,22 +459,25 @@ manage_ssh_keys() {
 
   mkdir -p "$ssh_dest"
 
+  # Coletar apenas chaves privadas e arquivos de config (não .pub separados)
   local source_keys=()
   while IFS= read -r -d '' key; do
     source_keys+=("$key")
-  done < <(find "$ssh_source" -type f \( -name "id_*" -o -name "*.pub" -o -name "known_hosts*" -o -name "config" \) -print0 2>/dev/null)
+  done < <(find "$ssh_source" -type f \( -name "id_*" ! -name "*.pub" \) -o -name "known_hosts*" -o -name "config" 2>/dev/null | sort -z 2>/dev/null)
+  # Fallback com -print0 se sort -z falhar
+  if [[ ${#source_keys[@]} -eq 0 ]]; then
+    while IFS= read -r -d '' key; do
+      source_keys+=("$key")
+    done < <(find "$ssh_source" -type f \( -name "id_*" ! -name "*.pub" -o -name "known_hosts*" -o -name "config" \) -print0 2>/dev/null)
+  fi
 
   if [[ ${#source_keys[@]} -eq 0 ]]; then
-    msg "  ℹ️  Nenhuma chave SSH encontrada em $ssh_source"
+    echo -e "  ${UI_INFO}ℹ Nenhuma chave SSH encontrada em ${ssh_source}${UI_RESET}"
     return
   fi
 
-  msg "  🔐 Chaves SSH encontradas:"
-  msg ""
-
-  declare -A key_fingerprints
+  # Mapear fingerprints existentes no destino
   declare -A dest_fingerprints
-
   if [[ -d "$ssh_dest" ]]; then
     while IFS= read -r -d '' existing_key; do
       local fp
@@ -374,42 +486,55 @@ manage_ssh_keys() {
     done < <(find "$ssh_dest" -type f \( -name "id_*" ! -name "*.pub" \) -print0 2>/dev/null)
   fi
 
+  # ── Exibir chaves encontradas ──
+  echo ""
+  echo -e "  ${UI_ACCENT}${UI_BOLD}▸ Chaves SSH${UI_RESET}"
+  echo -e "  ${UI_BORDER}────────────────${UI_RESET}"
+  echo ""
+
+  local has_conflict=0
   for key_path in "${source_keys[@]}"; do
     local key_name
     key_name=$(basename "$key_path")
     local fp
     fp=$(get_ssh_key_fingerprint "$key_path")
+
+    [[ "$fp" == "not_a_key" ]] && continue
+
     local comment
     comment=$(get_ssh_key_comment "$key_path")
+    local status_icon="${UI_GREEN}●${UI_RESET}"
+    local status_text=""
+    local dest_path="$ssh_dest/$key_name"
 
-    if [[ "$fp" == "not_a_key" ]]; then
-      continue
+    if [[ -f "$dest_path" ]]; then
+      status_icon="${UI_WARNING}●${UI_RESET}"
+      status_text=" ${UI_DIM}(conflito)${UI_RESET}"
+      has_conflict=1
+    elif [[ "$fp" != "unknown" ]] && [[ -n "${dest_fingerprints[$fp]:-}" ]]; then
+      local existing_name
+      existing_name=$(basename "${dest_fingerprints[$fp]}")
+      status_icon="${UI_WARNING}●${UI_RESET}"
+      status_text=" ${UI_DIM}(duplica ${existing_name})${UI_RESET}"
+      has_conflict=1
     fi
 
-    if [[ -n "$comment" ]]; then
-      msg "  📄 $key_name ($comment)"
-    else
-      msg "  📄 $key_name"
-    fi
-
-    if [[ "$fp" != "unknown" ]]; then
-      msg "     Fingerprint: $fp"
-
-      if [[ -n "${dest_fingerprints[$fp]:-}" ]]; then
-        local existing_name
-        existing_name=$(basename "${dest_fingerprints[$fp]}")
-        msg "     ⚠️  Chave duplicada já existe em ~/.ssh/ como: $existing_name"
-      fi
-    fi
-
-    msg ""
+    echo -e "  ${status_icon} ${UI_TEXT}${UI_BOLD}${key_name}${UI_RESET}${status_text}"
+    [[ -n "$comment" ]] && echo -e "    ${UI_MUTED}${comment}${UI_RESET}"
+    [[ "$fp" != "unknown" ]] && echo -e "    ${UI_DIM}${fp}${UI_RESET}"
   done
 
+  echo ""
+  [[ $has_conflict -eq 1 ]] && echo -e "  ${UI_WARNING}⚠ Chaves com conflito serão tratadas individualmente${UI_RESET}" && echo ""
+
   if ! ui_confirm "Deseja copiar as chaves SSH?"; then
-    msg "  ⏭️  Cópia de chaves SSH cancelada"
+    echo -e "  ${UI_MUTED}⏭ Cópia de chaves SSH cancelada${UI_RESET}"
     return 1
   fi
 
+  echo ""
+
+  # ── Copiar chaves ──
   for key_path in "${source_keys[@]}"; do
     local key_name
     key_name=$(basename "$key_path")
@@ -417,64 +542,31 @@ manage_ssh_keys() {
     local fp
     fp=$(get_ssh_key_fingerprint "$key_path")
 
-    if [[ "$fp" != "unknown" ]] && [[ "$fp" != "not_a_key" ]] && [[ -n "${dest_fingerprints[$fp]:-}" ]]; then
+    [[ "$fp" == "not_a_key" ]] && continue
+
+    # Conflito por fingerprint (nome diferente, mesma chave)
+    if [[ "$fp" != "unknown" ]] && [[ -n "${dest_fingerprints[$fp]:-}" ]]; then
       local existing_path="${dest_fingerprints[$fp]}"
       local existing_name
       existing_name=$(basename "$existing_path")
 
       if [[ "$existing_name" != "$key_name" ]]; then
-        msg "  ⚠️  $key_name duplica $existing_name (mesmo fingerprint)"
-        if ui_confirm "   Deseja sobrescrever $existing_name?"; then
-          cp "$key_path" "$existing_path"
-          [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${existing_path}.pub"
-          msg "   ✓ Sobrescrito: $existing_name"
-        else
-          msg "   ⏭️  Mantido: $existing_name (original preservado)"
-        fi
+        echo -e "  ${UI_WARNING}${key_name} duplica ${existing_name}${UI_RESET} ${UI_DIM}(mesmo fingerprint)${UI_RESET}"
+        _ssh_resolve_conflict "$existing_name" "$key_path" "$existing_path" "$ssh_dest"
         continue
       fi
     fi
 
+    # Conflito por nome
     if [[ -f "$dest_path" ]]; then
-      msg "   ⚠️  $key_name já existe em ~/.ssh/"
-      echo ""
-      echo -e "  ${UI_BOLD}${UI_YELLOW}S${UI_RESET} Sobrescrever  │  ${UI_BOLD}${UI_CYAN}R${UI_RESET} Renomear  │  ${UI_BOLD}${UI_DIM}P${UI_RESET} Pular"
-      local ssh_choice
-      read -r -p "  → " ssh_choice
-      case "${ssh_choice,,}" in
-        s|sobrescrever)
-          cp "$key_path" "$dest_path"
-          [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${dest_path}.pub"
-          msg "   ✓ Sobrescrito: $key_name"
-          ;;
-        r|renomear)
-          local new_name=""
-          while true; do
-            read -r -p "  Novo nome (ex: id_ed25519_work): " new_name
-            if [[ -z "$new_name" ]]; then
-              msg "  Nome não pode ser vazio."
-              continue
-            fi
-            if [[ -f "$ssh_dest/$new_name" ]]; then
-              msg "  ⚠️  $new_name já existe. Escolha outro nome."
-              continue
-            fi
-            break
-          done
-          cp "$key_path" "$ssh_dest/$new_name"
-          [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "$ssh_dest/${new_name}.pub"
-          msg "   ✓ Copiado como: $new_name"
-          ;;
-        *)
-          msg "   ⏭️  Preservado: $key_name (original mantido)"
-          ;;
-      esac
+      _ssh_resolve_conflict "$key_name" "$key_path" "$dest_path" "$ssh_dest"
       continue
     fi
 
+    # Sem conflito — copiar diretamente
     cp "$key_path" "$dest_path"
     [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${dest_path}.pub"
-    msg "   ✓ Copiado: $key_name"
+    echo -e "  ${UI_GREEN}✓ Copiado: ${key_name}${UI_RESET}"
   done
 }
 
@@ -767,6 +859,9 @@ INSTALL_BREWFILE=true
 [[ -f "$DATA_APPS" ]] && source "$DATA_APPS" || warn "Arquivo de dados de apps não encontrado: $DATA_APPS"
 [[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
 
+[[ -f "$SCRIPT_DIR/lib/colors.sh" ]] && source "$SCRIPT_DIR/lib/colors.sh"
+[[ -f "$SCRIPT_DIR/lib/utils.sh" ]] && source "$SCRIPT_DIR/lib/utils.sh"
+[[ -f "$SCRIPT_DIR/lib/components.sh" ]] && source "$SCRIPT_DIR/lib/components.sh"
 [[ -f "$SCRIPT_DIR/lib/ui.sh" ]] && source "$SCRIPT_DIR/lib/ui.sh"
 detect_terminal_capabilities
 detect_ui_mode
@@ -944,49 +1039,17 @@ _rv_hline() {
 }
 
 _rv_section_footer() {
-  local inner_w="$1" color="${2:-$BANNER_CYAN}"
-  echo -e "${color}╰$(_rv_hline "$inner_w")╯${BANNER_RESET}"
+  local inner_w="$1"
+  echo -e "${UI_BORDER}╰$(_rv_hline "$inner_w")╯${UI_RESET}"
 }
 
 _rv_divider() {
-  local inner_w="$1" title="$2" color="${3:-$BANNER_CYAN}"
+  local inner_w="$1" title="$2"
   local title_vis
   title_vis=$(_visible_len "$title")
   local pad=$((inner_w - title_vis - 3))
   [[ $pad -lt 0 ]] && pad=0
-  echo -e "${color}├─ ${BANNER_BOLD}${title}${BANNER_RESET}${color} $(_rv_hline "$pad")┤${BANNER_RESET}"
-}
-
-_rv_1to2_divider() {
-  local col_w="$1" left_title="$2" right_title="$3" color="${4:-$BANNER_CYAN}"
-  local left_vis right_vis
-  left_vis=$(_visible_len "$left_title")
-  right_vis=$(_visible_len "$right_title")
-  local left_pad=$((col_w - left_vis - 3))
-  local right_pad=$((col_w - right_vis - 3))
-  [[ $left_pad -lt 0 ]] && left_pad=0
-  [[ $right_pad -lt 0 ]] && right_pad=0
-  echo -e "${color}├─ ${BANNER_BOLD}${left_title}${BANNER_RESET}${color} $(_rv_hline "$left_pad")┬─ ${BANNER_BOLD}${right_title}${BANNER_RESET}${color} $(_rv_hline "$right_pad")┤${BANNER_RESET}"
-}
-
-_rv_2to1_divider() {
-  local col_w="$1" title="${2:-}" color="${3:-$BANNER_CYAN}"
-  local inner_w=$((2 * col_w + 1))
-  if [[ -z "$title" ]]; then
-    echo -e "${color}├$(_rv_hline "$col_w")┴$(_rv_hline "$col_w")┤${BANNER_RESET}"
-    return
-  fi
-  local title_vis
-  title_vis=$(_visible_len "$title")
-  local fill1=$((col_w - title_vis - 3))
-  if [[ $fill1 -lt 0 ]]; then
-    local pad=$((inner_w - title_vis - 3))
-    [[ $pad -lt 0 ]] && pad=0
-    echo -e "${color}├─ ${BANNER_BOLD}${title}${BANNER_RESET}${color} $(_rv_hline "$pad")┤${BANNER_RESET}"
-    return
-  fi
-  local fill2=$col_w
-  echo -e "${color}├─ ${BANNER_BOLD}${title}${BANNER_RESET}${color} $(_rv_hline "$fill1")┴$(_rv_hline "$fill2")┤${BANNER_RESET}"
+  echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rv_hline "$pad")┤${UI_RESET}"
 }
 
 _print_box_line() {
@@ -998,9 +1061,9 @@ _print_box_line() {
   if [[ "$align" == "center" ]]; then
     local left_pad=$((pad / 2))
     local right_pad=$((pad - left_pad))
-    echo -e "${BANNER_CYAN}│${BANNER_RESET} $(printf '%*s' "$left_pad" '')${content}$(printf '%*s' "$right_pad" '') ${BANNER_CYAN}│${BANNER_RESET}"
+    echo -e "${UI_BORDER}│${UI_RESET} $(printf '%*s' "$left_pad" '')${content}$(printf '%*s' "$right_pad" '') ${UI_BORDER}│${UI_RESET}"
   else
-    echo -e "${BANNER_CYAN}│${BANNER_RESET} ${content}$(printf '%*s' "$pad" '') ${BANNER_CYAN}│${BANNER_RESET}"
+    echo -e "${UI_BORDER}│${UI_RESET} ${content}$(printf '%*s' "$pad" '') ${UI_BORDER}│${UI_RESET}"
   fi
 }
 
@@ -1106,8 +1169,15 @@ review_selections() {
 
     local inner_w=$((w - 2))
 
-    echo -e "${BANNER_CYAN}╭$(_rv_hline "$inner_w")╮${BANNER_RESET}"
-    _print_box_line "$inner_w" "${BANNER_BOLD}${BANNER_WHITE}RESUMO FINAL${BANNER_RESET}" "center"
+    echo -e "${UI_BORDER}╭$(_rv_hline "$inner_w")╮${UI_RESET}"
+    _print_box_line "$inner_w" "${UI_PEACH}${UI_BOLD}  RESUMO FINAL${UI_RESET}" "center"
+    echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
+
+    local total_pkgs
+    total_pkgs=$(_count_total_packages)
+    local total_cfgs
+    total_cfgs=$(_count_configs_to_copy)
+    _print_box_line "$inner_w" "${UI_MUTED}Pacotes:${UI_RESET} ${UI_GREEN}${total_pkgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Configs:${UI_RESET} ${UI_BLUE}${total_cfgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}SO:${UI_RESET} ${UI_TEXT}${TARGET_OS:-linux}${UI_RESET}"
 
     local selected_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
@@ -1192,13 +1262,13 @@ review_selections() {
       fi
       [[ ${#wrapped_lines[@]} -eq 0 ]] && wrapped_lines=("$empty_value")
 
-      _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}${label}:${BANNER_RESET} ${BANNER_WHITE}${wrapped_lines[0]}${BANNER_RESET}"
+      _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}${label}:${UI_RESET} ${UI_TEXT}${wrapped_lines[0]}${UI_RESET}"
 
       local prefix
       prefix=$(printf '%*s' "$((label_vis + 1))" '')
       local i=0
       for ((i=1; i<${#wrapped_lines[@]}; i++)); do
-        _print_box_line "$inner_w" "  ${BANNER_DIM}${prefix}${BANNER_RESET}${BANNER_WHITE}${wrapped_lines[i]}${BANNER_RESET}"
+        _print_box_line "$inner_w" "  ${UI_DIM}${prefix}${UI_RESET}${UI_TEXT}${wrapped_lines[i]}${UI_RESET}"
       done
     }
 
@@ -1224,9 +1294,9 @@ review_selections() {
       right_text=$(_items_to_text "$right_empty" "${right_arr[@]}")
 
       local left_fmt right_fmt pair_line
-      left_fmt="${BANNER_BOLD}${BANNER_YELLOW}${left_label}:${BANNER_RESET} ${BANNER_WHITE}${left_text}${BANNER_RESET}"
-      right_fmt="${BANNER_BOLD}${BANNER_YELLOW}${right_label}:${BANNER_RESET} ${BANNER_WHITE}${right_text}${BANNER_RESET}"
-      pair_line="• ${left_fmt} ${BANNER_DIM}|${BANNER_RESET} ${right_fmt}"
+      left_fmt="${UI_BOLD}${UI_YELLOW}${left_label}:${UI_RESET} ${UI_TEXT}${left_text}${UI_RESET}"
+      right_fmt="${UI_BOLD}${UI_YELLOW}${right_label}:${UI_RESET} ${UI_TEXT}${right_text}${UI_RESET}"
+      pair_line="• ${left_fmt} ${UI_DIM}|${UI_RESET} ${right_fmt}"
 
       if [[ ${#left_arr[@]} -le 6 ]] && [[ ${#right_arr[@]} -le 6 ]] && [[ $(_visible_len "$pair_line") -le $((inner_w - 2)) ]]; then
         _print_box_line "$inner_w" "$pair_line"
@@ -1259,48 +1329,48 @@ review_selections() {
                  ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
 
     if [[ $gui_total -gt 0 ]]; then
-      _rv_divider "$inner_w" "APPS GUI ${BANNER_RESET}${BANNER_DIM}(${gui_total})"
+      _rv_divider "$inner_w" "APPS GUI ${UI_RESET}${UI_DIM}(${gui_total})"
 
       local gui_data_w=$((inner_w - 15))
       if [[ ${#SELECTED_IDES[@]} -gt 0 ]]; then
         local ides_str
         ides_str=$(_truncate_items "$gui_data_w" "${SELECTED_IDES[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}IDEs:${BANNER_RESET}      ${BANNER_WHITE}$ides_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}IDEs:${UI_RESET}      ${UI_TEXT}$ides_str${UI_RESET}"
       fi
       if [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]; then
         local browsers_str
         browsers_str=$(_truncate_items "$gui_data_w" "${SELECTED_BROWSERS[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}Navegadores:${BANNER_RESET} ${BANNER_WHITE}$browsers_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Navegadores:${UI_RESET} ${UI_TEXT}$browsers_str${UI_RESET}"
       fi
       if [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]; then
         local devtools_str
         devtools_str=$(_truncate_items "$gui_data_w" "${SELECTED_DEV_TOOLS[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}Dev Tools:${BANNER_RESET} ${BANNER_WHITE}$devtools_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Dev Tools:${UI_RESET} ${UI_TEXT}$devtools_str${UI_RESET}"
       fi
       if [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]; then
         local dbs_str
         dbs_str=$(_truncate_items "$gui_data_w" "${SELECTED_DATABASES[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}Bancos:${BANNER_RESET}    ${BANNER_WHITE}$dbs_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Bancos:${UI_RESET}    ${UI_TEXT}$dbs_str${UI_RESET}"
       fi
       if [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]; then
         local prod_str
         prod_str=$(_truncate_items "$gui_data_w" "${SELECTED_PRODUCTIVITY[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}Produtiv.:${BANNER_RESET} ${BANNER_WHITE}$prod_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Produtiv.:${UI_RESET} ${UI_TEXT}$prod_str${UI_RESET}"
       fi
       if [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]]; then
         local comm_str
         comm_str=$(_truncate_items "$gui_data_w" "${SELECTED_COMMUNICATION[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}Comunic.:${BANNER_RESET}  ${BANNER_WHITE}$comm_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Comunic.:${UI_RESET}  ${UI_TEXT}$comm_str${UI_RESET}"
       fi
       if [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]; then
         local media_str
         media_str=$(_truncate_items "$gui_data_w" "${SELECTED_MEDIA[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}Mídia:${BANNER_RESET}     ${BANNER_WHITE}$media_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Mídia:${UI_RESET}     ${UI_TEXT}$media_str${UI_RESET}"
       fi
       if [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]; then
         local utils_str
         utils_str=$(_truncate_items "$gui_data_w" "${SELECTED_UTILITIES[@]}")
-        _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}Utilitár.:${BANNER_RESET} ${BANNER_WHITE}$utils_str${BANNER_RESET}"
+        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Utilitár.:${UI_RESET} ${UI_TEXT}$utils_str${UI_RESET}"
       fi
       _rv_divider "$inner_w" "COPIAR CONFIGURAÇÕES"
     else
@@ -1311,9 +1381,9 @@ review_selections() {
       local available="$1" selected="$2" name="$3"
       if [[ $available -eq 1 ]]; then
         if [[ $selected -eq 1 ]]; then
-          echo "${BANNER_GREEN}✓${BANNER_RESET}${name}"
+          echo "${UI_GREEN}✓${UI_RESET}${name}"
         else
-          echo "${BANNER_DIM}✗${name}${BANNER_RESET}"
+          echo "${UI_DIM}✗${name}${UI_RESET}"
         fi
       fi
     }
@@ -1385,7 +1455,7 @@ review_selections() {
       [[ ${#arr_ref[@]} -eq 0 ]] && return
       local text
       text=$(_cfg_join_text "$arr_name")
-      _print_box_line "$inner_w" "• ${BANNER_BOLD}${BANNER_YELLOW}${label}:${BANNER_RESET} ${BANNER_WHITE}${text}${BANNER_RESET}"
+      _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}${label}:${UI_RESET} ${UI_TEXT}${text}${UI_RESET}"
     }
 
     _print_cfg_pair() {
@@ -1402,7 +1472,7 @@ review_selections() {
         local left_txt right_txt pair_line
         left_txt=$(_cfg_join_text "$left_arr_name")
         right_txt=$(_cfg_join_text "$right_arr_name")
-        pair_line="• ${BANNER_BOLD}${BANNER_YELLOW}${left_label}:${BANNER_RESET} ${BANNER_WHITE}${left_txt}${BANNER_RESET} ${BANNER_DIM}|${BANNER_RESET} ${BANNER_BOLD}${BANNER_YELLOW}${right_label}:${BANNER_RESET} ${BANNER_WHITE}${right_txt}${BANNER_RESET}"
+        pair_line="• ${UI_BOLD}${UI_YELLOW}${left_label}:${UI_RESET} ${UI_TEXT}${left_txt}${UI_RESET} ${UI_DIM}|${UI_RESET} ${UI_BOLD}${UI_YELLOW}${right_label}:${UI_RESET} ${UI_TEXT}${right_txt}${UI_RESET}"
         if [[ $(_visible_len "$pair_line") -le $((inner_w - 2)) ]]; then
           _print_box_line "$inner_w" "$pair_line"
           return
@@ -1433,25 +1503,23 @@ review_selections() {
     [[ ${#cfg_terminals[@]} -gt 0 ]] && has_any_cfg=1
     [[ ${#cfg_runtime[@]} -gt 0 ]] && has_any_cfg=1
     if [[ $has_any_cfg -eq 0 ]]; then
-      _print_box_line "$inner_w" "${BANNER_DIM}(nenhuma configuração disponível)${BANNER_RESET}"
+      _print_box_line "$inner_w" "${UI_DIM}(nenhuma configuração disponível)${UI_RESET}"
     fi
 
     _rv_section_footer "$inner_w"
     echo ""
-    echo -e "${BANNER_CYAN}╭$(_rv_hline "$inner_w")╮${BANNER_RESET}"
-    local options_line_full options_line_compact options_line
-    local num="${BANNER_BOLD}${BANNER_YELLOW}"
-    local key="${BANNER_BOLD}${BANNER_MAGENTA}"
-    local cat="${BANNER_BOLD}${BANNER_CYAN}"
-    options_line_full="${num}0${BANNER_RESET} ${cat}Config${BANNER_RESET} ${num}1${BANNER_RESET} ${cat}Shells${BANNER_RESET} ${num}2${BANNER_RESET} ${cat}Fontes${BANNER_RESET} ${num}3${BANNER_RESET} ${cat}Terminais${BANNER_RESET} ${num}4${BANNER_RESET} ${cat}Ferramentas CLI${BANNER_RESET} ${num}5${BANNER_RESET} ${cat}Ferramentas IA${BANNER_RESET} ${num}6${BANNER_RESET} ${cat}Apps GUI${BANNER_RESET} ${num}7${BANNER_RESET} ${cat}Runtimes${BANNER_RESET} ${num}8${BANNER_RESET} ${cat}Git${BANNER_RESET}"
-    options_line_compact="${num}0${BANNER_RESET} ${cat}Config${BANNER_RESET} ${num}1${BANNER_RESET} ${cat}Shells${BANNER_RESET} ${num}2${BANNER_RESET} ${cat}Fontes${BANNER_RESET} ${num}3${BANNER_RESET} ${cat}Terminais${BANNER_RESET} ${num}4${BANNER_RESET} ${cat}CLI${BANNER_RESET} ${num}5${BANNER_RESET} ${cat}IA${BANNER_RESET} ${num}6${BANNER_RESET} ${cat}GUI${BANNER_RESET} ${num}7${BANNER_RESET} ${cat}Runtimes${BANNER_RESET} ${num}8${BANNER_RESET} ${cat}Git${BANNER_RESET}"
-    options_line="$options_line_full"
-    if [[ $(_visible_len "$options_line_full") -gt $((inner_w - 2)) ]]; then
-      options_line="$options_line_compact"
-    fi
 
-    _print_box_line "$inner_w" "$options_line"
-    _print_box_line "$inner_w" "${key}Enter${BANNER_RESET} Instalar   ${key}S${BANNER_RESET} Sair"
+    # ── Ações ──
+    echo -e "${UI_BORDER}╭$(_rv_hline "$inner_w")╮${UI_RESET}"
+    _print_box_line "$inner_w" "${UI_ACCENT}${UI_BOLD}EDITAR SELEÇÕES${UI_RESET}" "center"
+    echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
+
+    local n="${UI_PEACH}"
+    local t="${UI_TEXT}"
+    _print_box_line "$inner_w" " ${n}0${UI_RESET} ${t}Config${UI_RESET}  ${n}1${UI_RESET} ${t}Shells${UI_RESET}  ${n}2${UI_RESET} ${t}Fontes${UI_RESET}  ${n}3${UI_RESET} ${t}Terminais${UI_RESET}  ${n}4${UI_RESET} ${t}CLI${UI_RESET}  ${n}5${UI_RESET} ${t}IA${UI_RESET}"
+    _print_box_line "$inner_w" " ${n}6${UI_RESET} ${t}Apps GUI${UI_RESET}  ${n}7${UI_RESET} ${t}Runtimes${UI_RESET}  ${n}8${UI_RESET} ${t}Git${UI_RESET}"
+    echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
+    _print_box_line "$inner_w" "${UI_GREEN}${UI_BOLD}Enter${UI_RESET} ${UI_MUTED}Iniciar instalação${UI_RESET}   ${UI_RED}${UI_BOLD}S${UI_RESET} ${UI_MUTED}Sair${UI_RESET}"
     _rv_section_footer "$inner_w"
     echo ""
     read -r -p "  → " choice
@@ -1915,228 +1983,6 @@ install_mongodb_linux() {
   install_linux_packages optional mongodb 2>/dev/null
 }
 
-install_vscode_linux() {
-  if has_snap_pkg code; then
-    msg "  🔄 Atualizando VS Code via snap (stable)..."
-    if run_with_sudo snap refresh code --channel=stable >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: snap refresh (stable)")
-    else
-      record_failure "optional" "Falha ao atualizar VS Code via snap"
-    fi
-    return 0
-  fi
-
-  if has_flatpak_ref "com.visualstudio.code"; then
-    msg "  🔄 Atualizando VS Code via flatpak..."
-    if flatpak update -y com.visualstudio.code >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: flatpak update")
-    else
-      record_failure "optional" "Falha ao atualizar VS Code via flatpak"
-    fi
-    return 0
-  fi
-
-  detect_linux_pkg_manager
-
-  if [[ "$LINUX_PKG_MANAGER" == "apt-get" ]]; then
-    if has_cmd code; then
-      local installed_version
-      installed_version="$(code --version 2>/dev/null | head -n 1 || echo '')"
-      if [[ -n "$installed_version" ]]; then
-        msg "  ✅ VS Code já instalado (versão: $installed_version)"
-        return 0
-      fi
-    fi
-
-    msg "  📦 Instalando VS Code (deb oficial)..."
-
-    local deb=""
-    deb="$(mktemp)" || {
-      record_failure "optional" "Falha ao criar arquivo temporário para VS Code"
-      return 1
-    }
-    trap 'rm -f "${deb:-}"' RETURN
-
-    if curl -fsSL "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64" -o "$deb"; then
-      if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
-        INSTALLED_MISC+=("vscode: deb oficial (stable)")
-      else
-        run_with_sudo apt-get install -f -y >/dev/null 2>&1 || true
-        if run_with_sudo dpkg -i "$deb" >/dev/null 2>&1; then
-          INSTALLED_MISC+=("vscode: deb oficial (stable)")
-        else
-          record_failure "optional" "Falha ao instalar VS Code (deb)"
-        fi
-      fi
-      return 0
-    fi
-    record_failure "optional" "Falha ao baixar VS Code (deb oficial)"
-  fi
-
-  if [[ "$LINUX_PKG_MANAGER" == "dnf" ]]; then
-    if has_cmd code; then
-      local installed_version
-      installed_version="$(code --version 2>/dev/null | head -n 1 || echo '')"
-      if [[ -n "$installed_version" ]]; then
-        msg "  ✅ VS Code já instalado (versão: $installed_version)"
-        return 0
-      fi
-    fi
-
-    msg "  📦 Instalando VS Code (rpm oficial via dnf)..."
-    if run_with_sudo dnf install -y "https://code.visualstudio.com/sha/download?build=stable&os=linux-rpm-x64" >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: rpm oficial (stable)")
-    else
-      record_failure "optional" "Falha ao instalar VS Code via dnf (rpm oficial)"
-    fi
-    return 0
-  fi
-
-  if [[ "$LINUX_PKG_MANAGER" == "zypper" ]]; then
-    if has_cmd code; then
-      local installed_version
-      installed_version="$(code --version 2>/dev/null | head -n 1 || echo '')"
-      if [[ -n "$installed_version" ]]; then
-        msg "  ✅ VS Code já instalado (versão: $installed_version)"
-        return 0
-      fi
-    fi
-
-    msg "  📦 Instalando VS Code (rpm oficial via zypper)..."
-    if run_with_sudo zypper install -y "https://code.visualstudio.com/sha/download?build=stable&os=linux-rpm-x64" >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: rpm oficial (stable)")
-    else
-      record_failure "optional" "Falha ao instalar VS Code via zypper (rpm oficial)"
-    fi
-    return 0
-  fi
-
-  if has_cmd snap; then
-    msg "  📦 Instalando VS Code via snap (stable)..."
-    if run_with_sudo snap install code --classic --channel=stable >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: snap install (stable)")
-    else
-      record_failure "optional" "Falha ao instalar VS Code via snap"
-    fi
-    return 0
-  fi
-
-  if has_cmd flatpak; then
-    msg "  📦 Instalando VS Code via flatpak..."
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
-    if flatpak install -y flathub com.visualstudio.code >/dev/null 2>&1; then
-      INSTALLED_MISC+=("vscode: flatpak install")
-    else
-      record_failure "optional" "Falha ao instalar VS Code via flatpak"
-    fi
-    return 0
-  fi
-
-  record_failure "optional" "VS Code não instalado: apt/dnf/zypper/snap/flatpak indisponíveis nesta distro."
-  return 0
-}
-
-install_vscode_macos() {
-  if has_cmd brew; then
-    msg "  🍺 VS Code via Homebrew..."
-    if brew list --cask visual-studio-code >/dev/null 2>&1; then
-      if has_cmd code; then
-        local version=""
-        version="$(code --version 2>/dev/null | head -n 1 || echo '')"
-        if [[ -n "$version" ]]; then
-          msg "  ✅ VS Code já instalado (versão: $version)"
-        fi
-      fi
-      if brew upgrade --cask visual-studio-code >/dev/null 2>&1; then
-        INSTALLED_PACKAGES+=("brew cask: visual-studio-code (upgrade)")
-      else
-        record_failure "optional" "Falha ao atualizar VS Code via Homebrew cask"
-      fi
-      return 0
-    fi
-
-    if brew install --cask visual-studio-code >/dev/null 2>&1; then
-      INSTALLED_PACKAGES+=("brew cask: visual-studio-code (install)")
-      return 0
-    fi
-
-    record_failure "optional" "Falha ao instalar VS Code via Homebrew cask"
-    return 0
-  fi
-
-  record_failure "optional" "Homebrew não disponível: não foi possível instalar VS Code automaticamente no macOS"
-  return 0
-}
-
-install_vscode_windows() {
-  if has_cmd winget; then
-    local id="Microsoft.VisualStudioCode"
-    local result=""
-    result="$(winget list --id "$id" 2>/dev/null || true)"
-    if [[ "$result" == *"$id"* ]]; then
-      if has_cmd code; then
-        local version=""
-        version="$(code --version 2>/dev/null | head -n 1 || echo '')"
-        if [[ -n "$version" ]]; then
-          msg "  ✅ VS Code já instalado (versão: $version)"
-        fi
-      fi
-      if winget upgrade --id "$id" -e --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
-        INSTALLED_PACKAGES+=("winget: VS Code (upgrade)")
-      else
-        record_failure "optional" "Falha ao atualizar VS Code via winget"
-      fi
-      return 0
-    fi
-
-    if winget install --id "$id" -e --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
-      INSTALLED_PACKAGES+=("winget: VS Code (install)")
-    else
-      record_failure "optional" "Falha ao instalar VS Code via winget"
-    fi
-    return 0
-  fi
-
-  if has_cmd choco; then
-    local package="vscode"
-    local result=""
-    result="$(choco list --local-only "$package" 2>/dev/null || true)"
-    if [[ "$result" == *"$package"* ]]; then
-      if has_cmd code; then
-        local version=""
-        version="$(code --version 2>/dev/null | head -n 1 || echo '')"
-        if [[ -n "$version" ]]; then
-          msg "  ✅ VS Code já instalado (versão: $version)"
-        fi
-      fi
-      if choco upgrade -y "$package" >/dev/null 2>&1; then
-        INSTALLED_PACKAGES+=("choco: vscode (upgrade)")
-      else
-        record_failure "optional" "Falha ao atualizar VS Code via Chocolatey"
-      fi
-      return 0
-    fi
-
-    if choco install -y "$package" >/dev/null 2>&1; then
-      INSTALLED_PACKAGES+=("choco: vscode (install)")
-    else
-      record_failure "optional" "Falha ao instalar VS Code via Chocolatey"
-    fi
-    return 0
-  fi
-
-  record_failure "optional" "VS Code não instalado: winget/Chocolatey não disponíveis"
-  return 0
-}
-
-install_vscode() {
-  case "${TARGET_OS:-}" in
-    linux|wsl2) install_vscode_linux ;;
-    macos) install_vscode_macos ;;
-    windows) install_vscode_windows ;;
-  esac
-}
-
 install_docker_linux() {
   if has_cmd docker; then
     local docker_version
@@ -2167,86 +2013,9 @@ install_docker_linux() {
   esac
 }
 
-install_php_build_deps_linux() {
-  detect_linux_pkg_manager
-  case "$LINUX_PKG_MANAGER" in
-    apt-get)
-      install_linux_packages optional \
-        autoconf bison build-essential pkg-config re2c plocate \
-        libgd-dev libcurl4-openssl-dev libedit-dev libicu-dev libjpeg-dev \
-        libmysqlclient-dev libonig-dev libpng-dev libpq-dev libreadline-dev \
-        libsqlite3-dev libssl-dev libxml2-dev libxslt-dev libzip-dev \
-        gettext git curl openssl
-      ;;
-    dnf)
-      install_linux_packages optional \
-        autoconf bison gcc gcc-c++ make pkg-config re2c mlocate \
-        gd-devel libzip-devel libxml2-devel libxslt-devel libcurl-devel \
-        libedit-devel libicu-devel libjpeg-turbo-devel libpng-devel \
-        libpq-devel readline-devel sqlite-devel openssl-devel oniguruma-devel \
-        gettext-devel git curl openssl mysql-devel
-      ;;
-    pacman)
-      install_linux_packages optional \
-        autoconf bison base-devel pkgconf re2c mlocate \
-        gd libzip libxml2 libxslt curl libedit icu libjpeg-turbo libpng \
-        libpq readline sqlite openssl oniguruma gettext git mariadb-libs
-      ;;
-    zypper)
-      install_linux_packages optional \
-        autoconf bison gcc gcc-c++ make pkg-config re2c mlocate \
-        gd-devel libzip-devel libxml2-devel libxslt-devel libcurl-devel \
-        libedit-devel libicu-devel libjpeg8-devel libpng16-devel libpq-devel \
-        readline-devel sqlite3-devel libopenssl-devel oniguruma-devel \
-        gettext-tools git curl libmysqlclient-devel
-      ;;
-  esac
-}
-
-install_php_build_deps_macos() {
-  local deps=(
-    autoconf
-    bison
-    re2c
-    pkg-config
-    libzip
-    icu4c
-    openssl@3
-    readline
-    gettext
-    curl
-  )
-  local dep=""
-  for dep in "${deps[@]}"; do
-    brew_install_formula "$dep" optional
-  done
-}
-
-install_php_windows() {
-  local installed=0
-  if has_cmd winget; then
-    winget_install PHP.PHP "PHP" optional
-    if has_cmd php; then
-      installed=1
-    else
-      winget_install PHP.PHP.8.3 "PHP 8.3" optional
-      has_cmd php && installed=1
-    fi
-  fi
-
-  if [[ $installed -eq 0 ]] && has_cmd choco; then
-    choco_install php "PHP (latest)" optional
-    has_cmd php && installed=1
-  fi
-
-  if [[ $installed -eq 1 ]]; then
-    msg "  ✅ PHP (latest) instalado/atualizado no Windows (winget/choco)"
-    return 0
-  fi
-
-  record_failure "optional" "PHP não instalado no Windows: winget/choco indisponíveis ou falharam"
-  return 1
-}
+# install_php_build_deps_linux() → Movido para lib/os_linux.sh
+# install_php_build_deps_macos() → Movido para lib/os_macos.sh
+# install_php_windows() → Movido para lib/os_windows.sh
 
 install_composer_and_laravel() {
   if ! has_cmd composer; then
@@ -2312,23 +2081,7 @@ download_and_run_script() {
   fi
 }
 
-ensure_rust_cargo() {
-  if has_cmd cargo; then
-    return 0
-  fi
-
-  msg "▶ Rust/Cargo não encontrado. Instalando..."
-
-  if download_and_run_script "https://sh.rustup.rs" "Rust" "bash" "" "-y --no-modify-path"; then
-    export PATH="$HOME/.cargo/bin:$PATH"
-    INSTALLED_MISC+=("rustup: installer script")
-    msg "  ✅ Rust/Cargo instalado com sucesso"
-    return 0
-  else
-    record_failure "critical" "Falha ao instalar Rust/Cargo. Algumas ferramentas não estarão disponíveis."
-    return 1
-  fi
-}
+# ensure_rust_cargo() → Movido para lib/tools.sh
 
 ensure_ghostty_linux() {
   if has_cmd ghostty; then
@@ -2851,199 +2604,18 @@ apply_shared_configs() {
   fi
 }
 
-copy_vscode_settings() {
-  local settings_file="$CONFIG_SHARED/vscode/settings.json"
-  [[ -f "$settings_file" ]] || return
+# copy_vscode_settings() → Movido para lib/fileops.sh
 
-  local dest=""
-  case "$TARGET_OS" in
-    macos)
-      dest="$HOME/Library/Application Support/Code/User/settings.json"
-      if [[ -d "$(dirname "$dest")" ]] || has_cmd code; then
-        copy_file "$settings_file" "$dest"
-      else
-        msg "  ⚠️ VS Code não encontrado em macOS, pulando settings."
-      fi
-      ;;
-    linux)
-      dest="$HOME/.config/Code/User/settings.json"
-      if [[ -d "$(dirname "$dest")" ]] || has_cmd code; then
-        copy_file "$settings_file" "$dest"
-      else
-        msg "  ⚠️ VS Code não encontrado em Linux, pulando settings."
-      fi
-      ;;
-    windows)
-      local base="${APPDATA:-}"
-      if [[ -z "$base" ]]; then
-        base="$HOME/AppData/Roaming"
-      fi
-      if [[ -n "$base" ]]; then
-        copy_file "$settings_file" "$base/Code/User/settings.json"
-        if [[ -d "$base/Code - Insiders/User" ]]; then
-          copy_file "$settings_file" "$base/Code - Insiders/User/settings.json"
-        fi
-      else
-        msg "  ⚠️ APPDATA não definido, não foi possível instalar settings do VS Code."
-      fi
-      ;;
-  esac
-}
-
-apply_linux_configs() {
-  local source_dir="$CONFIG_LINUX"
-  [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
-  [[ -d "$source_dir" ]] || return
-  msg "▶ Copiando configs Linux"
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
-    copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"
-  else
-    msg "  ⏭️  Terminal config: usuário optou por não copiar"
-  fi
-}
-
-apply_macos_configs() {
-  local source_dir="$CONFIG_MACOS"
-  [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
-  [[ -d "$source_dir" ]] || return
-  msg "▶ Copiando configs macOS"
-
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
-    copy_dir "$source_dir/ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
-  else
-    msg "  ⏭️  Terminal config (Ghostty): usuário optou por não copiar"
-  fi
-
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
-    copy_file "$source_dir/rectangle/com.knollsoft.Rectangle.plist" "$HOME/Library/Preferences/com.knollsoft.Rectangle.plist"
-    msg "  ✅ Rectangle configurado (reinicie o app para aplicar)"
-  fi
-
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/stats/com.exelban.Stats.plist" ]]; then
-    copy_file "$source_dir/stats/com.exelban.Stats.plist" "$HOME/Library/Preferences/com.exelban.Stats.plist"
-    msg "  ✅ Stats configurado (reinicie o app para aplicar)"
-  fi
-
-  if [[ -f "$source_dir/keycastr/keycastr.json" ]]; then
-    msg "  📋 KeyCastr: configuração disponível em $source_dir/keycastr/keycastr.json"
-    msg "     Lembre-se de dar permissão de Acessibilidade nas Preferências do Sistema"
-  fi
-}
-
-apply_windows_configs() {
-  [[ -d "$CONFIG_WINDOWS" ]] || return
-  msg "▶ Copiando configs Windows"
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
-    copy_windows_terminal_settings
-    copy_windows_powershell_profiles
-  else
-    msg "  ⏭️  Terminal config: usuário optou por não copiar"
-  fi
-}
-
-copy_windows_terminal_settings() {
-  local wt_settings="$CONFIG_WINDOWS/windows-terminal-settings.json"
-  [[ -f "$wt_settings" ]] || return 0
-  local base="${LOCALAPPDATA:-$HOME/AppData/Local}"
-
-  local stable="$base/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
-  local preview="$base/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json"
-  local unpackaged="$base/Microsoft/Windows Terminal/settings.json"
-  copy_file "$wt_settings" "$stable"
-  if [[ -d "$(dirname "$preview")" ]]; then
-    copy_file "$wt_settings" "$preview"
-  fi
-  if [[ -d "$(dirname "$unpackaged")" ]]; then
-    copy_file "$wt_settings" "$unpackaged"
-  fi
-}
-
-copy_windows_powershell_profiles() {
-  local profile_src="$CONFIG_WINDOWS/powershell/profile.ps1"
-  [[ -f "$profile_src" ]] || return
-
-  local user_home="${USERPROFILE:-$HOME}"
-  local docs="$user_home/Documents"
-  if [[ ! -d "$docs" ]] && has_cmd powershell.exe; then
-    local docs_win
-    docs_win="$(powershell.exe -NoProfile -Command '[Environment]::GetFolderPath("MyDocuments")' 2>/dev/null | tr -d '\r' || true)"
-    if [[ -n "$docs_win" ]]; then
-      if has_cmd wslpath; then
-        docs="$(wslpath -u "$docs_win" 2>/dev/null || echo "$docs")"
-      elif has_cmd cygpath; then
-        docs="$(cygpath -u "$docs_win" 2>/dev/null || echo "$docs")"
-      fi
-    fi
-  fi
-
-  copy_file "$profile_src" "$docs/PowerShell/Microsoft.PowerShell_profile.ps1"
-  copy_file "$profile_src" "$docs/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
-}
+# apply_linux_configs, apply_macos_configs, apply_windows_configs,
+# copy_windows_terminal_settings, copy_windows_powershell_profiles
+# → Movidos para lib/os_linux.sh, lib/os_macos.sh, lib/os_windows.sh
 
 
 # ════════════════════════════════════════════════════════════════
 # VS Code Extensions - Export/Import
 # ════════════════════════════════════════════════════════════════
 
-export_vscode_extensions() {
-  if ! has_cmd code; then
-    return
-  fi
-
-  local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
-  msg "  📦 Exportando extensões VS Code..."
-
-  mkdir -p "$(dirname "$extensions_file")"
-  code --list-extensions > "$extensions_file" 2>/dev/null || warn "Falha ao exportar extensões VS Code"
-}
-
-install_vscode_extensions() {
-  local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
-
-  if [[ ${COPY_VSCODE_SETTINGS:-1} -ne 1 ]]; then
-    msg "  ⏭️  VS Code extensions: usuário optou por não copiar/instalar"
-    return
-  fi
-
-  if ! has_cmd code; then
-    warn "VS Code não encontrado; pulando instalação de extensões."
-    return
-  fi
-
-  if [[ ! -f "$extensions_file" ]]; then
-    return
-  fi
-
-  msg "▶ Instalando extensões VS Code"
-
-  local installed_count=0
-
-  local installed_extensions
-  installed_extensions="$(code --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-
-  while IFS= read -r extension; do
-    [[ -z "$extension" ]] && continue
-    [[ "$extension" =~ ^# ]] && continue
-
-    local ext_lower
-    ext_lower="$(echo "$extension" | tr '[:upper:]' '[:lower:]')"
-
-    if echo "$installed_extensions" | grep -qi "^${ext_lower}$"; then
-      continue
-    fi
-
-    msg "  🔌 Instalando: $extension"
-    if ! code --install-extension "$extension" --force >/dev/null 2>&1; then
-      warn "Falha ao instalar extensão: $extension"
-    else
-      installed_count=$((installed_count + 1))
-    fi
-  done < "$extensions_file"
-
-  if [[ $installed_count -gt 0 ]]; then
-    INSTALLED_MISC+=("vscode extensions: $installed_count")
-  fi
-}
+# export_vscode_extensions(), install_vscode_extensions() → Movidos para lib/fileops.sh
 
 # ════════════════════════════════════════════════════════════════
 # Brewfile (macOS) - Export/Import
@@ -3227,39 +2799,9 @@ export_configs() {
   msg "💡 Execute 'git status' para ver as mudanças"
 }
 
-export_vscode_settings() {
-  local src=""
-  case "$TARGET_OS" in
-    macos)
-      src="$HOME/Library/Application Support/Code/User/settings.json"
-      ;;
-    linux)
-      src="$HOME/.config/Code/User/settings.json"
-      ;;
-    windows)
-      local base="${APPDATA:-$HOME/AppData/Roaming}"
-      src="$base/Code/User/settings.json"
-      ;;
-  esac
+# export_vscode_settings() → Movido para lib/fileops.sh
 
-  if [[ -f "$src" ]]; then
-    export_file "$src" "$CONFIG_SHARED/vscode/settings.json"
-  fi
-}
-
-export_windows_configs_back() {
-  local base="${LOCALAPPDATA:-$HOME/AppData/Local}"
-
-  local wt_stable="$base/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
-  if [[ -f "$wt_stable" ]]; then
-    export_file "$wt_stable" "$CONFIG_WINDOWS/windows-terminal-settings.json"
-  fi
-
-  local ps_profile="${USERPROFILE:-$HOME}/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"
-  if [[ -f "$ps_profile" ]]; then
-    export_file "$ps_profile" "$CONFIG_WINDOWS/powershell/profile.ps1"
-  fi
-}
+# export_windows_configs_back() → Movido para lib/os_windows.sh
 
 main() {
   if [[ ! -d "$CONFIG_SHARED" ]]; then

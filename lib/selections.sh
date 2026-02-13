@@ -1,56 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034,SC2329,SC1091
 
-declare -a SELECTED_CLI_TOOLS=()
-declare -a SELECTED_IA_TOOLS=()
-declare -a SELECTED_TERMINALS=()
-
-_strip_ansi() {
-  sed -E 's/\x1b\[[0-9;]*m//g'
-}
-
-_visible_len() {
-  local text="$1"
-  local clean
-  clean=$(printf '%s' "$text" | _strip_ansi)
-  local display_w
-  display_w=$(printf '%s' "$clean" | wc -L 2>/dev/null) || display_w=${#clean}
-  echo "$display_w"
-}
-
-_wrap_text() {
-  local text="$1"
-  local max="$2"
-  local -n out_ref="$3"
-  out_ref=()
-
-  local line=""
-  local word=""
-  for word in $text; do
-    if [[ -z "$line" ]]; then
-      if [[ ${#word} -le $max ]]; then
-        line="$word"
-      else
-        local chunk="$word"
-        while [[ ${#chunk} -gt $max ]]; do
-          out_ref+=("${chunk:0:$max}")
-          chunk="${chunk:$max}"
-        done
-        line="$chunk"
-      fi
-    else
-      local test="${line} ${word}"
-      if [[ ${#test} -le $max ]]; then
-        line="$test"
-      else
-        out_ref+=("$line")
-        line="$word"
-      fi
-    fi
-  done
-
-  [[ -n "$line" ]] && out_ref+=("$line")
-}
+# Globals declarados em install.sh; text utilities em lib/utils.sh
 
 # ═══════════════════════════════════════════════════════════
 # Funções de compatibilidade
@@ -61,12 +12,17 @@ _has_modern_ui() {
 }
 
 menu_header() {
-  local title="$1"
-  msg ""
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg "  $title"
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo ""
+  # Delega para ui_section (components.sh) quando disponível
+  if declare -F ui_section >/dev/null 2>&1; then
+    ui_section "$1"
+  else
+    local title="$1"
+    msg ""
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    msg "  $title"
+    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+  fi
 }
 
 menu_select_single() {
@@ -106,58 +62,6 @@ menu_select_single() {
       return 0
     fi
     msg "  ⚠️  Opção inválida. Digite 1-${#options[@]}."
-  done
-}
-
-select_single_item() {
-  local title="$1"
-  local out_var="$2"
-  shift 2
-  local options=("$@")
-
-  if _has_modern_ui; then
-    local result=""
-    ui_select_single "$title" result "${options[@]}"
-    for opt in "${options[@]}"; do
-      local opt_name
-      opt_name=$(echo "$opt" | awk '{print $1}')
-      if [[ "$opt_name" == "$result" ]]; then
-        printf -v "$out_var" '%s' "$opt"
-        return 0
-      fi
-    done
-    printf -v "$out_var" '%s' "${options[0]}"
-    return 0
-  fi
-
-  local selection=""
-  local term_w
-  term_w=$(tput cols 2>/dev/null || echo 80)
-  local w=$((term_w > 60 ? 60 : term_w - 4))
-
-  while true; do
-    echo ""
-    local line
-    line=$(printf '─%.0s' $(seq 1 $((w - ${#title} - 6))))
-    echo -e "${UI_CYAN}╭─ ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${line}╮${UI_RESET}"
-    echo -e "${UI_CYAN}│${UI_RESET}$(printf '%*s' $((w - 2)) '')${UI_CYAN}│${UI_RESET}"
-
-    local idx=1
-    for opt in "${options[@]}"; do
-      printf "${UI_CYAN}│${UI_RESET}  ${UI_DIM}%d${UI_RESET}) %-$((w - 7))s${UI_CYAN}│${UI_RESET}\n" "$idx" "$opt"
-      idx=$((idx + 1))
-    done
-
-    echo -e "${UI_CYAN}│${UI_RESET}$(printf '%*s' $((w - 2)) '')${UI_CYAN}│${UI_RESET}"
-    echo -e "${UI_CYAN}╰$(printf '─%.0s' $(seq 1 $((w - 2))))╯${UI_RESET}"
-    echo ""
-    read -r -p "  Escolha (1-${#options[@]}): " selection
-    if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 )) && (( selection <= ${#options[@]} )); then
-      printf -v "$out_var" '%s' "${options[selection-1]}"
-      return 0
-    fi
-    echo -e "  ${UI_YELLOW}⚠ Opção inválida${UI_RESET}"
-    sleep 0.5
   done
 }
 

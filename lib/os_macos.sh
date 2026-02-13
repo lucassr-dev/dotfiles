@@ -36,6 +36,40 @@ ensure_homebrew() {
 # Funções de suporte para Homebrew
 # ═══════════════════════════════════════════════════════════
 
+brew_install_batch() {
+  local level="${1:-optional}"; shift
+  local formulas=("$@")
+  [[ ${#formulas[@]} -eq 0 ]] && return
+
+  if ! has_cmd brew; then
+    record_failure "$level" "Homebrew não disponível"
+    return 1
+  fi
+
+  local to_install=()
+  for formula in "${formulas[@]}"; do
+    if ! brew list "$formula" >/dev/null 2>&1; then
+      to_install+=("$formula")
+    fi
+  done
+
+  if [[ ${#to_install[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  msg "  📦 Instalando ${#to_install[@]} fórmulas via Homebrew (batch)..."
+  if brew install "${to_install[@]}" 2>/dev/null; then
+    for formula in "${to_install[@]}"; do
+      INSTALLED_MISC+=("brew formula: $formula")
+    done
+  else
+    # Fallback: instalar individualmente
+    for formula in "${to_install[@]}"; do
+      brew_install_formula "$formula" "$level"
+    done
+  fi
+}
+
 brew_install_formula() {
   local formula="$1"
   local level="${2:-optional}"
@@ -403,6 +437,25 @@ install_macos_selected_apps() {
   done
 }
 
+install_php_build_deps_macos() {
+  local deps=(
+    autoconf
+    bison
+    re2c
+    pkg-config
+    libzip
+    icu4c
+    openssl@3
+    readline
+    gettext
+    curl
+  )
+  local dep=""
+  for dep in "${deps[@]}"; do
+    brew_install_formula "$dep" optional
+  done
+}
+
 # ═══════════════════════════════════════════════════════════
 # Aplicação de configurações específicas do macOS
 # ═══════════════════════════════════════════════════════════
@@ -413,7 +466,24 @@ apply_macos_configs() {
   [[ -d "$source_dir" ]] || return
   msg "▶ Copiando configs macOS"
 
-  if [[ -d "$source_dir/ghostty" ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
     copy_dir "$source_dir/ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
+  else
+    msg "  ⏭️  Terminal config (Ghostty): usuário optou por não copiar"
+  fi
+
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
+    copy_file "$source_dir/rectangle/com.knollsoft.Rectangle.plist" "$HOME/Library/Preferences/com.knollsoft.Rectangle.plist"
+    msg "  ✅ Rectangle configurado (reinicie o app para aplicar)"
+  fi
+
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/stats/com.exelban.Stats.plist" ]]; then
+    copy_file "$source_dir/stats/com.exelban.Stats.plist" "$HOME/Library/Preferences/com.exelban.Stats.plist"
+    msg "  ✅ Stats configurado (reinicie o app para aplicar)"
+  fi
+
+  if [[ -f "$source_dir/keycastr/keycastr.json" ]]; then
+    msg "  📋 KeyCastr: configuração disponível em $source_dir/keycastr/keycastr.json"
+    msg "     Lembre-se de dar permissão de Acessibilidade nas Preferências do Sistema"
   fi
 }

@@ -362,7 +362,7 @@ install_nerd_fonts() {
 
   ensure_fonts_dir || return 1
 
-  local MAX_PARALLEL=${MAX_PARALLEL_DOWNLOADS:-4}
+  local MAX_PARALLEL=${MAX_PARALLEL_DOWNLOADS:-8}
   local results_file="/tmp/dotfiles-fonts-results-$$"
   > "$results_file"
 

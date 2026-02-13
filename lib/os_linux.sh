@@ -327,6 +327,11 @@ _install_app_with_catalog() {
   fi
   mark_app_processed "$app"
 
+  # Se já está instalado no sistema, pular silenciosamente
+  if has_cmd "$cmd_check" || is_app_installed "$app" "$cmd_check"; then
+    return 0
+  fi
+
   if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
     install_with_priority "$app" "$cmd_check" optional
   else
@@ -348,7 +353,13 @@ install_linux_selected_apps() {
   done
 
   for app in "${SELECTED_IDES[@]}"; do
-    _install_app_with_catalog "$app" "$app" || {
+    local ide_cmd="$app"
+    case "$app" in
+      neovim) ide_cmd="nvim" ;;
+      vscode) ide_cmd="code" ;;
+      zed) ide_cmd="zed" ;;
+    esac
+    _install_app_with_catalog "$app" "$ide_cmd" || {
       case "$app" in
         cursor) install_cursor ;;
         *) warn "IDE sem instalador automático no Linux: $app" ;;
@@ -447,10 +458,54 @@ install_wezterm_linux() {
 # Aplicação de configurações específicas do Linux
 # ═══════════════════════════════════════════════════════════
 
+install_php_build_deps_linux() {
+  detect_linux_pkg_manager
+  case "$LINUX_PKG_MANAGER" in
+    apt-get)
+      install_linux_packages optional \
+        autoconf bison build-essential pkg-config re2c plocate \
+        libgd-dev libcurl4-openssl-dev libedit-dev libicu-dev libjpeg-dev \
+        libmysqlclient-dev libonig-dev libpng-dev libpq-dev libreadline-dev \
+        libsqlite3-dev libssl-dev libxml2-dev libxslt-dev libzip-dev \
+        gettext git curl openssl
+      ;;
+    dnf)
+      install_linux_packages optional \
+        autoconf bison gcc gcc-c++ make pkg-config re2c mlocate \
+        gd-devel libzip-devel libxml2-devel libxslt-devel libcurl-devel \
+        libedit-devel libicu-devel libjpeg-turbo-devel libpng-devel \
+        libpq-devel readline-devel sqlite-devel openssl-devel oniguruma-devel \
+        gettext-devel git curl openssl mysql-devel
+      ;;
+    pacman)
+      install_linux_packages optional \
+        autoconf bison base-devel pkgconf re2c mlocate \
+        gd libzip libxml2 libxslt curl libedit icu libjpeg-turbo libpng \
+        libpq readline sqlite openssl oniguruma gettext git mariadb-libs
+      ;;
+    zypper)
+      install_linux_packages optional \
+        autoconf bison gcc gcc-c++ make pkg-config re2c mlocate \
+        gd-devel libzip-devel libxml2-devel libxslt-devel libcurl-devel \
+        libedit-devel libicu-devel libjpeg8-devel libpng16-devel libpq-devel \
+        readline-devel sqlite3-devel libopenssl-devel oniguruma-devel \
+        gettext-tools git curl libmysqlclient-devel
+      ;;
+  esac
+}
+
+# ═══════════════════════════════════════════════════════════
+# Aplicação de configurações específicas do Linux
+# ═══════════════════════════════════════════════════════════
+
 apply_linux_configs() {
   local source_dir="$CONFIG_LINUX"
   [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
   [[ -d "$source_dir" ]] || return
   msg "▶ Copiando configs Linux"
-  copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+    copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"
+  else
+    msg "  ⏭️  Terminal config: usuário optou por não copiar"
+  fi
 }

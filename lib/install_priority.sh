@@ -591,7 +591,9 @@ install_with_priority() {
   local cmd_check="${2:-$app}"
   local level="${3:-optional}"
 
-  if has_cmd "$cmd_check"; then
+  _ensure_catalog_loaded
+
+  if is_app_installed "$app" "$cmd_check"; then
     msg "  ✅ $app já instalado"
     return 0
   fi
@@ -674,5 +676,10 @@ install_with_priority() {
   return 1
 }
 
-# Inicializar catálogo ao carregar o módulo
-init_app_catalog
+# Lazy-load: catálogo inicializado na primeira chamada
+_CATALOG_LOADED=0
+_ensure_catalog_loaded() {
+  [[ $_CATALOG_LOADED -eq 1 ]] && return
+  init_app_catalog
+  _CATALOG_LOADED=1
+}

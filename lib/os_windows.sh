@@ -60,6 +60,32 @@ install_windows_base_dependencies() {
   fi
 }
 
+install_php_windows() {
+  local installed=0
+  if has_cmd winget; then
+    winget_install PHP.PHP "PHP" optional
+    if has_cmd php; then
+      installed=1
+    else
+      winget_install PHP.PHP.8.3 "PHP 8.3" optional
+      has_cmd php && installed=1
+    fi
+  fi
+
+  if [[ $installed -eq 0 ]] && has_cmd choco; then
+    choco_install php "PHP (latest)" optional
+    has_cmd php && installed=1
+  fi
+
+  if [[ $installed -eq 1 ]]; then
+    msg "  ✅ PHP (latest) instalado/atualizado no Windows (winget/choco)"
+    return 0
+  fi
+
+  record_failure "optional" "PHP não instalado no Windows: winget/choco indisponíveis ou falharam"
+  return 1
+}
+
 # ═══════════════════════════════════════════════════════════
 # Aplicação de configurações específicas do Windows
 # ═══════════════════════════════════════════════════════════
@@ -67,19 +93,19 @@ install_windows_base_dependencies() {
 apply_windows_configs() {
   [[ -d "$CONFIG_WINDOWS" ]] || return
   msg "▶ Copiando configs Windows"
-
-  copy_windows_terminal_settings
-  copy_powershell_profile
+  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+    copy_windows_terminal_settings
+    copy_windows_powershell_profiles
+  else
+    msg "  ⏭️  Terminal config: usuário optou por não copiar"
+  fi
 }
 
 copy_windows_terminal_settings() {
   local wt_settings="$CONFIG_WINDOWS/windows-terminal-settings.json"
-  [[ -f "$wt_settings" ]] || return
+  [[ -f "$wt_settings" ]] || return 0
 
-  local base="${LOCALAPPDATA:-}"
-  if [[ -z "$base" ]]; then
-    base="$HOME/AppData/Local"
-  fi
+  local base="${LOCALAPPDATA:-$HOME/AppData/Local}"
 
   local wt_stable="$base/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
   if [[ -d "$(dirname "$wt_stable")" ]]; then
@@ -90,17 +116,33 @@ copy_windows_terminal_settings() {
   if [[ -d "$(dirname "$wt_preview")" ]]; then
     copy_file "$wt_settings" "$wt_preview"
   fi
+
+  local wt_unpackaged="$base/Microsoft/Windows Terminal/settings.json"
+  if [[ -d "$(dirname "$wt_unpackaged")" ]]; then
+    copy_file "$wt_settings" "$wt_unpackaged"
+  fi
 }
 
-copy_powershell_profile() {
-  local ps_profile_src="$CONFIG_WINDOWS/powershell/profile.ps1"
-  [[ -f "$ps_profile_src" ]] || return
+copy_windows_powershell_profiles() {
+  local profile_src="$CONFIG_WINDOWS/powershell/profile.ps1"
+  [[ -f "$profile_src" ]] || return
 
-  local docs="${USERPROFILE:-$HOME}/Documents"
-  [[ -d "$docs" ]] || docs="$HOME/Documents"
+  local user_home="${USERPROFILE:-$HOME}"
+  local docs="$user_home/Documents"
+  if [[ ! -d "$docs" ]] && has_cmd powershell.exe; then
+    local docs_win
+    docs_win="$(powershell.exe -NoProfile -Command '[Environment]::GetFolderPath("MyDocuments")' 2>/dev/null | tr -d '\r' || true)"
+    if [[ -n "$docs_win" ]]; then
+      if has_cmd wslpath; then
+        docs="$(wslpath -u "$docs_win" 2>/dev/null || echo "$docs")"
+      elif has_cmd cygpath; then
+        docs="$(cygpath -u "$docs_win" 2>/dev/null || echo "$docs")"
+      fi
+    fi
+  fi
 
-  copy_file "$ps_profile_src" "$docs/PowerShell/Microsoft.PowerShell_profile.ps1"
-  copy_file "$ps_profile_src" "$docs/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
+  copy_file "$profile_src" "$docs/PowerShell/Microsoft.PowerShell_profile.ps1"
+  copy_file "$profile_src" "$docs/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
 }
 
 export_windows_configs_back() {

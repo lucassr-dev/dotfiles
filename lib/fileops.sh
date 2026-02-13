@@ -4,19 +4,7 @@ _files_identical() {
   local file_a="$1"
   local file_b="$2"
   [[ -f "$file_a" ]] && [[ -f "$file_b" ]] || return 1
-  if has_cmd sha256sum; then
-    local sum_a sum_b
-    sum_a=$(sha256sum "$file_a" 2>/dev/null | awk '{print $1}')
-    sum_b=$(sha256sum "$file_b" 2>/dev/null | awk '{print $1}')
-    [[ -n "$sum_a" ]] && [[ "$sum_a" == "$sum_b" ]]
-  elif has_cmd shasum; then
-    local sum_a sum_b
-    sum_a=$(shasum -a 256 "$file_a" 2>/dev/null | awk '{print $1}')
-    sum_b=$(shasum -a 256 "$file_b" 2>/dev/null | awk '{print $1}')
-    [[ -n "$sum_a" ]] && [[ "$sum_a" == "$sum_b" ]]
-  else
-    cmp -s "$file_a" "$file_b"
-  fi
+  cmp -s "$file_a" "$file_b"
 }
 
 _show_diff() {
@@ -156,4 +144,127 @@ normalize_crlf_to_lf() {
     fi
   fi
   return 0
+}
+
+# ═══════════════════════════════════════════════════════════
+# VS Code Settings — Copy/Export
+# ═══════════════════════════════════════════════════════════
+
+copy_vscode_settings() {
+  local settings_file="$CONFIG_SHARED/vscode/settings.json"
+  [[ -f "$settings_file" ]] || return
+
+  local dest=""
+  case "$TARGET_OS" in
+    macos)
+      dest="$HOME/Library/Application Support/Code/User/settings.json"
+      if [[ -d "$(dirname "$dest")" ]] || has_cmd code; then
+        copy_file "$settings_file" "$dest"
+      else
+        msg "  ⚠️ VS Code não encontrado em macOS, pulando settings."
+      fi
+      ;;
+    linux)
+      dest="$HOME/.config/Code/User/settings.json"
+      if [[ -d "$(dirname "$dest")" ]] || has_cmd code; then
+        copy_file "$settings_file" "$dest"
+      else
+        msg "  ⚠️ VS Code não encontrado em Linux, pulando settings."
+      fi
+      ;;
+    windows)
+      local base="${APPDATA:-}"
+      if [[ -z "$base" ]]; then
+        base="$HOME/AppData/Roaming"
+      fi
+      if [[ -n "$base" ]]; then
+        copy_file "$settings_file" "$base/Code/User/settings.json"
+        if [[ -d "$base/Code - Insiders/User" ]]; then
+          copy_file "$settings_file" "$base/Code - Insiders/User/settings.json"
+        fi
+      else
+        msg "  ⚠️ APPDATA não definido, não foi possível instalar settings do VS Code."
+      fi
+      ;;
+  esac
+}
+
+export_vscode_settings() {
+  local src=""
+  case "$TARGET_OS" in
+    macos)
+      src="$HOME/Library/Application Support/Code/User/settings.json"
+      ;;
+    linux)
+      src="$HOME/.config/Code/User/settings.json"
+      ;;
+    windows)
+      local base="${APPDATA:-$HOME/AppData/Roaming}"
+      src="$base/Code/User/settings.json"
+      ;;
+  esac
+
+  if [[ -f "$src" ]]; then
+    export_file "$src" "$CONFIG_SHARED/vscode/settings.json"
+  fi
+}
+
+export_vscode_extensions() {
+  if ! has_cmd code; then
+    return
+  fi
+
+  local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
+  msg "  📦 Exportando extensões VS Code..."
+
+  mkdir -p "$(dirname "$extensions_file")"
+  code --list-extensions > "$extensions_file" 2>/dev/null || warn "Falha ao exportar extensões VS Code"
+}
+
+install_vscode_extensions() {
+  local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
+
+  if [[ ${COPY_VSCODE_SETTINGS:-1} -ne 1 ]]; then
+    msg "  ⏭️  VS Code extensions: usuário optou por não copiar/instalar"
+    return
+  fi
+
+  if ! has_cmd code; then
+    warn "VS Code não encontrado; pulando instalação de extensões."
+    return
+  fi
+
+  if [[ ! -f "$extensions_file" ]]; then
+    return
+  fi
+
+  msg "▶ Instalando extensões VS Code"
+
+  local installed_count=0
+
+  local installed_extensions
+  installed_extensions="$(code --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+
+  while IFS= read -r extension; do
+    [[ -z "$extension" ]] && continue
+    [[ "$extension" =~ ^# ]] && continue
+
+    local ext_lower
+    ext_lower="$(echo "$extension" | tr '[:upper:]' '[:lower:]')"
+
+    if echo "$installed_extensions" | grep -qi "^${ext_lower}$"; then
+      continue
+    fi
+
+    msg "  🔌 Instalando: $extension"
+    if ! code --install-extension "$extension" --force >/dev/null 2>&1; then
+      warn "Falha ao instalar extensão: $extension"
+    else
+      installed_count=$((installed_count + 1))
+    fi
+  done < "$extensions_file"
+
+  if [[ $installed_count -gt 0 ]]; then
+    INSTALLED_MISC+=("vscode extensions: $installed_count")
+  fi
 }

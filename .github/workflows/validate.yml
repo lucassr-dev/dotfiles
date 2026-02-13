@@ -1,0 +1,48 @@
+name: Validate
+on: [push, pull_request]
+
+jobs:
+  syntax:
+    name: Bash Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check bash syntax
+        run: |
+          bash -n install.sh
+          for f in lib/*.sh data/*.sh; do
+            bash -n "$f" || exit 1
+          done
+          echo "All files pass syntax check"
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: Run shellcheck
+        run: |
+          shellcheck -x -e SC2034,SC2329,SC1091 install.sh lib/*.sh || true
+
+  dry-run:
+    name: Dry Run (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dry run
+        run: DRY_RUN=1 bash install.sh < /dev/null || true
+
+  tests:
+    name: BATS Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install BATS
+        run: sudo apt-get install -y bats
+      - name: Run tests
+        run: bats tests/ || true

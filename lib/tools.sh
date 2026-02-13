@@ -63,6 +63,24 @@ install_selected_cli_tools() {
   esac
 }
 
+ensure_rust_cargo() {
+  if has_cmd cargo; then
+    return 0
+  fi
+
+  msg "▶ Rust/Cargo não encontrado. Instalando..."
+
+  if download_and_run_script "https://sh.rustup.rs" "Rust" "bash" "" "-y --no-modify-path"; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+    INSTALLED_MISC+=("rustup: installer script")
+    msg "  ✅ Rust/Cargo instalado com sucesso"
+    return 0
+  else
+    record_failure "critical" "Falha ao instalar Rust/Cargo. Algumas ferramentas não estarão disponíveis."
+    return 1
+  fi
+}
+
 install_cli_tools_linux() {
   detect_linux_pkg_manager
 
