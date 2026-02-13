@@ -95,72 +95,6 @@ detect_ui_mode() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# SPINNERS E PROGRESSO
-# ═══════════════════════════════════════════════════════════
-
-declare -a SPINNER_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
-declare -g SPINNER_PID=""
-
-start_spinner() {
-  local message="${1:-Aguarde...}"
-
-  [[ -n "$SPINNER_PID" ]] && return
-
-  (
-    local i=0
-    while true; do
-      printf "\r  ${UI_CYAN}${SPINNER_FRAMES[$i]}${UI_RESET} %s " "$message"
-      i=$(( (i + 1) % ${#SPINNER_FRAMES[@]} ))
-      sleep 0.1
-    done
-  ) &
-  SPINNER_PID=$!
-  disown "$SPINNER_PID" 2>/dev/null
-}
-
-stop_spinner() {
-  local status="${1:-success}"
-  local message="${2:-}"
-
-  if [[ -n "$SPINNER_PID" ]]; then
-    kill "$SPINNER_PID" 2>/dev/null
-    wait "$SPINNER_PID" 2>/dev/null
-    SPINNER_PID=""
-  fi
-
-  printf "\r\033[K"
-
-  if [[ -n "$message" ]]; then
-    case "$status" in
-      success) printf "  ${UI_GREEN}✓${UI_RESET} %s\n" "$message" ;;
-      error)   printf "  ${UI_RED}✗${UI_RESET} %s\n" "$message" ;;
-      warning) printf "  ${UI_YELLOW}⚠${UI_RESET} %s\n" "$message" ;;
-      info)    printf "  ${UI_BLUE}ℹ${UI_RESET} %s\n" "$message" ;;
-    esac
-  fi
-}
-
-show_progress_bar() {
-  local current="$1"
-  local total="$2"
-  local label="${3:-}"
-  local width=40
-
-  local percent=$(( current * 100 / total ))
-  local filled=$(( current * width / total ))
-  local empty=$(( width - filled ))
-
-  local bar=""
-  for ((i=0; i<filled; i++)); do bar+="█"; done
-  for ((i=0; i<empty; i++)); do bar+="░"; done
-
-  printf "\r  ${UI_CYAN}%s${UI_RESET} [${UI_GREEN}%s${UI_RESET}] %3d%% %s" \
-    "$UI_ARROW" "$bar" "$percent" "$label"
-
-  [[ $current -eq $total ]] && echo ""
-}
-
-# ═══════════════════════════════════════════════════════════
 # STEP COUNTER (ETAPAS DE INSTALAÇÃO)
 # ═══════════════════════════════════════════════════════════
 
@@ -293,6 +227,9 @@ ui_select_multi_fzf() {
     [[ -n "$line" ]] && result+=("$(echo "$line" | awk '{print $1}')")
   done <<< "$selected"
 
+  # shellcheck disable=SC2178
+  # shellcheck disable=SC2178
+  # shellcheck disable=SC2178
   declare -n ref="$out_var"
   ref=("${result[@]}")
   unset -n ref
@@ -322,6 +259,7 @@ ui_select_multi_gum() {
     [[ -n "$line" ]] && result+=("$(echo "$line" | awk '{print $1}')")
   done <<< "$selected"
 
+  # shellcheck disable=SC2178
   declare -n ref="$out_var"
   ref=("${result[@]}")
   unset -n ref
@@ -462,6 +400,7 @@ ui_select_multi_bash() {
     result+=("$(echo "$item" | awk '{print $1}')")
   done
 
+  # shellcheck disable=SC2178
   declare -n ref="$out_var"
   ref=("${result[@]}")
   unset -n ref
@@ -621,35 +560,4 @@ ui_select_single() {
     gum) ui_select_single_gum "$title" "$out_var" "${options[@]}" ;;
     *)   ui_select_single_bash "$title" "$out_var" "${options[@]}" ;;
   esac
-}
-
-# ═══════════════════════════════════════════════════════════
-# NOTIFICAÇÕES E STATUS
-# ═══════════════════════════════════════════════════════════
-
-ui_success() { echo -e "  ${UI_GREEN}✓${UI_RESET} $1"; }
-ui_error() { echo -e "  ${UI_RED}✗${UI_RESET} $1"; }
-ui_warning() { echo -e "  ${UI_YELLOW}⚠${UI_RESET} $1"; }
-ui_info() { echo -e "  ${UI_BLUE}ℹ${UI_RESET} $1"; }
-ui_step() { echo -e "  ${UI_CYAN}▶${UI_RESET} $1"; }
-
-ui_status_box() {
-  local status="$1"
-  local title="$2"
-  local message="$3"
-
-  local color
-  local icon
-  case "$status" in
-    success) color="$UI_GREEN"; icon="✓" ;;
-    error)   color="$UI_RED"; icon="✗" ;;
-    warning) color="$UI_YELLOW"; icon="⚠" ;;
-    info)    color="$UI_BLUE"; icon="ℹ" ;;
-    *)       color="$UI_CYAN"; icon="▶" ;;
-  esac
-
-  echo ""
-  echo -e "${color}${UI_BOX_TL}${UI_BOX_H}${UI_BOX_H} ${icon} ${title} ${UI_BOX_H}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
-  echo -e "${color}${UI_BOX_V}${UI_RESET}  $message"
-  echo -e "${color}${UI_BOX_BL}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_BR}${UI_RESET}"
 }

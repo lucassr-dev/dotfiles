@@ -24,17 +24,19 @@ jobs:
         run: sudo apt-get install -y shellcheck
       - name: Run shellcheck
         run: |
-          shellcheck -x -e SC2034,SC2329,SC1091 install.sh lib/*.sh || true
+          shellcheck -x -S warning -e SC2034,SC2329,SC1091 install.sh lib/*.sh
 
   dry-run:
     name: Dry Run (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Dry run
+        shell: bash
         run: DRY_RUN=1 bash install.sh < /dev/null || true
 
   tests:
@@ -45,4 +47,4 @@ jobs:
       - name: Install BATS
         run: sudo apt-get install -y bats
       - name: Run tests
-        run: bats tests/ || true
+        run: bats tests/

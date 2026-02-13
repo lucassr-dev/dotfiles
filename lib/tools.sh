@@ -28,7 +28,7 @@ ensure_cargo_binstall() {
   has_cmd cargo || return 1
 
   msg "  📦 Instalando cargo-binstall (acelera instalações futuras)..."
-  if curl -fsSL https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash; then
+  if download_and_run_script "https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh" "cargo-binstall" "bash"; then
     export PATH="$HOME/.cargo/bin:$PATH"
     INSTALLED_MISC+=("cargo-binstall: script")
     return 0
@@ -235,7 +235,7 @@ install_selected_ia_tools() {
         case "$TARGET_OS" in
           macos|linux|wsl2)
             msg "  📦 Instalando Claude Code via script oficial..."
-            if curl -fsSL https://claude.ai/install.sh | bash; then
+            if download_and_run_script "https://claude.ai/install.sh" "Claude Code" "bash"; then
               INSTALLED_MISC+=("claude-code: install.sh")
             else
               record_failure "optional" "Falha ao instalar Claude Code via script"

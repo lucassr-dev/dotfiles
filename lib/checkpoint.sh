@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034
 
 CHECKPOINT_FILE="$HOME/.dotfiles-checkpoint"
 CHECKPOINT_STAGE=""
@@ -20,8 +21,8 @@ checkpoint_save() {
     # Salvar state centralizado
     if declare -F state_dump >/dev/null 2>&1; then
       local key
-      for key in $(printf '%s\n' "${!_STATE[@]}" | sort); do
-        printf 'state_set %q %q\n' "$key" "${_STATE[$key]}"
+      for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
+        printf 'state_set %q %q\n' "$key" "${DOTFILES_STATE[$key]}"
       done
     fi
 

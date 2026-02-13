@@ -19,34 +19,32 @@ _visible_len() {
 
 _wrap_text() {
   local text="$1"
-  local max="$2"
-  local -n out_ref="$3"
-  out_ref=()
+  local max_width="$2"
+  local -n out_lines="$3"
 
-  local line=""
-  local word=""
-  for word in $text; do
-    if [[ -z "$line" ]]; then
-      if [[ ${#word} -le $max ]]; then
-        line="$word"
-      else
-        local chunk="$word"
-        while [[ ${#chunk} -gt $max ]]; do
-          out_ref+=("${chunk:0:$max}")
-          chunk="${chunk:$max}"
-        done
-        line="$chunk"
-      fi
+  out_lines=()
+  if [[ -z "$text" ]]; then
+    out_lines+=("")
+    return 0
+  fi
+
+  local current=""
+  local word
+  local -a words=()
+  read -r -a words <<< "$text"
+
+  for word in "${words[@]}"; do
+    if [[ -z "$current" ]]; then
+      current="$word"
+      continue
+    fi
+    if (( ${#current} + 1 + ${#word} <= max_width )); then
+      current="$current $word"
     else
-      local test="${line} ${word}"
-      if [[ ${#test} -le $max ]]; then
-        line="$test"
-      else
-        out_ref+=("$line")
-        line="$word"
-      fi
+      out_lines+=("$current")
+      current="$word"
     fi
   done
 
-  [[ -n "$line" ]] && out_ref+=("$line")
+  [[ -n "$current" ]] && out_lines+=("$current")
 }

@@ -278,7 +278,7 @@ _install_starship_official() {
   local level="${1:-optional}"
   msg "  📦 Instalando Starship via script oficial..."
 
-  if curl -fsSL https://starship.rs/install.sh | sh -s -- -y; then
+  if download_and_run_script "https://starship.rs/install.sh" "Starship" "sh" "" "-y"; then
     INSTALLED_MISC+=("starship: official")
     return 0
   fi
@@ -291,7 +291,7 @@ _install_atuin_official() {
   local level="${1:-optional}"
   msg "  📦 Instalando Atuin via script oficial..."
 
-  if curl -fsSL https://setup.atuin.sh | bash; then
+  if download_and_run_script "https://setup.atuin.sh" "Atuin" "bash"; then
     INSTALLED_MISC+=("atuin: official")
     return 0
   fi
@@ -304,7 +304,7 @@ _install_mise_official() {
   local level="${1:-optional}"
   msg "  📦 Instalando mise via script oficial..."
 
-  if curl -fsSL https://mise.run | sh; then
+  if download_and_run_script "https://mise.run" "mise"; then
     export PATH="$HOME/.local/bin:$PATH"
     INSTALLED_MISC+=("mise: official")
     return 0
@@ -339,7 +339,7 @@ _install_docker_official() {
   local level="${1:-optional}"
   msg "  📦 Instalando Docker via script oficial..."
 
-  if curl -fsSL https://get.docker.com | sh; then
+  if download_and_run_script "https://get.docker.com" "Docker"; then
     run_with_sudo usermod -aG docker "$USER" 2>/dev/null || true
     INSTALLED_MISC+=("docker: official")
     return 0

@@ -28,6 +28,9 @@ DRY_RUN="${DRY_RUN:-0}"
 SCRIPT_VERSION="1.0.0"
 VERBOSE="${VERBOSE:-0}"
 QUIET="${QUIET:-0}"
+REMOTE_SCRIPT_STRICT="${REMOTE_SCRIPT_STRICT:-1}"
+REMOTE_SCRIPT_REQUIRE_CHECKSUM="${REMOTE_SCRIPT_REQUIRE_CHECKSUM:-0}"
+REMOTE_SCRIPT_ALLOWLIST="${REMOTE_SCRIPT_ALLOWLIST:-astral.sh,mise.run,sh.rustup.rs,raw.githubusercontent.com,starship.rs,setup.atuin.sh,get.docker.com,ohmyposh.dev,claude.ai}"
 INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_FISH="${INSTALL_FISH:-1}"
 INSTALL_NUSHELL="${INSTALL_NUSHELL:-0}"
@@ -132,6 +135,9 @@ show_usage() {
   echo -e "  DRY_RUN=1           Mesmo que --dry-run"
   echo -e "  NO_COLOR=1          Mesmo que --no-color"
   echo -e "  FORCE_UI_MODE=bash  Forcar modo de UI (fzf/gum/bash)"
+  echo -e "  REMOTE_SCRIPT_STRICT=0       Permitir hosts fora da allowlist"
+  echo -e "  REMOTE_SCRIPT_REQUIRE_CHECKSUM=1  Exigir SHA256 para scripts remotos"
+  echo -e "  REMOTE_SCRIPT_ALLOWLIST=...  Lista CSV de hosts confiaveis"
   echo ""
   echo -e "${b}Exemplos:${r}"
   echo -e "  bash install.sh                    Instalacao interativa"
@@ -200,30 +206,6 @@ snap_install_or_refresh() {
   fi
 }
 
-ensure_snap_app() {
-  local pkg="$1"
-  local friendly="$2"
-  local flatpak_ref="${3:-}"
-  local cmd="${4:-}"
-  local level="${5:-optional}"
-  shift 5 2>/dev/null || true
-  local snap_args=("$@")
-
-  has_cmd snap || return 0
-
-  if [[ -n "$flatpak_ref" ]] && has_flatpak_ref "$flatpak_ref"; then
-    msg "  ℹ️  $friendly já instalado via Flatpak ($flatpak_ref); pulando Snap."
-    return 0
-  fi
-
-  if [[ -n "$cmd" ]] && has_cmd "$cmd"; then
-    msg "  ℹ️  $friendly já está disponível no sistema ($cmd); pulando Snap."
-    return 0
-  fi
-
-  snap_install_or_refresh "$pkg" "$friendly" "$level" "${snap_args[@]}"
-}
-
 flatpak_install_or_update() {
   local ref="$1"
   local friendly="$2"
@@ -248,33 +230,6 @@ flatpak_install_or_update() {
   else
     record_failure "$level" "Falha ao instalar via flatpak: $friendly ($ref)"
   fi
-}
-
-ensure_flatpak_app() {
-  local ref="$1"
-  local friendly="$2"
-  local snap_pkg="${3:-}"
-  local cmd="${4:-}"
-  local level="${5:-optional}"
-
-  has_cmd flatpak || return 0
-
-  if has_flatpak_ref "$ref"; then
-    flatpak_install_or_update "$ref" "$friendly" "$level"
-    return
-  fi
-
-  if [[ -n "$snap_pkg" ]] && has_snap_pkg "$snap_pkg"; then
-    msg "  ℹ️  $friendly já instalado via snap ($snap_pkg); pulando Flatpak."
-    return
-  fi
-
-  if [[ -n "$cmd" ]] && has_cmd "$cmd"; then
-    msg "  ℹ️  $friendly já está disponível no sistema ($cmd); pulando Flatpak."
-    return
-  fi
-
-  flatpak_install_or_update "$ref" "$friendly" "$level"
 }
 
 record_failure() {
@@ -309,6 +264,21 @@ has_flatpak_ref() {
   flatpak list | grep -q "$1"
 }
 
+_source_field_value() {
+  local sources="$1"
+  local field="$2"
+  local token
+  local -a _src_tokens=()
+  IFS=',' read -ra _src_tokens <<< "$sources"
+  for token in "${_src_tokens[@]}"; do
+    if [[ "$token" == "$field:"* ]]; then
+      printf '%s\n' "${token#"$field:"}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Verifica se app está instalado em QUALQUER fonte (cmd, dpkg/rpm, snap, flatpak, brew, winget, choco, scoop)
 is_app_installed() {
   local app="$1"
@@ -323,13 +293,13 @@ is_app_installed() {
   [[ -z "$sources" ]] && return 1
 
   local apt_pkg snap_pkg flatpak_ref brew_pkg winget_pkg choco_pkg scoop_pkg
-  apt_pkg=$(echo "$sources" | grep -oP 'apt:\K[^,]+' || true)
-  snap_pkg=$(echo "$sources" | grep -oP 'snap:\K[^, ]+' || true)
-  flatpak_ref=$(echo "$sources" | grep -oP 'flatpak:\K[^,]+' || true)
-  brew_pkg=$(echo "$sources" | grep -oP 'brew:\K[^,]+' || true)
-  winget_pkg=$(echo "$sources" | grep -oP 'winget:\K[^,]+' || true)
-  choco_pkg=$(echo "$sources" | grep -oP 'choco:\K[^,]+' || true)
-  scoop_pkg=$(echo "$sources" | grep -oP 'scoop:\K[^,]+' || true)
+  apt_pkg=$(_source_field_value "$sources" "apt" || true)
+  snap_pkg=$(_source_field_value "$sources" "snap" || true)
+  flatpak_ref=$(_source_field_value "$sources" "flatpak" || true)
+  brew_pkg=$(_source_field_value "$sources" "brew" || true)
+  winget_pkg=$(_source_field_value "$sources" "winget" || true)
+  choco_pkg=$(_source_field_value "$sources" "choco" || true)
+  scoop_pkg=$(_source_field_value "$sources" "scoop" || true)
 
   # Linux: dpkg, rpm, snap, flatpak
   [[ -n "$apt_pkg" ]] && has_cmd dpkg && dpkg -l "$apt_pkg" 2>/dev/null | grep -q '^ii' && return 0
@@ -578,22 +548,6 @@ set_ssh_permissions() {
   fi
 }
 
-download_file() {
-  local url="$1"
-  local output="$2"
-
-  if has_cmd curl; then
-    curl -fsSL "$url" -o "$output"
-  elif has_cmd wget; then
-    wget -qO "$output" "$url"
-  elif [[ "${TARGET_OS:-}" == "windows" ]] && has_cmd powershell; then
-    powershell -NoProfile -Command "Invoke-WebRequest -Uri '$url' -OutFile '$output'"
-  else
-    record_failure "critical" "Nenhuma ferramenta de download disponível (curl/wget/PowerShell)"
-    return 1
-  fi
-}
-
 # ═══════════════════════════════════════════════════════════
 # Preservação de PATH e configurações existentes
 # ═══════════════════════════════════════════════════════════
@@ -604,7 +558,7 @@ tool_config_exists() {
 
   [[ ! -f "$file" ]] && return 1
   case "$line" in
-    *"NVM_DIR"*|*"nvm.sh"*|*'$NVM_DIR'*)
+    *"NVM_DIR"*|*"nvm.sh"*)
       grep -q "NVM_DIR\|nvm\.sh" "$file" 2>/dev/null && return 0
       ;;
     *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*)
@@ -622,10 +576,10 @@ tool_config_exists() {
     *"RBENV_ROOT"*|*"rbenv init"*)
       grep -q "RBENV_ROOT\|rbenv init" "$file" 2>/dev/null && return 0
       ;;
-    *"JAVA_HOME"*|*'$JAVA_HOME'*)
+    *"JAVA_HOME"*)
       grep -q "JAVA_HOME" "$file" 2>/dev/null && return 0
       ;;
-    *"GOPATH"*|*"GOROOT"*|*'$GOPATH'*|*'$GOROOT'*)
+    *"GOPATH"*|*"GOROOT"*)
       grep -q "GOPATH\|GOROOT" "$file" 2>/dev/null && return 0
       ;;
     *"/go/bin"*)
@@ -634,7 +588,7 @@ tool_config_exists() {
     *".yarn/bin"*|*".config/yarn"*)
       grep -q "\.yarn/bin\|\.config/yarn" "$file" 2>/dev/null && return 0
       ;;
-    *"PNPM_HOME"*|*'$PNPM_HOME'*|*".local/share/pnpm"*)
+    *"PNPM_HOME"*|*".local/share/pnpm"*)
       grep -q "PNPM_HOME\|\.local/share/pnpm" "$file" 2>/dev/null && return 0
       ;;
     *"BUN_INSTALL"*|*".bun/bin"*)
@@ -706,13 +660,11 @@ extract_user_path_config_zsh() {
   [[ -f "$zshrc" ]] || return
 
   local preserved_lines=()
-  local prev_line=""
-
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" ]] && continue
 
     case "$line" in
-      *"NVM_DIR"*|*"nvm.sh"*|*"nvm bash_completion"*|*'$NVM_DIR'*)
+      *"NVM_DIR"*|*"nvm.sh"*|*"nvm bash_completion"*)
         preserved_lines+=("$line")
         ;;
       *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"/Android/Sdk"*|*"/android"*"/tools"*|*"/platform-tools"*)
@@ -721,39 +673,39 @@ extract_user_path_config_zsh() {
       *"SDKMAN_DIR"*|*"sdkman-init.sh"*|*".sdkman"*)
         preserved_lines+=("$line")
         ;;
-      *"PYENV_ROOT"*|*"pyenv init"*|*'$PYENV_ROOT'*)
+      *"PYENV_ROOT"*|*"pyenv init"*)
         preserved_lines+=("$line")
         ;;
-      *"RBENV_ROOT"*|*"rbenv init"*|*'$RBENV_ROOT'*)
+      *"RBENV_ROOT"*|*"rbenv init"*)
         preserved_lines+=("$line")
         ;;
-      *"JAVA_HOME"*|*"JDK_HOME"*|*'$JAVA_HOME'*)
+      *"JAVA_HOME"*|*"JDK_HOME"*)
         preserved_lines+=("$line")
         ;;
-      *"GOPATH"*|*"GOROOT"*|*"/go/bin"*|*'$GOPATH'*|*'$GOROOT'*)
+      *"GOPATH"*|*"GOROOT"*|*"/go/bin"*)
         preserved_lines+=("$line")
         ;;
       *".yarn/bin"*|*".config/yarn"*|*"yarn global"*)
         preserved_lines+=("$line")
         ;;
-      *"PNPM_HOME"*|*".local/share/pnpm"*|*'$PNPM_HOME'*)
+      *"PNPM_HOME"*|*".local/share/pnpm"*)
         preserved_lines+=("$line")
         ;;
-      *"BUN_INSTALL"*|*".bun/bin"*|*'$BUN_INSTALL'*)
+      *"BUN_INSTALL"*|*".bun/bin"*)
         preserved_lines+=("$line")
         ;;
-      *"DENO_INSTALL"*|*".deno/bin"*|*'$DENO_INSTALL'*)
+      *"DENO_INSTALL"*|*".deno/bin"*)
         preserved_lines+=("$line")
         ;;
-      *"FLUTTER_HOME"*|*"flutter/bin"*|*'$FLUTTER_HOME'*)
+      *"FLUTTER_HOME"*|*"flutter/bin"*)
         preserved_lines+=("$line")
         ;;
-      *"DOTNET_ROOT"*|*".dotnet"*|*'$DOTNET_ROOT'*)
+      *"DOTNET_ROOT"*|*".dotnet"*)
         preserved_lines+=("$line")
         ;;
       *".cargo/env"*|*"CARGO_HOME"*|*"RUSTUP_HOME"*)
         ;;
-      *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*|*'$HOMEBREW_PREFIX'*)
+      *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*)
         preserved_lines+=("$line")
         ;;
       *"/snap/bin"*)
@@ -782,46 +734,46 @@ extract_user_path_config_fish() {
     [[ -z "$line" ]] && continue
 
     case "$line" in
-      *"NVM_DIR"*|*"nvm.fish"*|*"bass"*"nvm"*|*'$NVM_DIR'*)
+      *"NVM_DIR"*|*"nvm.fish"*|*"bass"*"nvm"*)
         preserved_lines+=("$line")
         ;;
       *"ANDROID_HOME"*|*"ANDROID_SDK_ROOT"*|*"/Android/Sdk"*|*"/android"*"/tools"*|*"/platform-tools"*)
         preserved_lines+=("$line")
         ;;
-      *"SDKMAN_DIR"*|*"sdkman"*|*".sdkman"*)
+      *"SDKMAN_DIR"*|*".sdkman"*)
         preserved_lines+=("$line")
         ;;
-      *"PYENV_ROOT"*|*"pyenv init"*|*'$PYENV_ROOT'*)
+      *"PYENV_ROOT"*|*"pyenv init"*)
         preserved_lines+=("$line")
         ;;
-      *"RBENV_ROOT"*|*"rbenv init"*|*'$RBENV_ROOT'*)
+      *"RBENV_ROOT"*|*"rbenv init"*)
         preserved_lines+=("$line")
         ;;
-      *"JAVA_HOME"*|*"JDK_HOME"*|*'$JAVA_HOME'*)
+      *"JAVA_HOME"*|*"JDK_HOME"*)
         preserved_lines+=("$line")
         ;;
-      *"GOPATH"*|*"GOROOT"*|*"/go/bin"*|*'$GOPATH'*|*'$GOROOT'*)
+      *"GOPATH"*|*"GOROOT"*|*"/go/bin"*)
         preserved_lines+=("$line")
         ;;
       *".yarn/bin"*|*".config/yarn"*|*"yarn global"*)
         preserved_lines+=("$line")
         ;;
-      *"PNPM_HOME"*|*".local/share/pnpm"*|*'$PNPM_HOME'*)
+      *"PNPM_HOME"*|*".local/share/pnpm"*)
         preserved_lines+=("$line")
         ;;
-      *"BUN_INSTALL"*|*".bun/bin"*|*'$BUN_INSTALL'*)
+      *"BUN_INSTALL"*|*".bun/bin"*)
         preserved_lines+=("$line")
         ;;
-      *"DENO_INSTALL"*|*".deno/bin"*|*'$DENO_INSTALL'*)
+      *"DENO_INSTALL"*|*".deno/bin"*)
         preserved_lines+=("$line")
         ;;
-      *"FLUTTER_HOME"*|*"flutter/bin"*|*'$FLUTTER_HOME'*)
+      *"FLUTTER_HOME"*|*"flutter/bin"*)
         preserved_lines+=("$line")
         ;;
-      *"DOTNET_ROOT"*|*".dotnet"*|*'$DOTNET_ROOT'*)
+      *"DOTNET_ROOT"*|*".dotnet"*)
         preserved_lines+=("$line")
         ;;
-      *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*|*'$HOMEBREW_PREFIX'*)
+      *"/home/linuxbrew"*|*"HOMEBREW_PREFIX"*)
         preserved_lines+=("$line")
         ;;
       *"/snap/bin"*)
@@ -856,7 +808,9 @@ declare -a SELECTED_RUNTIMES=()
 INTERACTIVE_GUI_APPS=true
 INSTALL_BREWFILE=true
 
+# shellcheck disable=SC1090
 [[ -f "$DATA_APPS" ]] && source "$DATA_APPS" || warn "Arquivo de dados de apps não encontrado: $DATA_APPS"
+# shellcheck disable=SC1090
 [[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
 
 [[ -f "$SCRIPT_DIR/lib/colors.sh" ]] && source "$SCRIPT_DIR/lib/colors.sh"
@@ -1173,11 +1127,26 @@ review_selections() {
     _print_box_line "$inner_w" "${UI_PEACH}${UI_BOLD}  RESUMO FINAL${UI_RESET}" "center"
     echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
 
-    local total_pkgs
+    # ── Ações da Instalação ──
+    local total_pkgs total_cfgs
     total_pkgs=$(_count_total_packages)
-    local total_cfgs
     total_cfgs=$(_count_configs_to_copy)
-    _print_box_line "$inner_w" "${UI_MUTED}Pacotes:${UI_RESET} ${UI_GREEN}${total_pkgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Configs:${UI_RESET} ${UI_BLUE}${total_cfgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}SO:${UI_RESET} ${UI_TEXT}${TARGET_OS:-linux}${UI_RESET}"
+
+    local actions_to_do=()
+    [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && actions_to_do+=("Git")
+    [[ ${INSTALL_POWERLEVEL10K:-0} -eq 1 ]] && actions_to_do+=("P10k")
+    [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && actions_to_do+=("Starship")
+    [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && actions_to_do+=("OMP")
+    [[ ${COPY_SSH_KEYS:-0} -eq 1 ]] && actions_to_do+=("SSH")
+    local actions_str="${UI_DIM}(nenhum)${UI_RESET}"
+    [[ ${#actions_to_do[@]} -gt 0 ]] && actions_str="${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
+
+    local backup_ts
+    backup_ts="~/.bkp-$(date +%Y%m%d-%H%M)/"
+
+    _print_box_line "$inner_w" "${UI_MUTED}Pacotes:${UI_RESET}     ${UI_GREEN}${total_pkgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Configs:${UI_RESET} ${UI_BLUE}${total_cfgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}SO:${UI_RESET} ${UI_TEXT}${TARGET_OS:-linux}${UI_RESET}"
+    _print_box_line "$inner_w" "${UI_MUTED}Configurar:${UI_RESET}  ${actions_str}"
+    _print_box_line "$inner_w" "${UI_MUTED}Backup em:${UI_RESET}   ${UI_DIM}${backup_ts}${UI_RESET}"
 
     local selected_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
@@ -1307,7 +1276,8 @@ review_selections() {
       fi
     }
 
-    _rv_divider "$inner_w" "AMBIENTE"
+    local env_count=$((${#selected_shells[@]} + ${#SELECTED_TERMINALS[@]} + ${#themes_selected[@]} + ${#SELECTED_NERD_FONTS[@]}))
+    _rv_divider "$inner_w" "AMBIENTE ${UI_RESET}${UI_DIM}(${env_count})"
     _print_pair_items "Shells" "(nenhum)" "selected_shells" "Terminal" "(nenhum)" "SELECTED_TERMINALS"
     _print_box_line "$inner_w" " "
     _print_wrapped_items "Temas" "(nenhum)" "${themes_selected[@]}"
@@ -1315,7 +1285,8 @@ review_selections() {
     _print_wrapped_items "Fontes" "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
     _print_box_line "$inner_w" " "
 
-    _rv_divider "$inner_w" "FERRAMENTAS"
+    local tools_count=$((${#SELECTED_CLI_TOOLS[@]} + ${#SELECTED_IA_TOOLS[@]} + ${#SELECTED_RUNTIMES[@]}))
+    _rv_divider "$inner_w" "FERRAMENTAS ${UI_RESET}${UI_DIM}(${tools_count})"
     _print_wrapped_items "Ferramentas CLI" "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
     _print_box_line "$inner_w" " "
     _print_wrapped_items "Ferramentas IA" "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
@@ -1378,9 +1349,9 @@ review_selections() {
     fi
 
     _rv_cfg_item() {
-      local available="$1" selected="$2" name="$3"
+      local available="$1" selected_flag="$2" name="$3"
       if [[ $available -eq 1 ]]; then
-        if [[ $selected -eq 1 ]]; then
+        if [[ $selected_flag -eq 1 ]]; then
           echo "${UI_GREEN}✓${UI_RESET}${name}"
         else
           echo "${UI_DIM}✗${name}${UI_RESET}"
@@ -1885,41 +1856,6 @@ get_distro_codename() {
 }
 
 
-install_chrome_linux() {
-  detect_linux_pkg_manager
-  if has_cmd google-chrome || command -v google-chrome-stable >/dev/null 2>&1 || has_flatpak_ref "com.google.Chrome"; then
-    local chrome_version
-    chrome_version="$(google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null || echo '')"
-    if [[ -n "$chrome_version" ]]; then
-      msg "  ✅ Google Chrome já instalado ($chrome_version)"
-    fi
-    return 0
-  fi
-  if [[ "$LINUX_PKG_MANAGER" != "apt-get" ]]; then
-    record_failure "optional" "Google Chrome (Linux) suportado automaticamente apenas em distros apt; instale manualmente."
-    return 0
-  fi
-  local deb=""
-  deb="$(mktemp)" || {
-    record_failure "optional" "Falha ao criar arquivo temporário para Google Chrome"
-    return 1
-  }
-  trap 'rm -f "${deb:-}"' RETURN
-
-  msg "  📦 Baixando Google Chrome para Linux..."
-  if curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -o "$deb"; then
-    if run_with_sudo dpkg -i "$deb"; then
-      msg "  ✅ Google Chrome instalado"
-      INSTALLED_MISC+=("google-chrome: deb")
-      run_with_sudo apt-get install -f -y >/dev/null 2>&1 || true
-    else
-      record_failure "optional" "Falha ao instalar Google Chrome via dpkg"
-    fi
-  else
-    record_failure "optional" "Falha ao baixar Google Chrome"
-  fi
-}
-
 install_via_flatpak_or_snap() {
   local cmd="$1"
   local friendly="$2"
@@ -1955,10 +1891,6 @@ install_via_flatpak_or_snap() {
   return 1
 }
 
-install_brave_linux() {
-  install_via_flatpak_or_snap "brave-browser" "Brave" "com.brave.Browser" "brave"
-}
-
 install_zen_linux() {
   install_via_flatpak_or_snap "zen-browser" "Zen Browser" "io.github.ranfdev.Zen"
 }
@@ -1981,36 +1913,6 @@ install_mongodb_linux() {
     return 0
   fi
   install_linux_packages optional mongodb 2>/dev/null
-}
-
-install_docker_linux() {
-  if has_cmd docker; then
-    local docker_version
-    docker_version="$(docker --version 2>/dev/null | head -n 1 || echo '')"
-    if [[ -n "$docker_version" ]]; then
-      msg "  ✅ Docker já instalado ($docker_version)"
-    fi
-    return 0
-  fi
-
-  detect_linux_pkg_manager
-  case "$LINUX_PKG_MANAGER" in
-    apt-get)
-      install_linux_packages optional docker.io docker-compose-plugin
-      ;;
-    dnf)
-      install_linux_packages optional docker docker-compose
-      ;;
-    pacman)
-      install_linux_packages optional docker docker-compose
-      ;;
-    zypper)
-      install_linux_packages optional docker docker-compose
-      ;;
-    *)
-      record_failure "optional" "Docker não instalado: gerenciador não suportado para Docker Engine."
-      ;;
-  esac
 }
 
 # install_php_build_deps_linux() → Movido para lib/os_linux.sh
@@ -2048,15 +1950,107 @@ install_composer_and_laravel() {
   fi
 }
 
+_extract_url_host() {
+  local url="$1"
+  url="${url#*://}"
+  url="${url%%/*}"
+  url="${url%%\?*}"
+  url="${url%%#*}"
+  url="${url%%:*}"
+  printf '%s\n' "$url"
+}
+
+_is_trusted_remote_host() {
+  local host="$1"
+  local allowed
+  local -a allowlist=()
+  IFS=',' read -r -a allowlist <<< "$REMOTE_SCRIPT_ALLOWLIST"
+
+  for allowed in "${allowlist[@]}"; do
+    allowed="${allowed// /}"
+    [[ -z "$allowed" ]] && continue
+    if [[ "$host" == "$allowed" || "$host" == *."$allowed" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+_sha256_file() {
+  local file="$1"
+  if has_cmd sha256sum; then
+    sha256sum "$file" | awk '{print $1}'
+    return 0
+  fi
+  if has_cmd shasum; then
+    shasum -a 256 "$file" | awk '{print $1}'
+    return 0
+  fi
+  return 1
+}
+
+_verify_remote_script_checksum() {
+  local file="$1"
+  local friendly="$2"
+  local expected="${3:-}"
+
+  if [[ -z "$expected" ]]; then
+    if is_truthy "$REMOTE_SCRIPT_REQUIRE_CHECKSUM"; then
+      record_failure "critical" "Checksum SHA256 obrigatório e ausente para $friendly"
+      return 1
+    fi
+    return 0
+  fi
+
+  local current=""
+  current="$(_sha256_file "$file" 2>/dev/null || true)"
+  if [[ -z "$current" ]]; then
+    record_failure "critical" "Ferramenta SHA256 indisponível para validar script de $friendly"
+    return 1
+  fi
+  if [[ "$current" != "$expected" ]]; then
+    record_failure "critical" "Checksum SHA256 inválido para $friendly (esperado $expected, obtido $current)"
+    return 1
+  fi
+
+  return 0
+}
+
 download_and_run_script() {
   local url="$1"
   local friendly="$2"
-  local shell="${3:-sh}"
+  local shell_bin="${3:-sh}"
   local curl_extra="${4:-}"
   local script_args="${5:-}"
+  local expected_sha256="${6:-}"
+  local host=""
+
+  host="$(_extract_url_host "$url")"
+  if [[ -z "$host" ]]; then
+    record_failure "critical" "URL inválida para instalador remoto ($friendly): $url"
+    return 1
+  fi
+
+  if ! _is_trusted_remote_host "$host"; then
+    local trust_msg="Host remoto não permitido para $friendly: $host (ajuste REMOTE_SCRIPT_ALLOWLIST)"
+    if is_truthy "$REMOTE_SCRIPT_STRICT"; then
+      record_failure "critical" "$trust_msg"
+      return 1
+    fi
+    warn "$trust_msg"
+  fi
+
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) script remoto: $friendly ($url)"
+    return 0
+  fi
 
   if ! has_cmd curl; then
     record_failure "critical" "curl não encontrado. Instale curl primeiro para continuar."
+    return 1
+  fi
+  if ! has_cmd "$shell_bin"; then
+    record_failure "critical" "Shell '$shell_bin' não encontrada para executar script de $friendly"
     return 1
   fi
 
@@ -2065,20 +2059,40 @@ download_and_run_script() {
     record_failure "critical" "Falha ao criar arquivo temporário para instalador $friendly"
     return 1
   }
-  trap 'rm -f "${temp_script:-}"' RETURN
 
-  # shellcheck disable=SC2086
-  if ! curl -fsSL $curl_extra "$url" -o "$temp_script"; then
+  local -a curl_args=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 180)
+  if [[ -n "$curl_extra" ]]; then
+    local -a extra_args=()
+    read -r -a extra_args <<< "$curl_extra"
+    curl_args+=("${extra_args[@]}")
+  fi
+
+  if ! curl "${curl_args[@]}" "$url" -o "$temp_script"; then
+    rm -f "$temp_script"
     record_failure "critical" "Falha ao baixar instalador $friendly"
     return 1
   fi
 
-  # shellcheck disable=SC2086
-  if $shell "$temp_script" $script_args >/dev/null 2>&1; then
-    return 0
-  else
+  chmod 700 "$temp_script" 2>/dev/null || true
+  if ! _verify_remote_script_checksum "$temp_script" "$friendly" "$expected_sha256"; then
+    rm -f "$temp_script"
     return 1
   fi
+
+  local rc=0
+  local -a exec_args=()
+  if [[ -n "$script_args" ]]; then
+    read -r -a exec_args <<< "$script_args"
+  fi
+
+  if is_truthy "$VERBOSE"; then
+    "$shell_bin" "$temp_script" "${exec_args[@]}" || rc=$?
+  else
+    "$shell_bin" "$temp_script" "${exec_args[@]}" >/dev/null 2>&1 || rc=$?
+  fi
+  rm -f "$temp_script"
+
+  [[ $rc -eq 0 ]]
 }
 
 # ensure_rust_cargo() → Movido para lib/tools.sh
@@ -2098,7 +2112,7 @@ ensure_ghostty_linux() {
   case "$distro" in
     ubuntu|pop|neon)
       msg "  📦 Ubuntu/derivados detectado. Instalando via script mkasberg..."
-      if bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" >/dev/null 2>&1; then
+      if download_and_run_script "https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh" "Ghostty (mkasberg)" "bash"; then
         msg "  ✅ Ghostty instalado com sucesso"
         INSTALLED_MISC+=("ghostty: mkasberg script")
         return 0
@@ -2226,7 +2240,7 @@ ensure_mise() {
 ensure_spec_kit() {
   if ! has_cmd uv; then
     record_failure "optional" "uv não encontrado. spec-kit precisa de uv instalado."
-    msg "  💡 Execute: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    msg "  💡 Execute: ./install.sh --dry-run e selecione a instalação de runtimes."
     return 1
   fi
 
@@ -2277,53 +2291,6 @@ ensure_spec_kit() {
     msg "     uv tool install specify-cli --from git+https://github.com/github/spec-kit.git"
     msg ""
     msg "  📚 Mais informações: https://github.com/github/spec-kit"
-    return 1
-  fi
-}
-
-ensure_atuin() {
-  if has_cmd atuin; then
-    return 0
-  fi
-
-  msg "▶ Atuin (Better Shell History) não encontrado. Instalando..."
-
-  if download_and_run_script "https://setup.atuin.sh" "Atuin" "sh" "" "--yes"; then
-    export PATH="$HOME/.atuin/bin:$PATH"
-    export PATH="$HOME/.local/bin:$PATH"
-    INSTALLED_MISC+=("atuin: installer script")
-    msg "  ✅ Atuin instalado com sucesso"
-    msg "  💡 Atuin sincroniza histórico de comandos entre máquinas"
-    msg "  💡 Use 'atuin register' para criar conta e sincronizar"
-    msg "  💡 Use 'atuin login' se já tiver conta"
-
-    if has_cmd fish && [[ -d "$HOME/.config/fish" ]]; then
-      local fish_config="$HOME/.config/fish/config.fish"
-      if [[ -f "$fish_config" ]] && ! grep -q "atuin init fish" "$fish_config"; then
-        {
-          echo ""
-          echo "# Atuin - Better Shell History"
-          echo "if type -q atuin"
-          echo "  atuin init fish | source"
-          echo "end"
-        } >> "$fish_config"
-      fi
-    fi
-
-    if has_cmd zsh && [[ -f "$HOME/.zshrc" ]]; then
-      if ! grep -q "atuin init zsh" "$HOME/.zshrc"; then
-        {
-          echo ""
-          echo "# Atuin - Better Shell History"
-          # shellcheck disable=SC2016
-          echo 'eval "$(atuin init zsh)"'
-        } >> "$HOME/.zshrc"
-      fi
-    fi
-
-    return 0
-  else
-    record_failure "critical" "Falha ao instalar Atuin. Tente manualmente: curl -fsSL https://setup.atuin.sh | sh"
     return 1
   fi
 }

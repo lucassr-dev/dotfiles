@@ -8,7 +8,6 @@ declare -g BANNER_CYAN="${UI_CYAN:-$'\033[0;36m'}"
 declare -g BANNER_GREEN="${UI_GREEN:-$'\033[0;32m'}"
 declare -g BANNER_YELLOW="${UI_YELLOW:-$'\033[1;33m'}"
 declare -g BANNER_BLUE="${UI_BLUE:-$'\033[0;34m'}"
-declare -g BANNER_MAGENTA="${UI_MAGENTA:-$'\033[0;35m'}"
 declare -g BANNER_WHITE="${UI_WHITE:-$'\033[1;37m'}"
 declare -g BANNER_BOLD="${UI_BOLD:-$'\033[1m'}"
 declare -g BANNER_DIM="${UI_DIM:-$'\033[2m'}"
@@ -197,7 +196,6 @@ pause_before_next_section() {
   if [[ "$center" == "true" ]]; then
     local width
     width=$(get_term_width)
-    local full_msg="💡 $message "
     local text_len=$((${#message} + 4))
     local padding=$(( (width - text_len) / 2 ))
     [[ $padding -gt 0 ]] && printf "%${padding}s" ""

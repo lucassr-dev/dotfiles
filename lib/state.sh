@@ -14,28 +14,41 @@
 #   state_get_array "selections.cli_tools"   # → array
 #   state_has "system.os"                    # → 0 (true)
 
-declare -A _STATE=()
+declare -A DOTFILES_STATE=()
+
+_state_ensure_map() {
+  if ! declare -p DOTFILES_STATE 2>/dev/null | grep -q '^declare \-A'; then
+    unset DOTFILES_STATE 2>/dev/null || true
+    declare -g -A DOTFILES_STATE=()
+  fi
+}
 
 state_set() {
-  _STATE["$1"]="$2"
+  _state_ensure_map
+  DOTFILES_STATE["$1"]="$2"
 }
 
 state_get() {
-  echo "${_STATE[$1]:-$2}"
+  _state_ensure_map
+  local key="$1"
+  local default="${2:-}"
+  echo "${DOTFILES_STATE["$key"]:-$default}"
 }
 
 state_append() {
+  _state_ensure_map
   local key="$1" value="$2"
-  if [[ -n "${_STATE[$key]:-}" ]]; then
-    _STATE["$key"]="${_STATE[$key]},$value"
+  if [[ -n "${DOTFILES_STATE[$key]:-}" ]]; then
+    DOTFILES_STATE["$key"]="${DOTFILES_STATE[$key]},$value"
   else
-    _STATE["$key"]="$value"
+    DOTFILES_STATE["$key"]="$value"
   fi
 }
 
 state_get_array() {
+  _state_ensure_map
   local key="$1"
-  local csv="${_STATE[$key]:-}"
+  local csv="${DOTFILES_STATE[$key]:-}"
   [[ -z "$csv" ]] && return
   local IFS=','
   # shellcheck disable=SC2086
@@ -43,36 +56,43 @@ state_get_array() {
 }
 
 state_get_array_into() {
+  _state_ensure_map
   local key="$1"
   local -n _out_arr="$2"
   _out_arr=()
-  local csv="${_STATE[$key]:-}"
+  local csv="${DOTFILES_STATE[$key]:-}"
   [[ -z "$csv" ]] && return
   IFS=',' read -ra _out_arr <<< "$csv"
 }
 
 state_has() {
-  [[ -n "${_STATE[$1]:-}" ]]
+  _state_ensure_map
+  local key="$1"
+  [[ -n "${DOTFILES_STATE["$key"]:-}" ]]
 }
 
 state_remove() {
-  unset '_STATE[$1]'
+  _state_ensure_map
+  local key="$1"
+  unset 'DOTFILES_STATE[$key]'
 }
 
 state_dump() {
+  _state_ensure_map
   local key
-  for key in $(printf '%s\n' "${!_STATE[@]}" | sort); do
-    printf '%s=%s\n' "$key" "${_STATE[$key]}"
+  for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
+    printf '%s=%s\n' "$key" "${DOTFILES_STATE[$key]}"
   done
 }
 
 state_save() {
+  _state_ensure_map
   local file="${1:-$HOME/.dotfiles-state}"
   {
     echo "# Dotfiles state — $(date '+%Y-%m-%d %H:%M:%S')"
     local key
-    for key in $(printf '%s\n' "${!_STATE[@]}" | sort); do
-      printf 'state_set %q %q\n' "$key" "${_STATE[$key]}"
+    for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
+      printf 'state_set %q %q\n' "$key" "${DOTFILES_STATE[$key]}"
     done
   } > "$file"
 }
@@ -85,7 +105,8 @@ state_load() {
 }
 
 state_clear() {
-  _STATE=()
+  _state_ensure_map
+  DOTFILES_STATE=()
 }
 
 # ═══════════════════════════════════════════════════════════

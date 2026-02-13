@@ -99,6 +99,8 @@ print_post_install_report() {
   local username="${USER:-$(whoami)}"
   local hostname="${HOSTNAME:-$(hostname 2>/dev/null || echo 'localhost')}"
   local current_shell="${SHELL##*/}"
+  local host_ip
+  host_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "N/A")
 
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
@@ -128,12 +130,15 @@ print_post_install_report() {
   local elapsed
   elapsed=$(_report_time_str)
 
-  # Stats em grid 2x2
+  # Stats em grid 2x2 (cores condicionais)
   local stat_w=$((half_w - 2))
+  local errors_color="$UI_GREEN"
+  [[ $total_errors -gt 0 ]] && errors_color="$UI_RED"
+
   printf "%b│%b  %b✓ Instalados: %-${stat_w}s%b  %b⚠ Falhas: %-${stat_w}s%b %b│%b\n" \
     "$UI_BORDER" "$UI_RESET" \
     "$UI_GREEN" "$total_installed" "$UI_RESET" \
-    "$UI_WARNING" "$total_errors" "$UI_RESET" \
+    "$errors_color" "$total_errors" "$UI_RESET" \
     "$UI_BORDER" "$UI_RESET"
   printf "%b│%b  %b📁 Configs: %-${stat_w}s%b  %b⏱  %-${stat_w}s%b %b│%b\n" \
     "$UI_BORDER" "$UI_RESET" \
@@ -145,6 +150,7 @@ print_post_install_report() {
   _rpt_section_header "$inner_w" "SISTEMA"
   _rpt_box_line "$inner_w" "${UI_MUTED}Host${UI_RESET}     ${UI_TEXT}${hostname}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Usuário${UI_RESET}  ${UI_TEXT}${username}${UI_RESET}"
   _rpt_box_line "$inner_w" "${UI_MUTED}SO${UI_RESET}       ${UI_TEXT}${TARGET_OS:-linux}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Shell${UI_RESET}    ${UI_TEXT}${current_shell}${UI_RESET}"
+  _rpt_box_line "$inner_w" "${UI_MUTED}IP${UI_RESET}       ${UI_DIM}${host_ip}${UI_RESET}"
 
   # ── Ferramentas + Runtimes (duas colunas) ──
   local tools=()
@@ -194,6 +200,8 @@ print_post_install_report() {
   commands+=("install.sh sync")
   has_cmd lazygit && commands+=("lazygit")
   has_cmd zoxide && commands+=("z <dir>")
+  has_cmd mise && commands+=("mise ls / mise use")
+  has_cmd bat && commands+=("bat <file>")
 
   local max_steps=${#next_steps[@]}
   [[ ${#commands[@]} -gt $max_steps ]] && max_steps=${#commands[@]}

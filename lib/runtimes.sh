@@ -59,7 +59,7 @@ install_selected_runtimes() {
 
   ensure_mise
   if ! has_cmd mise; then
-    record_failure "optional" "mise não disponível; pulando instalação de runtimes" "Instale: curl https://mise.run | sh"
+    record_failure "optional" "mise não disponível; pulando instalação de runtimes" "Instale via instalador: ./install.sh"
     return 0
   fi
 

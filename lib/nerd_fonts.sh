@@ -20,7 +20,7 @@ run_with_timeout() {
 # Variáveis globais para Nerd Fonts
 # ═══════════════════════════════════════════════════════════
 
-NERD_FONTS_VERSION="${NERD_FONTS_VERSION:-v3.1.1}"
+NERD_FONTS_VERSION="${NERD_FONTS_VERSION:-latest}"
 NERD_FONTS_BASE_URL="https://github.com/ryanoasis/nerd-fonts/releases/download"
 
 NERD_FONTS_POPULAR=(
@@ -142,16 +142,24 @@ download_and_install_font() {
   local fonts_dir
   fonts_dir="$(get_fonts_dir)"
 
-  local download_url="$NERD_FONTS_BASE_URL/$NERD_FONTS_VERSION/${font_name}.zip"
   local latest_url="$NERD_FONTS_BASE_URL/latest/download/${font_name}.zip"
+  local version_url="$NERD_FONTS_BASE_URL/$NERD_FONTS_VERSION/${font_name}.zip"
+  local primary_url="$latest_url"
+  local fallback_url="$version_url"
+  if [[ "$NERD_FONTS_VERSION" != "latest" ]]; then
+    primary_url="$version_url"
+    fallback_url="$latest_url"
+  fi
   local temp_zip="/tmp/${font_name}.zip"
   local temp_dir="/tmp/nerd-fonts-${font_name}"
 
   rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
 
-  if ! run_with_timeout 120 curl -fsSL --max-time 120 "$download_url" -o "$temp_zip"; then
-    msg "  ⚠️  URL versão específica falhou, tentando latest..."
-    if ! run_with_timeout 120 curl -fsSL --max-time 120 "$latest_url" -o "$temp_zip"; then
+  if ! run_with_timeout 120 curl -fsSL --max-time 120 "$primary_url" -o "$temp_zip"; then
+    if [[ "$fallback_url" != "$primary_url" ]]; then
+      msg "  ⚠️  URL de versão falhou, tentando latest..."
+    fi
+    if ! run_with_timeout 120 curl -fsSL --max-time 120 "$fallback_url" -o "$temp_zip"; then
       warn "Falha ao baixar $font_name"
       rm -f "$temp_zip" 2>/dev/null
       return 1
@@ -275,7 +283,14 @@ ask_nerd_fonts() {
     local choice=""
     local selection_done=0
     while [[ $selection_done -eq 0 ]]; do
-      read -r -p "  Digite 1, 2, 3 ou 4: " choice
+      if ! read -r -p "  Digite 1, 2, 3 ou 4: " choice; then
+        if [[ ! -t 0 ]]; then
+          msg "  ℹ️  Entrada não interativa detectada. Pulando instalação de Nerd Fonts."
+          choice="4"
+        else
+          choice=""
+        fi
+      fi
       case "$choice" in
         1)
           SELECTED_NERD_FONTS=("FiraCode" "JetBrainsMono" "Hack" "Meslo" "CascadiaCode")
@@ -364,17 +379,21 @@ install_nerd_fonts() {
 
   local MAX_PARALLEL=${MAX_PARALLEL_DOWNLOADS:-8}
   local results_file="/tmp/dotfiles-fonts-results-$$"
-  > "$results_file"
+  : > "$results_file"
 
   _download_font_job() {
     local font="$1"
     local rfile="$2"
     if download_and_install_font "$font"; then
       echo "OK:$font" >> "$rfile"
-    elif download_and_install_font "$font"; then
-      echo "OK:$font" >> "$rfile"
     else
-      echo "FAIL:$font" >> "$rfile"
+      # Retry único para falhas transitórias de rede/CDN.
+      sleep 1
+      if download_and_install_font "$font"; then
+        echo "OK:$font" >> "$rfile"
+      else
+        echo "FAIL:$font" >> "$rfile"
+      fi
     fi
   }
 

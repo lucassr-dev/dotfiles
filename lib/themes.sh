@@ -153,25 +153,6 @@ download_preview_image() {
   return 1
 }
 
-_render_iterm_inline() {
-  local file="$1"
-  local name width_px
-  name="$(basename "$file")"
-
-  if has_cmd base64; then
-    width_px=$(tput cols 2>/dev/null || echo 80)
-    width_px=$((width_px * 8))
-    [[ $width_px -gt 600 ]] && width_px=600
-
-    printf '\033]1337;File=name=%s;inline=1;width=%spx;preserveAspectRatio=1:' \
-      "$(printf '%s' "$name" | base64)" "$width_px"
-    base64 < "$file"
-    printf '\a\n'
-    return 0
-  fi
-  return 1
-}
-
 show_theme_preview() {
   local title="$1"
   local desc="$2"
@@ -812,17 +793,11 @@ install_oh_my_zsh() {
     msg "  ℹ️  Oh My Zsh já está instalado"
   else
     msg "  📦 Instalando Oh My Zsh..."
-
-    if has_cmd curl; then
-      if sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null; then
-        INSTALLED_MISC+=("oh-my-zsh: framework")
-        msg "  ✅ Oh My Zsh instalado"
-      else
-        record_failure "optional" "Falha ao instalar Oh My Zsh"
-        return 1
-      fi
+    if download_and_run_script "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh" "Oh My Zsh" "sh" "" "--unattended"; then
+      INSTALLED_MISC+=("oh-my-zsh: framework")
+      msg "  ✅ Oh My Zsh instalado"
     else
-      record_failure "optional" "curl não encontrado - necessário para instalar Oh My Zsh"
+      record_failure "optional" "Falha ao instalar Oh My Zsh"
       return 1
     fi
   fi
@@ -976,17 +951,12 @@ install_starship() {
 
     case "$TARGET_OS" in
       linux|wsl2)
-        if has_cmd curl; then
-          if sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- --yes 2>/dev/null; then
-            INSTALLED_MISC+=("starship: prompt")
-            msg "  ✅ Starship instalado"
-            starship_installed=1
-          else
-            record_failure "optional" "Falha ao instalar Starship"
-            return 1
-          fi
+        if download_and_run_script "https://starship.rs/install.sh" "Starship" "sh" "" "-y"; then
+          INSTALLED_MISC+=("starship: prompt")
+          msg "  ✅ Starship instalado"
+          starship_installed=1
         else
-          record_failure "optional" "curl não encontrado - necessário para instalar Starship"
+          record_failure "optional" "Falha ao instalar Starship"
           return 1
         fi
         ;;
@@ -1057,17 +1027,12 @@ install_oh_my_posh() {
 
     case "$TARGET_OS" in
       linux|wsl2)
-        if has_cmd curl; then
-          if curl -s https://ohmyposh.dev/install.sh | bash -s 2>/dev/null; then
-            INSTALLED_MISC+=("oh-my-posh: prompt")
-            msg "  ✅ Oh My Posh instalado"
-            omp_installed=1
-          else
-            record_failure "optional" "Falha ao instalar Oh My Posh"
-            return 1
-          fi
+        if download_and_run_script "https://ohmyposh.dev/install.sh" "Oh My Posh" "bash"; then
+          INSTALLED_MISC+=("oh-my-posh: prompt")
+          msg "  ✅ Oh My Posh instalado"
+          omp_installed=1
         else
-          record_failure "optional" "curl não encontrado - necessário para instalar Oh My Posh"
+          record_failure "optional" "Falha ao instalar Oh My Posh"
           return 1
         fi
         ;;

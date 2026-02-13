@@ -13,7 +13,7 @@ ensure_homebrew() {
   msg "▶ Homebrew não encontrado - instalando automaticamente..."
   msg "  ℹ️  Isso pode demorar alguns minutos na primeira execução"
 
-  if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+  if NONINTERACTIVE=1 download_and_run_script "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh" "Homebrew" "/bin/bash"; then
     # Adicionar brew ao PATH para esta sessão
     if [[ -f "/opt/homebrew/bin/brew" ]]; then
       eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -147,9 +147,7 @@ install_macos_base_dependencies() {
     gum
   )
 
-  for formula in "${base_formulae[@]}"; do
-    brew_install_formula "$formula" "critical"
-  done
+  brew_install_batch "critical" "${base_formulae[@]}"
 }
 
 # ═══════════════════════════════════════════════════════════

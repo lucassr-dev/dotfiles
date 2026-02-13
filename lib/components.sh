@@ -118,11 +118,6 @@ ui_error() {
   echo -e "  ${UI_ERROR}❌ $1${UI_RESET}"
 }
 
-# ─── Mensagem de aviso ────────────────────────────────────
-ui_warn() {
-  echo -e "  ${UI_WARNING}⚠️  $1${UI_RESET}"
-}
-
 # ─── Mensagem informativa ─────────────────────────────────
 ui_info() {
   echo -e "  ${UI_INFO}ℹ️  $1${UI_RESET}"
