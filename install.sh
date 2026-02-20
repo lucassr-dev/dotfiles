@@ -51,6 +51,7 @@ COPY_VSCODE_SETTINGS=1
 COPY_LAZYGIT_CONFIG=1
 COPY_YAZI_CONFIG=1
 COPY_BTOP_CONFIG=1
+COPY_BAT_CONFIG=1
 COPY_KITTY_CONFIG=1
 COPY_ALACRITTY_CONFIG=1
 COPY_WEZTERM_CONFIG=1
@@ -378,6 +379,105 @@ _ssh_print_key_preview() {
   fi
 }
 
+_ssh_is_identity_file() {
+  local key_file="$1"
+  local key_name
+  key_name=$(basename "$key_file")
+  case "$key_name" in
+    *.pub|config|known_hosts|known_hosts.*|authorized_keys|authorized_keys.*) return 1 ;;
+  esac
+  return 0
+}
+
+_ssh_key_kind() {
+  local key_file="$1"
+  [[ -f "$key_file" ]] || { echo "missing"; return 0; }
+
+  local first_line
+  first_line=$(head -n 1 "$key_file" 2>/dev/null)
+
+  case "$first_line" in
+    "-----BEGIN OPENSSH PRIVATE KEY-----"|"-----BEGIN RSA PRIVATE KEY-----"|"-----BEGIN EC PRIVATE KEY-----"|"-----BEGIN DSA PRIVATE KEY-----"|"-----BEGIN PRIVATE KEY-----"|"-----BEGIN ENCRYPTED PRIVATE KEY-----")
+      echo "private"
+      ;;
+    ssh-*)
+      echo "public"
+      ;;
+    *)
+      echo "unknown"
+      ;;
+  esac
+}
+
+_ssh_sync_public_key() {
+  local src_private="$1" dest_private="$2"
+  local src_pub="${src_private}.pub"
+  local dest_pub="${dest_private}.pub"
+  local private_fp src_pub_fp dest_pub_fp
+
+  private_fp=$(get_ssh_key_fingerprint "$src_private")
+
+  # Se a .pub de origem existir e combinar com a privada, ela é preferida.
+  if [[ -f "$src_pub" ]]; then
+    src_pub_fp=$(get_ssh_key_fingerprint "$src_pub")
+    if [[ "$private_fp" != "unknown" ]] && [[ "$private_fp" == "$src_pub_fp" ]]; then
+      cp "$src_pub" "$dest_pub"
+      return 0
+    fi
+    echo -e "  ${UI_WARNING}⚠ ${src_pub##*/} não corresponde à privada (${private_fp} != ${src_pub_fp}).${UI_RESET}"
+  fi
+
+  # Se o destino já possui .pub compatível com a privada, preserva.
+  if [[ -f "$dest_pub" ]]; then
+    dest_pub_fp=$(get_ssh_key_fingerprint "$dest_pub")
+    if [[ "$private_fp" != "unknown" ]] && [[ "$private_fp" == "$dest_pub_fp" ]]; then
+      return 0
+    fi
+  fi
+
+  # Tentativa de regenerar .pub a partir da privada sem prompt interativo.
+  local pub_tmp
+  if pub_tmp="$(mktemp 2>/dev/null)"; then
+    if ssh-keygen -y -f "$src_private" </dev/null > "$pub_tmp" 2>/dev/null; then
+      mv "$pub_tmp" "$dest_pub"
+      return 0
+    fi
+    rm -f "$pub_tmp" 2>/dev/null || true
+  fi
+
+  # Evita manter .pub incorreta quando não for possível regenerar.
+  if [[ -f "$dest_pub" ]]; then
+    rm -f "$dest_pub"
+    echo -e "  ${UI_WARNING}⚠ ${dest_pub##*/} removida para evitar fingerprint divergente.${UI_RESET}"
+  fi
+
+  return 0
+}
+
+_ssh_copy_entry() {
+  local src_path="$1" dest_path="$2"
+
+  if _ssh_is_identity_file "$src_path"; then
+    local key_kind
+    key_kind=$(_ssh_key_kind "$src_path")
+    if [[ "$key_kind" != "private" ]]; then
+      echo -e "  ${UI_WARNING}⚠ ${src_path##*/} não é uma chave privada válida (${key_kind}); cópia ignorada.${UI_RESET}"
+      return 1
+    fi
+  fi
+
+  if ! cp "$src_path" "$dest_path"; then
+    echo -e "  ${UI_WARNING}⚠ Falha ao copiar ${src_path##*/}.${UI_RESET}"
+    return 1
+  fi
+
+  if _ssh_is_identity_file "$src_path"; then
+    _ssh_sync_public_key "$src_path" "$dest_path"
+  fi
+
+  return 0
+}
+
 _ssh_resolve_conflict() {
   local key_name="$1" src_path="$2" dest_path="$3" ssh_dest="$4"
 
@@ -395,9 +495,9 @@ _ssh_resolve_conflict() {
   read -r -p "  → " ssh_choice
   case "${ssh_choice,,}" in
     s|substituir)
-      cp "$src_path" "$dest_path"
-      [[ -f "${src_path}.pub" ]] && cp "${src_path}.pub" "${dest_path}.pub"
-      echo -e "  ${UI_GREEN}✓ Substituído: ${key_name}${UI_RESET}"
+      if _ssh_copy_entry "$src_path" "$dest_path"; then
+        echo -e "  ${UI_GREEN}✓ Substituído: ${key_name}${UI_RESET}"
+      fi
       ;;
     r|renomear)
       local new_name=""
@@ -407,15 +507,19 @@ _ssh_resolve_conflict() {
         [[ -f "$ssh_dest/$new_name" ]] && { echo -e "  ${UI_WARNING}${new_name} já existe.${UI_RESET}"; continue; }
         break
       done
-      cp "$src_path" "$ssh_dest/$new_name"
-      [[ -f "${src_path}.pub" ]] && cp "${src_path}.pub" "$ssh_dest/${new_name}.pub"
-      echo -e "  ${UI_GREEN}✓ Copiado como: ${new_name}${UI_RESET}"
+      if _ssh_copy_entry "$src_path" "$ssh_dest/$new_name"; then
+        echo -e "  ${UI_GREEN}✓ Copiado como: ${new_name}${UI_RESET}"
+      fi
       ;;
     d|deletar)
-      rm -f "$dest_path" "${dest_path}.pub"
-      cp "$src_path" "$dest_path"
-      [[ -f "${src_path}.pub" ]] && cp "${src_path}.pub" "${dest_path}.pub"
-      echo -e "  ${UI_GREEN}✓ Existente removido e substituído: ${key_name}${UI_RESET}"
+      if _ssh_is_identity_file "$dest_path"; then
+        rm -f "$dest_path" "${dest_path}.pub"
+      else
+        rm -f "$dest_path"
+      fi
+      if _ssh_copy_entry "$src_path" "$dest_path"; then
+        echo -e "  ${UI_GREEN}✓ Existente removido e substituído: ${key_name}${UI_RESET}"
+      fi
       ;;
     *)
       echo -e "  ${UI_MUTED}⏭ Mantido: ${key_name} (original preservado)${UI_RESET}"
@@ -429,17 +533,24 @@ manage_ssh_keys() {
 
   mkdir -p "$ssh_dest"
 
-  # Coletar apenas chaves privadas e arquivos de config (não .pub separados)
+  # Coletar chaves privadas válidas + arquivos auxiliares esperados em ~/.ssh
   local source_keys=()
   while IFS= read -r -d '' key; do
-    source_keys+=("$key")
-  done < <(find "$ssh_source" -type f \( -name "id_*" ! -name "*.pub" \) -o -name "known_hosts*" -o -name "config" 2>/dev/null | sort -z 2>/dev/null)
-  # Fallback com -print0 se sort -z falhar
-  if [[ ${#source_keys[@]} -eq 0 ]]; then
-    while IFS= read -r -d '' key; do
-      source_keys+=("$key")
-    done < <(find "$ssh_source" -type f \( -name "id_*" ! -name "*.pub" -o -name "known_hosts*" -o -name "config" \) -print0 2>/dev/null)
-  fi
+    local key_name key_kind
+    key_name=$(basename "$key")
+    case "$key_name" in
+      *.pub|authorized_keys|authorized_keys.*)
+        continue
+        ;;
+      known_hosts|known_hosts.*|config)
+        source_keys+=("$key")
+        continue
+        ;;
+    esac
+
+    key_kind=$(_ssh_key_kind "$key")
+    [[ "$key_kind" == "private" ]] && source_keys+=("$key")
+  done < <(find "$ssh_source" -maxdepth 1 -type f -print0 2>/dev/null)
 
   if [[ ${#source_keys[@]} -eq 0 ]]; then
     echo -e "  ${UI_INFO}ℹ Nenhuma chave SSH encontrada em ${ssh_source}${UI_RESET}"
@@ -451,9 +562,10 @@ manage_ssh_keys() {
   if [[ -d "$ssh_dest" ]]; then
     while IFS= read -r -d '' existing_key; do
       local fp
+      _ssh_is_identity_file "$existing_key" || continue
       fp=$(get_ssh_key_fingerprint "$existing_key")
       [[ "$fp" != "unknown" ]] && [[ "$fp" != "not_a_key" ]] && dest_fingerprints["$fp"]="$existing_key"
-    done < <(find "$ssh_dest" -type f \( -name "id_*" ! -name "*.pub" \) -print0 2>/dev/null)
+    done < <(find "$ssh_dest" -maxdepth 1 -type f -print0 2>/dev/null)
   fi
 
   # ── Exibir chaves encontradas ──
@@ -534,9 +646,9 @@ manage_ssh_keys() {
     fi
 
     # Sem conflito — copiar diretamente
-    cp "$key_path" "$dest_path"
-    [[ -f "${key_path}.pub" ]] && cp "${key_path}.pub" "${dest_path}.pub"
-    echo -e "  ${UI_GREEN}✓ Copiado: ${key_name}${UI_RESET}"
+    if _ssh_copy_entry "$key_path" "$dest_path"; then
+      echo -e "  ${UI_GREEN}✓ Copiado: ${key_name}${UI_RESET}"
+    fi
   done
 }
 
@@ -809,9 +921,17 @@ INTERACTIVE_GUI_APPS=true
 INSTALL_BREWFILE=true
 
 # shellcheck disable=SC1090
-[[ -f "$DATA_APPS" ]] && source "$DATA_APPS" || warn "Arquivo de dados de apps não encontrado: $DATA_APPS"
+if [[ -f "$DATA_APPS" ]]; then
+  source "$DATA_APPS"
+else
+  warn "Arquivo de dados de apps não encontrado: $DATA_APPS"
+fi
 # shellcheck disable=SC1090
-[[ -f "$DATA_RUNTIMES" ]] && source "$DATA_RUNTIMES" || warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
+if [[ -f "$DATA_RUNTIMES" ]]; then
+  source "$DATA_RUNTIMES"
+else
+  warn "Arquivo de dados de runtimes não encontrado: $DATA_RUNTIMES"
+fi
 
 [[ -f "$SCRIPT_DIR/lib/colors.sh" ]] && source "$SCRIPT_DIR/lib/colors.sh"
 [[ -f "$SCRIPT_DIR/lib/utils.sh" ]] && source "$SCRIPT_DIR/lib/utils.sh"
@@ -1142,7 +1262,7 @@ review_selections() {
     [[ ${#actions_to_do[@]} -gt 0 ]] && actions_str="${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
 
     local backup_ts
-    backup_ts="~/.bkp-$(date +%Y%m%d-%H%M)/"
+    backup_ts="$HOME/.bkp-$(date +%Y%m%d-%H%M)/"
 
     _print_box_line "$inner_w" "${UI_MUTED}Pacotes:${UI_RESET}     ${UI_GREEN}${total_pkgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Configs:${UI_RESET} ${UI_BLUE}${total_cfgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}SO:${UI_RESET} ${UI_TEXT}${TARGET_OS:-linux}${UI_RESET}"
     _print_box_line "$inner_w" "${UI_MUTED}Configurar:${UI_RESET}  ${actions_str}"
@@ -1380,13 +1500,14 @@ review_selections() {
     [[ $has_helix -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]] && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_HELIX_CONFIG:-0}" "Helix")")
 
     local cfg_tools=()
-    local has_tmux=0 has_lazygit=0 has_yazi=0 has_btop=0 has_direnv=0
+    local has_tmux=0 has_lazygit=0 has_yazi=0 has_btop=0 has_bat=0 has_direnv=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do
       case "$tool" in
         tmux) has_tmux=1 ;;
         lazygit) has_lazygit=1 ;;
         yazi) has_yazi=1 ;;
         btop) has_btop=1 ;;
+        bat) has_bat=1 ;;
         direnv) has_direnv=1 ;;
       esac
     done
@@ -1394,6 +1515,7 @@ review_selections() {
     [[ $has_lazygit -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_LAZYGIT_CONFIG:-0}" "lazygit")")
     [[ $has_yazi -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_YAZI_CONFIG:-0}" "yazi")")
     [[ $has_btop -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_BTOP_CONFIG:-0}" "btop")")
+    [[ $has_bat -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_BAT_CONFIG:-0}" "bat")")
     [[ $has_direnv -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_DIRENV_CONFIG:-0}" "direnv")")
     [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_GIT_CONFIG:-0}" "Git")")
 
@@ -1642,6 +1764,11 @@ ask_configs_to_copy() {
     config_keys+=("COPY_BTOP_CONFIG")
   fi
 
+  if [[ -f "$CONFIG_SHARED/bat/config" ]]; then
+    config_options+=("bat-config      - bat (syntax highlighting + tema)")
+    config_keys+=("COPY_BAT_CONFIG")
+  fi
+
   if [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
     config_options+=("kitty-config    - Kitty (terminal)")
     config_keys+=("COPY_KITTY_CONFIG")
@@ -1760,6 +1887,7 @@ ask_configs_to_copy() {
       "lazygit-config")  COPY_LAZYGIT_CONFIG=1 ;;
       "yazi-config")     COPY_YAZI_CONFIG=1 ;;
       "btop-config")     COPY_BTOP_CONFIG=1 ;;
+      "bat-config")      COPY_BAT_CONFIG=1 ;;
       "kitty-config")    COPY_KITTY_CONFIG=1 ;;
       "alacritty-config") COPY_ALACRITTY_CONFIG=1 ;;
       "wezterm-config")  COPY_WEZTERM_CONFIG=1 ;;
@@ -2373,6 +2501,10 @@ copy_tool_configs() {
     copy_dir "$CONFIG_SHARED/btop" "$HOME/.config/btop"
   fi
 
+  if [[ ${COPY_BAT_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]; then
+    copy_dir "$CONFIG_SHARED/bat" "$HOME/.config/bat"
+  fi
+
   if [[ ${COPY_KITTY_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
     copy_dir "$CONFIG_SHARED/kitty" "$HOME/.config/kitty"
   fi
@@ -2434,6 +2566,61 @@ copy_tool_configs() {
   if [[ ${COPY_DIRENV_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
     mkdir -p "$HOME/.config/direnv"
     copy_file "$CONFIG_SHARED/direnv/.direnvrc" "$HOME/.config/direnv/direnvrc"
+  fi
+}
+
+install_bat_catppuccin_theme() {
+  [[ ${COPY_BAT_CONFIG:-1} -eq 0 ]] && return 0
+
+  local bat_cmd=""
+  if has_cmd bat; then
+    bat_cmd="bat"
+  elif has_cmd batcat; then
+    bat_cmd="batcat"
+  else
+    return 0
+  fi
+
+  local themes_dir="$HOME/.config/bat/themes"
+  local catppuccin_dir="$themes_dir/catppuccin"
+
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) instalaria tema Catppuccin do bat em $catppuccin_dir"
+    return 0
+  fi
+
+  if ! has_cmd git; then
+    record_failure "optional" "git não encontrado - necessário para instalar tema Catppuccin do bat"
+    return 1
+  fi
+
+  mkdir -p "$themes_dir"
+
+  if [[ -d "$catppuccin_dir/.git" ]]; then
+    msg "  🔄 Atualizando tema Catppuccin do bat..."
+    if ! git -C "$catppuccin_dir" pull --ff-only >/dev/null 2>&1; then
+      warn "Falha ao atualizar tema Catppuccin do bat; mantendo versão atual."
+    fi
+  elif [[ -d "$catppuccin_dir" ]]; then
+    msg "  ℹ️  Tema Catppuccin do bat já existe em $catppuccin_dir"
+  else
+    msg "  🎨 Instalando tema Catppuccin do bat..."
+    if ! git clone --depth=1 https://github.com/catppuccin/bat.git "$catppuccin_dir" >/dev/null 2>&1; then
+      record_failure "optional" "Falha ao clonar tema Catppuccin para bat"
+      return 1
+    fi
+  fi
+
+  msg "  🔧 Rebuild do cache de temas do bat..."
+  if ! "$bat_cmd" cache --build >/dev/null 2>&1; then
+    record_failure "optional" "Falha ao rebuild do cache de temas do bat"
+    return 1
+  fi
+
+  if "$bat_cmd" --list-themes 2>/dev/null | grep -qi "Catppuccin Mocha"; then
+    msg "  ✅ Tema Catppuccin Mocha disponível no bat"
+  else
+    warn "Tema Catppuccin não encontrado em '$bat_cmd --list-themes'"
   fi
 }
 
@@ -2551,6 +2738,7 @@ apply_shared_configs() {
   fi
 
   copy_tool_configs
+  install_bat_catppuccin_theme
 
   if [[ ${COPY_SSH_KEYS:-0} -eq 1 ]]; then
     local ssh_source=""
@@ -2672,6 +2860,11 @@ export_configs() {
 
   if [[ -f "$HOME/.config/btop/btop.conf" ]]; then
     export_dir "$HOME/.config/btop" "$CONFIG_SHARED/btop"
+  fi
+
+  if [[ -f "$HOME/.config/bat/config" ]]; then
+    mkdir -p "$CONFIG_SHARED/bat"
+    export_file "$HOME/.config/bat/config" "$CONFIG_SHARED/bat/config"
   fi
 
   if [[ -f "$HOME/.config/kitty/kitty.conf" ]]; then

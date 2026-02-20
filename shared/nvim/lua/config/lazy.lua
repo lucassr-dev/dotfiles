@@ -55,7 +55,7 @@ require("lazy").setup({
     { import = "lazyvim.plugins.extras.editor.mini-files" },
 
     -- Coding
-    { import = "lazyvim.plugins.extras.coding.copilot" },
+    { import = "lazyvim.plugins.extras.ai.copilot" },
     { import = "lazyvim.plugins.extras.coding.mini-surround" },
 
     -- UI

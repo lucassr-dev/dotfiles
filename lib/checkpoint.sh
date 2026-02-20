@@ -5,6 +5,29 @@ CHECKPOINT_FILE="$HOME/.dotfiles-checkpoint"
 CHECKPOINT_STAGE=""
 RESUME_MODE=0
 
+_checkpoint_file_is_secure() {
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  [[ -O "$file" ]] || return 1
+
+  local perm=""
+  if command -v stat >/dev/null 2>&1; then
+    perm="$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$perm" ]] && [[ "$perm" =~ ^[0-7]{3,4}$ ]]; then
+    local mode="$perm"
+    [[ ${#mode} -eq 4 ]] && mode="${mode:1}"
+    local group_digit="${mode:1:1}"
+    local other_digit="${mode:2:1}"
+    if (( 10#$group_digit != 0 || 10#$other_digit != 0 )); then
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
 checkpoint_save() {
   local stage="$1"
   CHECKPOINT_STAGE="$stage"
@@ -49,10 +72,17 @@ checkpoint_save() {
     echo "SELECTED_MEDIA=(${SELECTED_MEDIA[*]})"
     echo "SELECTED_UTILITIES=(${SELECTED_UTILITIES[*]})"
   } > "$CHECKPOINT_FILE"
+
+  chmod 600 "$CHECKPOINT_FILE" 2>/dev/null || true
 }
 
 checkpoint_load() {
   if [[ -f "$CHECKPOINT_FILE" ]]; then
+    if ! _checkpoint_file_is_secure "$CHECKPOINT_FILE"; then
+      echo "⚠️ Checkpoint inseguro detectado em $CHECKPOINT_FILE (owner/permissões inválidos)." >&2
+      return 1
+    fi
+
     # shellcheck source=/dev/null
     source "$CHECKPOINT_FILE"
 

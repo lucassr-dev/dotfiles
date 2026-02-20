@@ -109,9 +109,18 @@ return {
       local npairs = require("nvim-autopairs")
       npairs.setup(opts)
 
-      -- Integração com nvim-cmp
-      local cmp_autopairs = require("nvim-autopairs.completion.cmp")
-      require("cmp").event:on("confirm_done", cmp_autopairs.on_confirm_done())
+      -- Integração opcional com nvim-cmp (o setup atual usa blink.cmp por padrão)
+      local ok_cmp, cmp = pcall(require, "cmp")
+      if not ok_cmp then
+        return
+      end
+
+      local ok_cmp_autopairs, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")
+      if not ok_cmp_autopairs then
+        return
+      end
+
+      cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
     end,
   },
 

@@ -32,7 +32,7 @@ gui:
   showBranchCommitHash: true
   showBottomLine: true
   showCommandLog: true
-  showIcons: true
+  showFileIcons: true
   nerdFontsVersion: "3"
   commitLength:
     show: true

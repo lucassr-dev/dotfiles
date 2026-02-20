@@ -279,6 +279,13 @@ install_git_configuration() {
   msg "▶ Configurando Git multi-conta"
   msg ""
 
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) criaria ~/.gitconfig-personal e ~/.gitconfig-work"
+    msg "  🔎 (dry-run) atualizaria ~/.gitconfig com includeIf para contas pessoal/trabalho"
+    msg "  🔎 (dry-run) garantiria diretórios: ${GIT_PERSONAL_DIRS[*]} ${GIT_WORK_DIRS[*]}"
+    return 0
+  fi
+
   local gitconfig_personal="$HOME/.gitconfig-personal"
   cat > "$gitconfig_personal" << EOF
 [user]

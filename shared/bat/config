@@ -1,0 +1,17 @@
+# bat configuration
+# Tema automático por esquema de cores do terminal
+--theme="auto"
+--theme-dark="Catppuccin Mocha"
+--theme-light="Catppuccin Latte"
+
+# Visual padrão para uso diário
+--style="numbers,changes,header"
+--paging=auto
+--pager="less -RF"
+--tabs=2
+--italic-text=always
+
+# Ajustes de detecção de sintaxe
+--map-syntax=".env:INI"
+--map-syntax=".env.*:INI"
+--map-syntax=".gitignore:Git Ignore"

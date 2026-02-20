@@ -98,6 +98,11 @@ install_nvim_config() {
   msg ""
   msg "▶ Copiando configuração do Neovim"
 
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) sincronizaria shared/nvim -> ~/.config/nvim"
+    return 0
+  fi
+
   if [[ ! -d "$CONFIG_SHARED/nvim" ]] || [[ -z "$(ls -A "$CONFIG_SHARED/nvim" 2>/dev/null)" ]]; then
     msg "  ⚠️  Nenhuma config encontrada em shared/nvim/"
     return 0
@@ -143,6 +148,11 @@ install_tmux_config() {
 
   msg ""
   msg "▶ Copiando configuração do tmux"
+
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) sincronizaria shared/tmux -> ~/.tmux.conf e ~/.tmux/"
+    return 0
+  fi
 
   if [[ ! -d "$CONFIG_SHARED/tmux" ]] || [[ -z "$(ls -A "$CONFIG_SHARED/tmux" 2>/dev/null)" ]]; then
     msg "  ⚠️  Nenhuma config encontrada em shared/tmux/"

@@ -173,7 +173,7 @@ return {
   -- MASON (GERENCIADOR DE SERVIDORES LSP)
   -- ──────────────────────────────────────────────────────────────────────────────
   {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
     opts = {
       ensure_installed = {
         -- LSP

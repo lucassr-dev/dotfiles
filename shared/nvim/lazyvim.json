@@ -9,12 +9,12 @@
     "lazyvim.plugins.extras.linting.eslint",
     "lazyvim.plugins.extras.formatting.prettier",
     "lazyvim.plugins.extras.editor.mini-files",
-    "lazyvim.plugins.extras.coding.copilot",
+    "lazyvim.plugins.extras.ai.copilot",
     "lazyvim.plugins.extras.coding.mini-surround",
     "lazyvim.plugins.extras.ui.mini-animate"
   ],
   "news": {
     "NEWS.md": ""
   },
-  "version": 6
+  "version": 8
 }

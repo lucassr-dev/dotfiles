@@ -1114,6 +1114,63 @@ install_oh_my_posh() {
 # Instalação de Fisher e plugins do Fish
 # ═══════════════════════════════════════════════════════════
 
+_install_fisher_secure() {
+  local fisher_url="https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish"
+  local expected_sha256="${FISHER_FUNCTION_SHA256:-}"
+
+  if ! has_cmd curl; then
+    warn "curl não encontrado - não foi possível instalar Fisher"
+    return 1
+  fi
+
+  if declare -F _extract_url_host >/dev/null 2>&1 && declare -F _is_trusted_remote_host >/dev/null 2>&1; then
+    local host=""
+    host="$(_extract_url_host "$fisher_url")"
+    if [[ -z "$host" ]]; then
+      warn "URL inválida para instalação do Fisher"
+      return 1
+    fi
+
+    if ! _is_trusted_remote_host "$host"; then
+      local trust_msg="Host remoto não permitido para Fisher: $host (ajuste REMOTE_SCRIPT_ALLOWLIST)"
+      if declare -F is_truthy >/dev/null 2>&1 && is_truthy "${REMOTE_SCRIPT_STRICT:-1}"; then
+        warn "$trust_msg"
+        return 1
+      fi
+      warn "$trust_msg"
+    fi
+  fi
+
+  local temp_fisher=""
+  temp_fisher="$(mktemp)" || {
+    warn "Falha ao criar arquivo temporário para Fisher"
+    return 1
+  }
+
+  local -a curl_args=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 120)
+  if ! curl "${curl_args[@]}" "$fisher_url" -o "$temp_fisher"; then
+    rm -f "$temp_fisher" 2>/dev/null || true
+    warn "Falha ao baixar Fisher"
+    return 1
+  fi
+  chmod 600 "$temp_fisher" 2>/dev/null || true
+
+  if declare -F _verify_remote_script_checksum >/dev/null 2>&1; then
+    if ! _verify_remote_script_checksum "$temp_fisher" "Fisher" "$expected_sha256"; then
+      rm -f "$temp_fisher" 2>/dev/null || true
+      return 1
+    fi
+  fi
+
+  if fish -c "source '$temp_fisher'; fisher install jorgebucaran/fisher" >/dev/null 2>&1; then
+    rm -f "$temp_fisher" 2>/dev/null || true
+    return 0
+  fi
+
+  rm -f "$temp_fisher" 2>/dev/null || true
+  return 1
+}
+
 install_fish_plugins() {
   [[ $INSTALL_FISH -eq 0 ]] && return 0
   [[ ${#SELECTED_FISH_PLUGINS[@]} -eq 0 ]] && return 0
@@ -1128,7 +1185,7 @@ install_fish_plugins() {
   local fisher_file="$HOME/.config/fish/functions/fisher.fish"
   if [[ ! -f "$fisher_file" ]]; then
     msg "  📦 Instalando Fisher (gerenciador de plugins)..."
-    if fish -c "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" 2>/dev/null; then
+    if _install_fisher_secure; then
       INSTALLED_MISC+=("fisher: gerenciador de plugins Fish")
       msg "  ✅ Fisher instalado"
     else

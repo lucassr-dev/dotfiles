@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Dry run
         shell: bash
-        run: DRY_RUN=1 bash install.sh < /dev/null || true
+        run: DRY_RUN=1 bash install.sh < /dev/null
 
   tests:
     name: BATS Tests

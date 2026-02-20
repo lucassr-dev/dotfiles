@@ -104,8 +104,8 @@ opt.listchars = {
   precedes = "❮",
 }
 opt.fillchars = {
-  foldopen = "",
-  foldclose = "",
+  foldopen = "v",
+  foldclose = ">",
   fold = " ",
   foldsep = " ",
   diff = "╱",

@@ -85,6 +85,29 @@ state_dump() {
   done
 }
 
+_state_file_is_secure() {
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  [[ -O "$file" ]] || return 1
+
+  local perm=""
+  if command -v stat >/dev/null 2>&1; then
+    perm="$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$perm" ]] && [[ "$perm" =~ ^[0-7]{3,4}$ ]]; then
+    local mode="$perm"
+    [[ ${#mode} -eq 4 ]] && mode="${mode:1}"
+    local group_digit="${mode:1:1}"
+    local other_digit="${mode:2:1}"
+    if (( 10#$group_digit != 0 || 10#$other_digit != 0 )); then
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
 state_save() {
   _state_ensure_map
   local file="${1:-$HOME/.dotfiles-state}"
@@ -95,11 +118,17 @@ state_save() {
       printf 'state_set %q %q\n' "$key" "${DOTFILES_STATE[$key]}"
     done
   } > "$file"
+
+  chmod 600 "$file" 2>/dev/null || true
 }
 
 state_load() {
   local file="${1:-$HOME/.dotfiles-state}"
   [[ -f "$file" ]] || return 1
+  if ! _state_file_is_secure "$file"; then
+    echo "⚠️ State inseguro detectado em $file (owner/permissões inválidos)." >&2
+    return 1
+  fi
   # shellcheck source=/dev/null
   source "$file"
 }
