@@ -9,6 +9,45 @@ _gui_has_modern_ui() {
   declare -F ui_select_multiple >/dev/null 2>&1
 }
 
+_app_is_auto_installable() {
+  local app="$1"
+
+  if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+    return 0
+  fi
+
+  case "${TARGET_OS:-}" in
+    linux|wsl2)
+      case "$app" in
+        ghostty|kitty|alacritty|gnome-terminal|pgadmin|mongodb)
+          return 0
+          ;;
+      esac
+      ;;
+    macos)
+      case "$app" in
+        iterm2|ghostty|kitty|alacritty|intellij-idea|pycharm|webstorm|phpstorm|goland|rubymine|clion|rider|datagrip|android-studio|rectangle|alfred|bartender|cleanmymac|istat-menus)
+          return 0
+          ;;
+      esac
+      ;;
+  esac
+
+  return 1
+}
+
+_mark_manual_entries() {
+  local -n _items_ref="$1"
+  local i entry app
+  for i in "${!_items_ref[@]}"; do
+    entry="${_items_ref[$i]}"
+    app="${entry%% *}"
+    if ! _app_is_auto_installable "$app"; then
+      _items_ref[$i]="${entry} [manual]"
+    fi
+  done
+}
+
 # ═══════════════════════════════════════════════════════════
 # Função de seleção com suporte híbrido (moderno + fallback)
 # ═══════════════════════════════════════════════════════════
@@ -168,6 +207,7 @@ ask_gui_apps() {
       *)              ides_with_desc+=("$ide") ;;
     esac
   done
+  _mark_manual_entries ides_with_desc
   select_apps "⌨️  IDEs E EDITORES" SELECTED_IDES "${ides_with_desc[@]}"
 
   # ═══════════════════════════════════════════════════════════
@@ -184,6 +224,7 @@ ask_gui_apps() {
       *)       browsers_with_desc+=("$browser") ;;
     esac
   done
+  _mark_manual_entries browsers_with_desc
   select_apps "🌐 NAVEGADORES" SELECTED_BROWSERS "${browsers_with_desc[@]}"
 
   # ═══════════════════════════════════════════════════════════
@@ -199,6 +240,7 @@ ask_gui_apps() {
       *)       dev_with_desc+=("$tool") ;;
     esac
   done
+  _mark_manual_entries dev_with_desc
   select_apps "💻 FERRAMENTAS DE DESENVOLVIMENTO" SELECTED_DEV_TOOLS "${dev_with_desc[@]}"
 
   # ═══════════════════════════════════════════════════════════
@@ -214,6 +256,7 @@ ask_gui_apps() {
       *)          db_with_desc+=("$db") ;;
     esac
   done
+  _mark_manual_entries db_with_desc
   select_apps "🗄️  BANCOS DE DADOS" SELECTED_DATABASES "${db_with_desc[@]}"
 
   # ═══════════════════════════════════════════════════════════
@@ -228,6 +271,7 @@ ask_gui_apps() {
       *)        prod_with_desc+=("$app") ;;
     esac
   done
+  _mark_manual_entries prod_with_desc
   select_apps "📝 PRODUTIVIDADE" SELECTED_PRODUCTIVITY "${prod_with_desc[@]}"
 
   # ═══════════════════════════════════════════════════════════
@@ -243,6 +287,7 @@ ask_gui_apps() {
       *)        comm_with_desc+=("$app") ;;
     esac
   done
+  _mark_manual_entries comm_with_desc
   select_apps "💬 COMUNICAÇÃO" SELECTED_COMMUNICATION "${comm_with_desc[@]}"
 
   # ═══════════════════════════════════════════════════════════
@@ -257,6 +302,7 @@ ask_gui_apps() {
       *)       media_with_desc+=("$app") ;;
     esac
   done
+  _mark_manual_entries media_with_desc
   select_apps "🎵 MÍDIA" SELECTED_MEDIA "${media_with_desc[@]}"
 
   # ═══════════════════════════════════════════════════════════
@@ -282,27 +328,9 @@ ask_gui_apps() {
       *)            util_with_desc+=("$app") ;;
     esac
   done
+  _mark_manual_entries util_with_desc
   select_apps "🛠️  UTILITÁRIOS" SELECTED_UTILITIES "${util_with_desc[@]}"
 
-  # ═══════════════════════════════════════════════════════════
-  # Brewfile (apenas macOS)
-  # ═══════════════════════════════════════════════════════════
-  if [[ "$TARGET_OS" == "macos" ]]; then
-    msg ""
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    msg "  🍺 BREWFILE (APENAS macOS)"
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    msg "  O Brewfile contém apps adicionais (Arc, iTerm2, Raycast, Rectangle, etc.)"
-    msg ""
-    echo -e "  ${UI_CYAN}Enter${UI_RESET} para incluir Brewfile  │  ${UI_YELLOW}P${UI_RESET} para pular"
-    local brewfile_choice
-    read -r -p "  → " brewfile_choice
-    if [[ "${brewfile_choice,,}" != "p" ]]; then
-      export INSTALL_BREWFILE=true
-    else
-      export INSTALL_BREWFILE=false
-    fi
-  fi
 
     msg ""
     _show_gui_selection_summary

@@ -262,7 +262,7 @@ has_snap_pkg() {
 
 has_flatpak_ref() {
   has_cmd flatpak || return 1
-  flatpak list | grep -q "$1"
+  flatpak info "$1" >/dev/null 2>&1
 }
 
 _source_field_value() {
@@ -302,6 +302,9 @@ is_app_installed() {
   choco_pkg=$(_source_field_value "$sources" "choco" || true)
   scoop_pkg=$(_source_field_value "$sources" "scoop" || true)
 
+  # Snap entries podem conter argumentos (ex.: "code --classic")
+  [[ -n "$snap_pkg" ]] && snap_pkg="${snap_pkg%% *}"
+
   # Linux: dpkg, rpm, snap, flatpak
   [[ -n "$apt_pkg" ]] && has_cmd dpkg && dpkg -l "$apt_pkg" 2>/dev/null | grep -q '^ii' && return 0
   [[ -n "$apt_pkg" ]] && has_cmd rpm && rpm -q "$apt_pkg" >/dev/null 2>&1 && return 0
@@ -315,9 +318,15 @@ is_app_installed() {
   fi
 
   # Windows: winget, choco, scoop
-  [[ -n "$winget_pkg" ]] && has_cmd winget && winget list --id "$winget_pkg" 2>/dev/null | grep -q "$winget_pkg" && return 0
-  [[ -n "$choco_pkg" ]] && has_cmd choco && choco list --local-only "$choco_pkg" 2>/dev/null | grep -q "$choco_pkg" && return 0
-  [[ -n "$scoop_pkg" ]] && has_cmd scoop && scoop list 2>/dev/null | grep -q "$scoop_pkg" && return 0
+  if [[ -n "$winget_pkg" ]] && has_cmd winget; then
+    winget list --id "$winget_pkg" -e --source winget 2>/dev/null | tr -d '\r' | grep -Fq "$winget_pkg" && return 0
+  fi
+  if [[ -n "$choco_pkg" ]] && has_cmd choco; then
+    choco list --local-only --exact "$choco_pkg" --limit-output 2>/dev/null | grep -Fq "${choco_pkg}|" && return 0
+  fi
+  if [[ -n "$scoop_pkg" ]] && has_cmd scoop; then
+    scoop list "$scoop_pkg" 2>/dev/null | awk 'NR>1 {print $1}' | grep -Fxq "$scoop_pkg" && return 0
+  fi
 
   return 1
 }
@@ -918,7 +927,6 @@ declare -a SELECTED_MEDIA=()
 declare -a SELECTED_UTILITIES=()
 declare -a SELECTED_RUNTIMES=()
 INTERACTIVE_GUI_APPS=true
-INSTALL_BREWFILE=true
 
 # shellcheck disable=SC1090
 if [[ -f "$DATA_APPS" ]]; then
@@ -2028,7 +2036,7 @@ install_pgadmin_linux() {
 }
 
 install_mongodb_linux() {
-  if has_cmd mongod || has_cmd mongodb-compass; then
+  if has_cmd mongod; then
     local mongo_version
     mongo_version="$(mongod --version 2>/dev/null | head -n 1 || echo '')"
     if [[ -n "$mongo_version" ]]; then
@@ -2036,11 +2044,31 @@ install_mongodb_linux() {
     fi
     return 0
   fi
-  if has_cmd flatpak; then
-    flatpak_install_or_update com.mongodb.Compass "MongoDB Compass" optional
+
+  detect_linux_pkg_manager
+  case "${LINUX_PKG_MANAGER:-}" in
+    apt-get)
+      install_linux_packages optional mongodb || true
+      ;;
+    dnf)
+      install_linux_packages optional mongodb-org-server || \
+      install_linux_packages optional mongodb-server || true
+      ;;
+    pacman)
+      install_linux_packages optional mongodb || true
+      ;;
+    zypper)
+      install_linux_packages optional mongodb || true
+      ;;
+  esac
+
+  if has_cmd mongod; then
+    msg "  ✅ MongoDB Server instalado"
     return 0
   fi
-  install_linux_packages optional mongodb 2>/dev/null
+
+  record_failure "optional" "MongoDB Server não instalado automaticamente no Linux" "Instale o MongoDB Community Server manualmente para sua distro"
+  return 1
 }
 
 # install_php_build_deps_linux() → Movido para lib/os_linux.sh
@@ -2232,84 +2260,53 @@ ensure_ghostty_linux() {
 
   msg "▶ Ghostty não encontrado. Tentando instalar..."
 
-  local distro=""
-  if [[ -f /etc/os-release ]]; then
-    distro="$(. /etc/os-release && echo "$ID")"
-  fi
-
-  case "$distro" in
-    ubuntu|pop|neon)
-      msg "  📦 Ubuntu/derivados detectado. Instalando via script mkasberg..."
-      if download_and_run_script "https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh" "Ghostty (mkasberg)" "bash"; then
-        msg "  ✅ Ghostty instalado com sucesso"
-        INSTALLED_MISC+=("ghostty: mkasberg script")
-        return 0
-      fi
+  detect_linux_pkg_manager
+  case "${LINUX_PKG_MANAGER:-}" in
+    apt-get)
+      msg "  📦 Tentando instalar Ghostty via apt..."
+      install_linux_packages optional ghostty || true
       ;;
-    debian)
-      msg "  📦 Debian detectado. Instalando via repositório griffo.io..."
-      if curl -sS https://debian.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc | run_with_sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/debian.griffo.io.gpg 2>/dev/null; then
-        local codename
-        codename="$(get_distro_codename "bookworm")"
-        echo "deb https://debian.griffo.io/apt $codename main" | run_with_sudo tee /etc/apt/sources.list.d/debian.griffo.io.list >/dev/null
-        run_with_sudo apt-get update >/dev/null 2>&1
-        if run_with_sudo apt-get install -y ghostty >/dev/null 2>&1; then
-          msg "  ✅ Ghostty instalado com sucesso"
-          INSTALLED_MISC+=("ghostty: apt")
-          return 0
-        fi
-      fi
+    dnf)
+      msg "  📦 Tentando instalar Ghostty via dnf..."
+      install_linux_packages optional ghostty || true
       ;;
-    arch|manjaro|endeavouros)
-      msg "  📦 Arch/derivados detectado. Instalando via pacman..."
-      if run_with_sudo pacman -Sy --noconfirm --needed ghostty >/dev/null 2>&1; then
-        msg "  ✅ Ghostty instalado com sucesso"
-        INSTALLED_MISC+=("ghostty: pacman")
-        return 0
-      fi
+    pacman)
+      msg "  📦 Tentando instalar Ghostty via pacman..."
+      install_linux_packages optional ghostty || true
       ;;
-    fedora|rhel|centos|rocky|almalinux)
-      msg "  📦 Fedora/RHEL detectado. Tentando via snap..."
-      if has_cmd snap; then
-        snap_install_or_refresh ghostty "Ghostty" optional --classic
-        if has_cmd ghostty; then
-          msg "  ✅ Ghostty instalado via snap"
-          return 0
-        fi
-      fi
-      ;;
-    opensuse*|suse)
-      msg "  📦 openSUSE detectado. Instalando via zypper..."
-      if run_with_sudo zypper install -y ghostty >/dev/null 2>&1; then
-        msg "  ✅ Ghostty instalado com sucesso"
-        INSTALLED_MISC+=("ghostty: zypper")
-        return 0
-      fi
+    zypper)
+      msg "  📦 Tentando instalar Ghostty via zypper..."
+      install_linux_packages optional ghostty || true
       ;;
   esac
 
-  if has_cmd flatpak; then
-    if ! flatpak info com.mitchellh.ghostty >/dev/null 2>&1; then
-      msg "  📦 Tentando instalar via Flatpak..."
-      flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
-      if flatpak install -y flathub com.mitchellh.ghostty >/dev/null 2>&1; then
-        msg "  ✅ Ghostty instalado via Flatpak"
-        INSTALLED_MISC+=("ghostty: flatpak")
-        return 0
-      fi
-    fi
+  if has_cmd ghostty; then
+    msg "  ✅ Ghostty instalado via gerenciador da distro"
+    INSTALLED_MISC+=("ghostty: distro package")
+    return 0
   fi
 
   if has_cmd snap; then
-    if run_with_sudo snap install ghostty --classic >/dev/null 2>&1; then
+    snap_install_or_refresh ghostty "Ghostty" optional --classic
+    if has_cmd ghostty; then
       msg "  ✅ Ghostty instalado via snap"
       INSTALLED_MISC+=("ghostty: snap")
       return 0
     fi
   fi
 
-  record_failure "critical" "Não foi possível instalar Ghostty automaticamente."
-  msg "  ℹ️  Visite https://ghostty.org para instruções de instalação manual."
+  if has_cmd flatpak; then
+    msg "  📦 Tentando instalar Ghostty via Flatpak..."
+    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+    if flatpak info com.mitchellh.ghostty >/dev/null 2>&1 || flatpak install -y flathub com.mitchellh.ghostty >/dev/null 2>&1; then
+      msg "  ✅ Ghostty instalado via Flatpak"
+      INSTALLED_MISC+=("ghostty: flatpak")
+      return 0
+    fi
+  fi
+
+  record_failure "optional" "Não foi possível instalar Ghostty automaticamente."
+  msg "  ℹ️  Visite https://ghostty.org para instruções oficiais de instalação."
   return 1
 }
 
@@ -2472,12 +2469,6 @@ install_selected_gui_apps() {
       install_linux_selected_apps
       ;;
     macos)
-      if [[ "${INSTALL_BREWFILE:-true}" == "true" ]]; then
-        generate_dynamic_brewfile
-        install_from_brewfile
-      else
-        msg "  ⏭️  Pulando Brewfile conforme solicitado"
-      fi
       install_macos_selected_apps
       ;;
     windows)

@@ -65,7 +65,7 @@ brew "git-lfs"              # Git Large File Storage
 # ════════════════════════════════════════════════════════════════
 # Databases & Infrastructure
 # ════════════════════════════════════════════════════════════════
-brew "postgresql@15"        # PostgreSQL database
+brew "postgresql"           # PostgreSQL database
 brew "redis"                # In-memory data structure store
 brew "mysql"                # MySQL database
 

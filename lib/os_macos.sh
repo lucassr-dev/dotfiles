@@ -169,131 +169,6 @@ install_macos_shells() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# Geração dinâmica do Brewfile (apenas apps fora do catálogo)
-# ═══════════════════════════════════════════════════════════
-# NOTA: Apps que estão em APP_SOURCES já são instalados via
-#       install_with_priority(). O Brewfile contém apenas apps
-#       específicos do macOS que não têm entrada no catálogo.
-
-generate_dynamic_brewfile() {
-  local brewfile="$HOME/Brewfile"
-  local has_entries=0
-
-  msg "▶ Gerando Brewfile para apps específicos do macOS"
-
-  cat > "$brewfile" <<EOF
-# Brewfile gerado automaticamente pelo dotfiles installer
-# Data: $(date)
-# NOTA: Contém apenas apps específicos do macOS não gerenciados pelo catálogo
-
-# Taps
-tap "homebrew/bundle"
-tap "homebrew/cask"
-tap "homebrew/cask-fonts"
-
-EOF
-
-  # Helper: adiciona ao brewfile apenas se NÃO estiver no catálogo APP_SOURCES
-  _add_if_not_in_catalog() {
-    local app="$1"
-    local brew_entry="$2"
-    if [[ -z "${APP_SOURCES[$app]:-}" ]]; then
-      echo "$brew_entry" >> "$brewfile"
-      has_entries=1
-    fi
-  }
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Terminais (muitos são macOS-only)
-  # ─────────────────────────────────────────────────────────────────────────────
-  if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
-    echo "# Terminais" >> "$brewfile"
-    for terminal in "${SELECTED_TERMINALS[@]}"; do
-      case "$terminal" in
-        iterm2) _add_if_not_in_catalog iterm2 "cask \"iterm2\"" ;;
-        ghostty) _add_if_not_in_catalog ghostty "cask \"ghostty\"" ;;
-        kitty) _add_if_not_in_catalog kitty "cask \"kitty\"" ;;
-        alacritty) _add_if_not_in_catalog alacritty "cask \"alacritty\"" ;;
-      esac
-    done
-    echo "" >> "$brewfile"
-  fi
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # IDEs JetBrains (não estão no catálogo)
-  # ─────────────────────────────────────────────────────────────────────────────
-  if [[ ${#SELECTED_IDES[@]} -gt 0 ]]; then
-    echo "# IDEs" >> "$brewfile"
-    for ide in "${SELECTED_IDES[@]}"; do
-      case "$ide" in
-        intellij-idea) _add_if_not_in_catalog intellij-idea "cask \"intellij-idea-ce\"" ;;
-        pycharm) _add_if_not_in_catalog pycharm "cask \"pycharm-ce\"" ;;
-        webstorm) _add_if_not_in_catalog webstorm "cask \"webstorm\"" ;;
-        phpstorm) _add_if_not_in_catalog phpstorm "cask \"phpstorm\"" ;;
-        goland) _add_if_not_in_catalog goland "cask \"goland\"" ;;
-        rubymine) _add_if_not_in_catalog rubymine "cask \"rubymine\"" ;;
-        clion) _add_if_not_in_catalog clion "cask \"clion\"" ;;
-        rider) _add_if_not_in_catalog rider "cask \"rider\"" ;;
-        datagrip) _add_if_not_in_catalog datagrip "cask \"datagrip\"" ;;
-        android-studio) _add_if_not_in_catalog android-studio "cask \"android-studio\"" ;;
-      esac
-    done
-    echo "" >> "$brewfile"
-  fi
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Utilitários específicos macOS (Rectangle, Alfred, etc.)
-  # ─────────────────────────────────────────────────────────────────────────────
-  if [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]; then
-    echo "# Utilitários macOS" >> "$brewfile"
-    for app in "${SELECTED_UTILITIES[@]}"; do
-      case "$app" in
-        rectangle) _add_if_not_in_catalog rectangle "cask \"rectangle\"" ;;
-        alfred) _add_if_not_in_catalog alfred "cask \"alfred\"" ;;
-        bartender) _add_if_not_in_catalog bartender "cask \"bartender\"" ;;
-        cleanmymac) _add_if_not_in_catalog cleanmymac "cask \"cleanmymac\"" ;;
-        istat-menus) _add_if_not_in_catalog istat-menus "cask \"istat-menus\"" ;;
-        veracrypt) _add_if_not_in_catalog veracrypt "cask \"veracrypt\"" ;;
-        balenaetcher) _add_if_not_in_catalog balenaetcher "cask \"balenaetcher\"" ;;
-        rclone) _add_if_not_in_catalog rclone "brew \"rclone\"" ;;
-      esac
-    done
-    echo "" >> "$brewfile"
-  fi
-
-  if [[ $has_entries -eq 1 ]]; then
-    msg "  ✅ Brewfile gerado em: $brewfile"
-  else
-    msg "  ℹ️  Nenhum app adicional para Brewfile (todos já estão no catálogo)"
-    rm -f "$brewfile"
-  fi
-}
-
-install_from_brewfile() {
-  local brewfile="$HOME/Brewfile"
-
-  if [[ ! -f "$brewfile" ]]; then
-    msg "  ℹ️  Nenhum Brewfile encontrado, pulando"
-    return
-  fi
-
-  if ! has_cmd brew; then
-    warn "Homebrew não disponível, não foi possível instalar do Brewfile"
-    return
-  fi
-
-  msg "▶ Instalando apps do Brewfile"
-  msg "  ℹ️  Arquivo: $brewfile"
-
-  if brew bundle --file="$brewfile"; then
-    INSTALLED_MISC+=("brewfile: instalação completa")
-    msg "  ✅ Apps do Brewfile instalados com sucesso"
-  else
-    record_failure "optional" "Alguns apps do Brewfile falharam ao instalar"
-  fi
-}
-
-# ═══════════════════════════════════════════════════════════
 # Helper: instalar app usando o catálogo ou fallback para brew
 # ═══════════════════════════════════════════════════════════
 
@@ -325,6 +200,22 @@ _install_macos_app() {
 install_macos_selected_apps() {
   msg "▶ Instalando apps GUI selecionados (macOS)"
 
+  for terminal in "${SELECTED_TERMINALS[@]}"; do
+    case "$terminal" in
+      iterm2) _install_macos_app iterm2 iterm2 "cask:iterm2" ;;
+      ghostty) _install_macos_app ghostty ghostty "cask:ghostty" ;;
+      kitty) _install_macos_app kitty kitty "cask:kitty" ;;
+      alacritty) _install_macos_app alacritty alacritty "cask:alacritty" ;;
+      *)
+        if [[ -n "${APP_SOURCES[$terminal]:-}" ]]; then
+          _install_macos_app "$terminal" "$terminal"
+        else
+          record_failure "optional" "Terminal sem instalador automático no macOS: $terminal"
+        fi
+        ;;
+    esac
+  done
+
   for app in "${SELECTED_IDES[@]}"; do
     case "$app" in
       cursor) install_cursor ;;
@@ -343,6 +234,13 @@ install_macos_selected_apps() {
       rider) _install_macos_app rider rider "cask:rider" ;;
       datagrip) _install_macos_app datagrip datagrip "cask:datagrip" ;;
       android-studio) _install_macos_app android-studio studio "cask:android-studio" ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "IDE sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 
@@ -357,6 +255,13 @@ install_macos_selected_apps() {
       edge) _install_macos_app edge edge "cask:microsoft-edge" ;;
       opera) _install_macos_app opera opera "cask:opera" ;;
       librewolf) _install_macos_app librewolf librewolf "cask:librewolf" ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "Navegador sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 
@@ -370,16 +275,30 @@ install_macos_selected_apps() {
       gitkraken) _install_macos_app gitkraken gitkraken "cask:gitkraken" ;;
       mongodb-compass) _install_macos_app mongodb-compass "MongoDB Compass" "cask:mongodb-compass" ;;
       redis-insight) install_redis_insight ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "Dev tool sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 
   for app in "${SELECTED_DATABASES[@]}"; do
     case "$app" in
-      postgresql) _install_macos_app postgresql psql postgresql@16 ;;
+      postgresql) _install_macos_app postgresql psql postgresql ;;
       mysql) _install_macos_app mysql mysql mysql ;;
       redis) _install_macos_app redis redis-cli redis ;;
       mariadb) _install_macos_app mariadb mariadb mariadb ;;
       mongodb) _install_macos_app mongodb mongod mongodb-community ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "Banco sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 
@@ -392,6 +311,13 @@ install_macos_selected_apps() {
       anki) _install_macos_app anki anki "cask:anki" ;;
       joplin) _install_macos_app joplin joplin "cask:joplin" ;;
       appflowy) _install_macos_app appflowy appflowy "cask:appflowy" ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "App de produtividade sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 
@@ -404,6 +330,13 @@ install_macos_selected_apps() {
       teams) _install_macos_app teams teams "cask:microsoft-teams" ;;
       zoom) _install_macos_app zoom zoom "cask:zoom" ;;
       thunderbird) _install_macos_app thunderbird thunderbird "cask:thunderbird" ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "App de comunicação sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 
@@ -417,6 +350,13 @@ install_macos_selected_apps() {
       blender) _install_macos_app blender blender "cask:blender" ;;
       audacity) _install_macos_app audacity audacity "cask:audacity" ;;
       kdenlive) _install_macos_app kdenlive kdenlive "cask:kdenlive" ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "App de mídia sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 
@@ -431,6 +371,13 @@ install_macos_selected_apps() {
       1password) _install_macos_app 1password 1password "cask:1password" ;;
       keepassxc) _install_macos_app keepassxc keepassxc "cask:keepassxc" ;;
       syncthing) _install_macos_app syncthing syncthing syncthing ;;
+      *)
+        if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
+          _install_macos_app "$app" "$app"
+        else
+          record_failure "optional" "Utilitário sem instalador automático no macOS: $app"
+        fi
+        ;;
     esac
   done
 }

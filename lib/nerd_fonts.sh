@@ -371,8 +371,13 @@ install_nerd_fonts() {
   fi
 
   if ! has_cmd unzip; then
-    record_failure "critical" "unzip não encontrado - necessário para extrair fontes" "Instale: sudo apt-get install -y unzip"
-    return 1
+    if [[ "${TARGET_OS:-}" == "macos" ]] && has_cmd brew; then
+      brew_install_formula unzip optional
+    fi
+    if ! has_cmd unzip; then
+      record_failure "critical" "unzip não encontrado - necessário para extrair fontes"
+      return 1
+    fi
   fi
 
   ensure_fonts_dir || return 1

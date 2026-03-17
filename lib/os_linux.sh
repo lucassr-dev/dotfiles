@@ -44,17 +44,19 @@ install_linux_packages() {
   local level="$1"
   shift
   local packages=("$@")
+  local rc=0
   [[ ${#packages[@]} -gt 0 ]] || return 0
   detect_linux_pkg_manager
   if [[ -z "$LINUX_PKG_MANAGER" ]]; then
     record_failure "$level" "Nenhum gerenciador de pacotes suportado encontrado (apt, dnf, pacman, zypper). Instale manualmente: ${packages[*]}"
-    return 0
+    return 1
   fi
   linux_pkg_update_cache
   case "$LINUX_PKG_MANAGER" in
     apt-get)
       if ! run_with_sudo apt-get install -y "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (apt) ${packages[*]}"
+        rc=1
       else
         INSTALLED_PACKAGES+=("apt: ${packages[*]}")
       fi
@@ -62,6 +64,7 @@ install_linux_packages() {
     dnf)
       if ! run_with_sudo dnf install -y "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (dnf) ${packages[*]}"
+        rc=1
       else
         INSTALLED_PACKAGES+=("dnf: ${packages[*]}")
       fi
@@ -69,6 +72,7 @@ install_linux_packages() {
     pacman)
       if ! run_with_sudo pacman -Sy --noconfirm --needed "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (pacman) ${packages[*]}"
+        rc=1
       else
         INSTALLED_PACKAGES+=("pacman: ${packages[*]}")
       fi
@@ -76,11 +80,14 @@ install_linux_packages() {
     zypper)
       if ! run_with_sudo zypper install -y "${packages[@]}"; then
         record_failure "$level" "Falha ao instalar (zypper) ${packages[*]}"
+        rc=1
       else
         INSTALLED_PACKAGES+=("zypper: ${packages[*]}")
       fi
       ;;
   esac
+
+  return $rc
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -362,7 +369,7 @@ install_linux_selected_apps() {
     _install_app_with_catalog "$app" "$ide_cmd" || {
       case "$app" in
         cursor) install_cursor ;;
-        *) warn "IDE sem instalador automático no Linux: $app" ;;
+        *) record_failure "optional" "IDE sem instalador automático no Linux: $app" ;;
       esac
     }
   done
@@ -371,7 +378,7 @@ install_linux_selected_apps() {
     _install_app_with_catalog "$app" "$app" || {
       case "$app" in
         zen) install_zen_linux ;;
-        *) warn "Navegador sem instalador automático no Linux: $app" ;;
+        *) record_failure "optional" "Navegador sem instalador automático no Linux: $app" ;;
       esac
     }
   done
@@ -380,7 +387,7 @@ install_linux_selected_apps() {
     _install_app_with_catalog "$app" "$app" || {
       case "$app" in
         redis-insight) install_redis_insight ;;
-        *) warn "Dev tool sem instalador automático no Linux: $app" ;;
+        *) record_failure "optional" "Dev tool sem instalador automático no Linux: $app" ;;
       esac
     }
   done
@@ -390,26 +397,26 @@ install_linux_selected_apps() {
       case "$app" in
         pgadmin) install_pgadmin_linux ;;
         mongodb) install_mongodb_linux ;;
-        *) warn "Banco sem instalador automático no Linux: $app" ;;
+        *) record_failure "optional" "Banco sem instalador automático no Linux: $app" ;;
       esac
     }
   done
 
   for app in "${SELECTED_PRODUCTIVITY[@]}"; do
     _install_app_with_catalog "$app" "$app" || {
-      warn "Produtividade sem instalador automático no Linux: $app"
+      record_failure "optional" "App de produtividade sem instalador automático no Linux: $app"
     }
   done
 
   for app in "${SELECTED_COMMUNICATION[@]}"; do
     _install_app_with_catalog "$app" "$app" || {
-      warn "Comunicação sem instalador automático no Linux: $app"
+      record_failure "optional" "App de comunicação sem instalador automático no Linux: $app"
     }
   done
 
   for app in "${SELECTED_MEDIA[@]}"; do
     _install_app_with_catalog "$app" "$app" || {
-      warn "Mídia sem instalador automático no Linux: $app"
+      record_failure "optional" "App de mídia sem instalador automático no Linux: $app"
     }
   done
 
@@ -417,7 +424,7 @@ install_linux_selected_apps() {
     _install_app_with_catalog "$app" "$app" || {
       case "$app" in
         screenkey) install_linux_packages optional screenkey ;;
-        *) warn "Utilitário sem instalador automático no Linux: $app" ;;
+        *) record_failure "optional" "Utilitário sem instalador automático no Linux: $app" ;;
       esac
     }
   done

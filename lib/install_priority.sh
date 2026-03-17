@@ -50,8 +50,13 @@ init_app_catalog() {
   APP_SOURCES[mise]="official:mise.run,brew:mise,cargo:mise"
   APP_SOURCES[tmux]="apt:tmux,brew:tmux"
   APP_SOURCES[neovim]="apt:neovim,brew:neovim,winget:Neovim.Neovim,flatpak:io.neovim.nvim"
+  APP_SOURCES[helix]="apt:helix,brew:helix,winget:Helix.Helix"
   APP_SOURCES[jq]="apt:jq,brew:jq,winget:jqlang.jq"
   APP_SOURCES[direnv]="apt:direnv,brew:direnv,winget:direnv.direnv"
+  APP_SOURCES[rclone]="apt:rclone,brew:rclone,winget:Rclone.Rclone"
+  APP_SOURCES[fish]="apt:fish,brew:fish"
+  APP_SOURCES[zsh]="apt:zsh,brew:zsh"
+  APP_SOURCES[nushell]="apt:nushell,brew:nushell,winget:Nushell.Nushell"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Apps GUI - Produtividade
@@ -74,6 +79,7 @@ init_app_catalog() {
   APP_SOURCES[teams]="flatpak:com.github.IsmaelMartinez.teams_for_linux,brew:microsoft-teams,winget:Microsoft.Teams"
   APP_SOURCES[zoom]="flatpak:us.zoom.Zoom,brew:zoom,winget:Zoom.Zoom"
   APP_SOURCES[thunderbird]="flatpak:org.mozilla.Thunderbird,brew:thunderbird,winget:Mozilla.Thunderbird"
+  APP_SOURCES[element]="flatpak:im.riot.Riot,brew:element,winget:Element.Element"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Apps GUI - Mídia
@@ -86,6 +92,10 @@ init_app_catalog() {
   APP_SOURCES[blender]="flatpak:org.blender.Blender,brew:blender,winget:BlenderFoundation.Blender"
   APP_SOURCES[audacity]="flatpak:org.audacityteam.Audacity,brew:audacity,winget:Audacity.Audacity"
   APP_SOURCES[kdenlive]="flatpak:org.kde.kdenlive,brew:kdenlive,winget:KDE.Kdenlive"
+  APP_SOURCES[mpv]="apt:mpv,flatpak:io.mpv.Mpv,brew:mpv"
+  APP_SOURCES[krita]="flatpak:org.kde.krita,brew:krita,winget:KDE.Krita"
+  APP_SOURCES[handbrake]="flatpak:fr.handbrake.ghb,brew:handbrake,winget:HandBrake.HandBrake"
+  APP_SOURCES[qbittorrent]="apt:qbittorrent,flatpak:org.qbittorrent.qBittorrent,brew:qbittorrent,winget:qBittorrent.qBittorrent"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Apps GUI - Desenvolvimento
@@ -98,6 +108,13 @@ init_app_catalog() {
   APP_SOURCES[insomnia]="flatpak:rest.insomnia.Insomnia,brew:insomnia,winget:Insomnia.Insomnia"
   APP_SOURCES[gitkraken]="flatpak:com.axosoft.GitKraken,brew:gitkraken,winget:Axosoft.GitKraken"
   APP_SOURCES[mongodb-compass]="flatpak:com.mongodb.Compass,brew:mongodb-compass,winget:MongoDB.Compass.Full"
+  APP_SOURCES[redis-insight]="brew:redis-insight,winget:RedisLabs.RedisInsight"
+  APP_SOURCES[httpie]="apt:httpie,brew:httpie,winget:HTTPie.HTTPie"
+  APP_SOURCES[mkcert]="apt:mkcert,brew:mkcert,winget:FiloSottile.mkcert"
+  APP_SOURCES[sourcetree]="brew:sourcetree,winget:Atlassian.Sourcetree"
+  APP_SOURCES[sublime-merge]="brew:sublime-merge,winget:SublimeHQ.SublimeMerge"
+  APP_SOURCES[k9s]="brew:k9s,winget:Derailed.k9s"
+  APP_SOURCES[lens]="brew:lens,winget:Mirantis.Lens"
   APP_SOURCES[zed]="flatpak:dev.zed.Zed,brew:zed,winget:Zed.Zed"
   APP_SOURCES[sublime-text]="flatpak:com.sublimetext.three,brew:sublime-text,winget:SublimeHQ.SublimeText.4"
   APP_SOURCES[wezterm]="official:wezfurlong.org,flatpak:org.wezfurlong.wezterm,brew:wezterm,winget:wez.wezterm"
@@ -119,6 +136,14 @@ init_app_catalog() {
   # Apps GUI - Utilitários
   # ─────────────────────────────────────────────────────────────────────────────
   APP_SOURCES[flameshot]="flatpak:org.flameshot.Flameshot,apt:flameshot,brew:flameshot"
+  APP_SOURCES[powertoys]="winget:Microsoft.PowerToys,choco:powertoys"
+  APP_SOURCES[sharex]="winget:ShareX.ShareX,choco:sharex"
+  APP_SOURCES[balenaetcher]="flatpak:io.balena.etcher,brew:balenaetcher,winget:Balena.Etcher"
+  APP_SOURCES[veracrypt]="flatpak:org.veracrypt.VeraCrypt,brew:veracrypt,winget:IDRIX.VeraCrypt"
+  APP_SOURCES[spectacle]="apt:spectacle,flatpak:org.kde.spectacle"
+  APP_SOURCES[wsl]="winget:Microsoft.WSL"
+  APP_SOURCES[flatpak]="apt:flatpak"
+  APP_SOURCES[timeshift]="apt:timeshift"
   APP_SOURCES[bitwarden]="flatpak:com.bitwarden.desktop,brew:bitwarden,winget:Bitwarden.Bitwarden"
   APP_SOURCES[1password]="flatpak:com.1password.1Password,brew:1password,winget:AgileBits.1Password"
   APP_SOURCES[keepassxc]="flatpak:org.keepassxc.KeePassXC,brew:keepassxc,winget:KeePassXCTeam.KeePassXC"
@@ -127,10 +152,12 @@ init_app_catalog() {
   # ─────────────────────────────────────────────────────────────────────────────
   # Bancos de Dados
   # ─────────────────────────────────────────────────────────────────────────────
-  APP_SOURCES[postgresql]="apt:postgresql,brew:postgresql@16,winget:PostgreSQL.PostgreSQL"
+  APP_SOURCES[postgresql]="apt:postgresql,brew:postgresql,winget:PostgreSQL.PostgreSQL"
   APP_SOURCES[redis]="apt:redis,brew:redis,winget:Redis.Redis"
   APP_SOURCES[mysql]="apt:mysql-server,brew:mysql,winget:Oracle.MySQL"
   APP_SOURCES[mariadb]="apt:mariadb-server,brew:mariadb,winget:MariaDB.Server"
+  APP_SOURCES[sqlite]="apt:sqlite3,brew:sqlite,winget:SQLite.SQLite"
+  APP_SOURCES[podman]="apt:podman,brew:podman,winget:RedHat.Podman"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -316,22 +343,131 @@ _install_mise_official() {
 
 _install_vscode_official() {
   local level="${1:-optional}"
-  msg "  📦 Instalando VS Code via repositório oficial..."
+  msg "  📦 Instalando VS Code via canal oficial..."
 
-  case "$LINUX_PKG_MANAGER" in
-    apt-get)
-      if curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | run_with_sudo tee /usr/share/keyrings/microsoft.gpg > /dev/null; then
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/vscode stable main" | run_with_sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
-        LINUX_PKG_UPDATED=0
-        if install_linux_packages "$level" code; then
-          INSTALLED_MISC+=("vscode: official repo")
-          return 0
-        fi
+  case "${TARGET_OS:-}" in
+    macos)
+      local tmp_dir=""
+      local zip_file=""
+      tmp_dir="$(mktemp -d)"
+      zip_file="$tmp_dir/vscode-macos.zip"
+
+      if curl -fsSL "https://update.code.visualstudio.com/latest/darwin-universal/stable" -o "$zip_file" && \
+         unzip -q "$zip_file" -d "$tmp_dir" && \
+         [[ -d "$tmp_dir/Visual Studio Code.app" ]] && \
+         run_with_sudo ditto "$tmp_dir/Visual Studio Code.app" "/Applications/Visual Studio Code.app"; then
+        INSTALLED_MISC+=("vscode: official macOS package")
+        rm -rf "$tmp_dir" 2>/dev/null || true
+        return 0
       fi
+
+      rm -rf "$tmp_dir" 2>/dev/null || true
+      record_failure "$level" "Falha ao instalar VS Code via pacote oficial (macOS)"
+      return 1
+      ;;
+
+    windows)
+      local arch_slug="win32-x64-user"
+      local proc_arch="${PROCESSOR_ARCHITECTURE:-}"
+      local proc_arch_w6432="${PROCESSOR_ARCHITEW6432:-}"
+      local tmp_exe=""
+      local installer_path_win=""
+
+      if [[ "$proc_arch" == "ARM64" || "$proc_arch_w6432" == "ARM64" ]]; then
+        arch_slug="win32-arm64-user"
+      fi
+
+      tmp_exe="$(mktemp "${TMPDIR:-/tmp}/vscode-installer-XXXXXX.exe")"
+      installer_path_win="$tmp_exe"
+      if has_cmd cygpath; then
+        installer_path_win="$(cygpath -w "$tmp_exe" 2>/dev/null || echo "$tmp_exe")"
+      elif has_cmd wslpath; then
+        installer_path_win="$(wslpath -w "$tmp_exe" 2>/dev/null || echo "$tmp_exe")"
+      fi
+
+      if curl -fsSL "https://update.code.visualstudio.com/latest/${arch_slug}/stable" -o "$tmp_exe" && \
+         has_cmd powershell.exe && \
+         powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
+           "Start-Process -FilePath '$installer_path_win' -ArgumentList '/VERYSILENT','/NORESTART','/MERGETASKS=!runcode' -Wait -PassThru | Out-Null"; then
+        INSTALLED_MISC+=("vscode: official windows installer")
+        rm -f "$tmp_exe" 2>/dev/null || true
+        return 0
+      fi
+
+      rm -f "$tmp_exe" 2>/dev/null || true
+      record_failure "$level" "Falha ao instalar VS Code via instalador oficial (Windows)"
+      return 1
+      ;;
+
+    linux|wsl2)
+      case "$LINUX_PKG_MANAGER" in
+        apt-get)
+          if has_cmd gpg && \
+             run_with_sudo mkdir -p /etc/apt/keyrings && \
+             curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | run_with_sudo gpg --dearmor --yes -o /etc/apt/keyrings/packages.microsoft.gpg && \
+             run_with_sudo chmod 644 /etc/apt/keyrings/packages.microsoft.gpg && \
+             printf '%s\n' \
+               "Types: deb" \
+               "URIs: https://packages.microsoft.com/repos/code" \
+               "Suites: stable" \
+               "Components: main" \
+               "Architectures: amd64 arm64 armhf" \
+               "Signed-By: /etc/apt/keyrings/packages.microsoft.gpg" | \
+               run_with_sudo tee /etc/apt/sources.list.d/vscode.sources >/dev/null; then
+            LINUX_PKG_UPDATED=0
+            install_linux_packages "$level" apt-transport-https code
+            if has_cmd code || is_app_installed "vscode" "code"; then
+              INSTALLED_MISC+=("vscode: official repo (apt)")
+              return 0
+            fi
+          fi
+          ;;
+
+        dnf)
+          if run_with_sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
+             printf '%s\n' \
+               "[code]" \
+               "name=Visual Studio Code" \
+               "baseurl=https://packages.microsoft.com/yumrepos/vscode" \
+               "enabled=1" \
+               "autorefresh=1" \
+               "type=rpm-md" \
+               "gpgcheck=1" \
+               "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" | \
+               run_with_sudo tee /etc/yum.repos.d/vscode.repo >/dev/null; then
+            LINUX_PKG_UPDATED=0
+            install_linux_packages "$level" code
+            if has_cmd code || is_app_installed "vscode" "code"; then
+              INSTALLED_MISC+=("vscode: official repo (dnf)")
+              return 0
+            fi
+          fi
+          ;;
+
+        zypper)
+          if run_with_sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
+             printf '%s\n' \
+               "[code]" \
+               "name=Visual Studio Code" \
+               "baseurl=https://packages.microsoft.com/yumrepos/vscode" \
+               "enabled=1" \
+               "type=rpm-md" \
+               "gpgcheck=1" \
+               "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" | \
+               run_with_sudo tee /etc/zypp/repos.d/vscode.repo >/dev/null; then
+            LINUX_PKG_UPDATED=0
+            install_linux_packages "$level" code
+            if has_cmd code || is_app_installed "vscode" "code"; then
+              INSTALLED_MISC+=("vscode: official repo (zypper)")
+              return 0
+            fi
+          fi
+          ;;
+      esac
       ;;
   esac
 
-  record_failure "$level" "Falha ao instalar VS Code via repositório oficial"
+  record_failure "$level" "Falha ao instalar VS Code via canal oficial"
   return 1
 }
 
@@ -375,8 +511,17 @@ _install_brave_official() {
 
   case "$LINUX_PKG_MANAGER" in
     apt-get)
-      if curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg | run_with_sudo tee /usr/share/keyrings/brave-browser-archive-keyring.gpg > /dev/null; then
-        echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" | run_with_sudo tee /etc/apt/sources.list.d/brave-browser-release.list > /dev/null
+      if run_with_sudo mkdir -p /usr/share/keyrings && \
+         curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg | run_with_sudo tee /usr/share/keyrings/brave-browser-archive-keyring.gpg > /dev/null && \
+         run_with_sudo chmod 644 /usr/share/keyrings/brave-browser-archive-keyring.gpg && \
+         printf '%s\n' \
+           "Types: deb" \
+           "URIs: https://brave-browser-apt-release.s3.brave.com/" \
+           "Suites: stable" \
+           "Components: main" \
+           "Architectures: amd64" \
+           "Signed-By: /usr/share/keyrings/brave-browser-archive-keyring.gpg" | \
+           run_with_sudo tee /etc/apt/sources.list.d/brave-browser-release.sources >/dev/null; then
         LINUX_PKG_UPDATED=0
         if install_linux_packages "$level" brave-browser; then
           INSTALLED_MISC+=("brave: official repo")
@@ -468,7 +613,14 @@ _install_via_apt() {
   [[ "$LINUX_PKG_MANAGER" == "apt-get" ]] || return 1
 
   msg "  📦 Instalando $app via apt ($pkg)..."
-  if install_linux_packages "$level" "$pkg"; then
+  install_linux_packages "$level" "$pkg"
+
+  if has_cmd dpkg && dpkg -l "$pkg" 2>/dev/null | grep -q '^ii'; then
+    INSTALLED_MISC+=("$app: apt install")
+    return 0
+  fi
+  if has_cmd rpm && rpm -q "$pkg" >/dev/null 2>&1; then
+    INSTALLED_MISC+=("$app: rpm install")
     return 0
   fi
 
@@ -492,7 +644,7 @@ _install_via_brew() {
     return 0
   fi
 
-  if brew install --cask "$formula" 2>/dev/null || brew install "$formula" 2>/dev/null; then
+  if brew install "$formula" 2>/dev/null || brew install --cask "$formula" 2>/dev/null; then
     INSTALLED_MISC+=("$app: brew install")
     return 0
   fi
@@ -507,9 +659,19 @@ _install_via_winget() {
 
   has_cmd winget || return 1
 
+  if winget list --id "$pkg" -e --source winget 2>/dev/null | tr -d '\r' | grep -Fq "$pkg"; then
+    msg "  🔄 Atualizando $app via winget ($pkg)..."
+    if winget upgrade --id "$pkg" -e --source winget --accept-source-agreements --accept-package-agreements; then
+      INSTALLED_MISC+=("$app: winget upgrade")
+      return 0
+    fi
+    # Se já estava instalado, não deve cair para outra fonte por erro de upgrade.
+    return 0
+  fi
+
   msg "  📦 Instalando $app via winget ($pkg)..."
 
-  if winget install --id "$pkg" --accept-source-agreements --accept-package-agreements -e; then
+  if winget install --id "$pkg" -e --source winget --accept-source-agreements --accept-package-agreements; then
     INSTALLED_MISC+=("$app: winget install")
     return 0
   fi
@@ -523,6 +685,13 @@ _install_via_scoop() {
   local level="${3:-optional}"
 
   has_cmd scoop || return 1
+
+  if scoop list "$pkg" 2>/dev/null | awk 'NR>1 {print $1}' | grep -Fxq "$pkg"; then
+    msg "  🔄 Atualizando $app via scoop ($pkg)..."
+    scoop update "$pkg" >/dev/null 2>&1 || true
+    INSTALLED_MISC+=("$app: scoop update")
+    return 0
+  fi
 
   msg "  📦 Instalando $app via scoop ($pkg)..."
 
@@ -540,6 +709,15 @@ _install_via_choco() {
   local level="${3:-optional}"
 
   has_cmd choco || return 1
+
+  if choco list --local-only --exact "$pkg" --limit-output 2>/dev/null | grep -Fq "${pkg}|"; then
+    msg "  🔄 Atualizando $app via choco ($pkg)..."
+    if choco upgrade "$pkg" -y; then
+      INSTALLED_MISC+=("$app: choco upgrade")
+      return 0
+    fi
+    return 0
+  fi
 
   msg "  📦 Instalando $app via choco ($pkg)..."
 
@@ -611,6 +789,7 @@ install_with_priority() {
 
   for method in "${priority_list[@]}"; do
     local pkg=""
+    local installed_after_attempt=0
     IFS=',' read -ra source_list <<< "$sources"
     for source_entry in "${source_list[@]}"; do
       local source_method="${source_entry%%:*}"
@@ -670,6 +849,11 @@ install_with_priority() {
         fi
         ;;
     esac
+
+    if is_app_installed "$app" "$cmd_check"; then
+      installed_after_attempt=1
+    fi
+    [[ $installed_after_attempt -eq 1 ]] && return 0
   done
 
   record_failure "$level" "Nenhum método de instalação funcionou para $app" "Verifique se apt/snap/cargo estão disponíveis, ou instale manualmente"

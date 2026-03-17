@@ -100,7 +100,11 @@ print_post_install_report() {
   local hostname="${HOSTNAME:-$(hostname 2>/dev/null || echo 'localhost')}"
   local current_shell="${SHELL##*/}"
   local host_ip
-  host_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "N/A")
+  if [[ "${TARGET_OS:-linux}" == "macos" ]]; then
+    host_ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "N/A")
+  else
+    host_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "N/A")
+  fi
 
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
