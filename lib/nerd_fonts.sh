@@ -142,7 +142,7 @@ download_and_install_font() {
   local fonts_dir
   fonts_dir="$(get_fonts_dir)"
 
-  local latest_url="$NERD_FONTS_BASE_URL/latest/download/${font_name}.zip"
+  local latest_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/${font_name}.zip"
   local version_url="$NERD_FONTS_BASE_URL/$NERD_FONTS_VERSION/${font_name}.zip"
   local primary_url="$latest_url"
   local fallback_url="$version_url"
