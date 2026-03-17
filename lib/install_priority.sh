@@ -5,16 +5,18 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Ordem de prioridade configurável por OS via variáveis de ambiente:
-#   INSTALL_PRIORITY_LINUX="official,cargo,snap,flatpak,apt"
-#   INSTALL_PRIORITY_MACOS="official,cargo,brew"
-#   INSTALL_PRIORITY_WINDOWS="official,cargo,winget,scoop,choco"
+#   INSTALL_PRIORITY_LINUX="official,cargo,flatpak,snap,apt"
+#   INSTALL_PRIORITY_MACOS="official,brew,cargo"
+#   INSTALL_PRIORITY_WINDOWS="official,winget,cargo,scoop,choco"
 #
+# Critério de ordenação: binário pré-compilado mais recente primeiro, compilação
+# do código-fonte (cargo) como fallback quando não há binário disponível.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Prioridades padrão por OS
-PRIORITY_LINUX_DEFAULT="official,cargo,snap,flatpak,apt"
-PRIORITY_MACOS_DEFAULT="official,cargo,brew"
-PRIORITY_WINDOWS_DEFAULT="official,cargo,winget,scoop,choco"
+PRIORITY_LINUX_DEFAULT="official,cargo,flatpak,snap,apt"
+PRIORITY_MACOS_DEFAULT="official,brew,cargo"
+PRIORITY_WINDOWS_DEFAULT="official,winget,cargo,scoop,choco"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Catálogo de Apps - define quais fontes estão disponíveis para cada app
@@ -637,14 +639,14 @@ _install_via_brew() {
   msg "  📦 Instalando $app via brew ($formula)..."
 
   if brew list --cask "$formula" &>/dev/null || brew list "$formula" &>/dev/null; then
-    if brew upgrade "$formula" 2>/dev/null || brew upgrade --cask "$formula" 2>/dev/null; then
+    if brew upgrade "$formula" &>/dev/null || brew upgrade --cask "$formula" &>/dev/null; then
       INSTALLED_MISC+=("$app: brew upgrade")
       return 0
     fi
     return 0
   fi
 
-  if brew install "$formula" 2>/dev/null || brew install --cask "$formula" 2>/dev/null; then
+  if brew install "$formula" &>/dev/null || brew install --cask "$formula" &>/dev/null; then
     INSTALLED_MISC+=("$app: brew install")
     return 0
   fi
