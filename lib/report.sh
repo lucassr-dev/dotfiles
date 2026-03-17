@@ -52,7 +52,8 @@ _rpt_box_line() {
 
 _rpt_section_header() {
   local inner_w="$1" title="$2"
-  local title_len=${#title}
+  local title_len
+  title_len=$(_visible_len "$title")
   local pad=$((inner_w - title_len - 3))
   [[ $pad -lt 0 ]] && pad=0
   echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rpt_hline "$pad")┤${UI_RESET}"
@@ -60,8 +61,8 @@ _rpt_section_header() {
 
 _rpt_dual_header() {
   local col_w="$1" left="$2" right="$3"
-  local lp=$((col_w - ${#left} - 3))
-  local rp=$((col_w - ${#right} - 3))
+  local lp=$((col_w - $(_visible_len "$left") - 3))
+  local rp=$((col_w - $(_visible_len "$right") - 3))
   [[ $lp -lt 0 ]] && lp=0
   [[ $rp -lt 0 ]] && rp=0
   echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${left}${UI_RESET}${UI_BORDER} $(_rpt_hline "$lp")┬─ ${UI_ACCENT}${UI_BOLD}${right}${UI_RESET}${UI_BORDER} $(_rpt_hline "$rp")┤${UI_RESET}"
@@ -69,8 +70,8 @@ _rpt_dual_header() {
 
 _rpt_dual_divider() {
   local col_w="$1" left="$2" right="$3"
-  local lp=$((col_w - ${#left} - 3))
-  local rp=$((col_w - ${#right} - 3))
+  local lp=$((col_w - $(_visible_len "$left") - 3))
+  local rp=$((col_w - $(_visible_len "$right") - 3))
   [[ $lp -lt 0 ]] && lp=0
   [[ $rp -lt 0 ]] && rp=0
   echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${left}${UI_RESET}${UI_BORDER} $(_rpt_hline "$lp")┼─ ${UI_ACCENT}${UI_BOLD}${right}${UI_RESET}${UI_BORDER} $(_rpt_hline "$rp")┤${UI_RESET}"

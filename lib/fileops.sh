@@ -46,7 +46,7 @@ copy_dir() {
     return
   fi
   msg "  📁 $src -> $dest"
-  backup_if_exists "$dest"
+  backup_if_exists "$dest" || return 1
   mkdir -p "$dest"
   if ! cp -R "$src/." "$dest/"; then
     record_failure "critical" "Falha ao copiar diretório: $src -> $dest"
@@ -71,7 +71,7 @@ copy_file() {
     return
   fi
   msg "  📄 $src -> $dest"
-  backup_if_exists "$dest"
+  backup_if_exists "$dest" || return 1
   mkdir -p "$(dirname "$dest")"
   if ! cp "$src" "$dest"; then
     record_failure "critical" "Falha ao copiar arquivo: $src -> $dest"

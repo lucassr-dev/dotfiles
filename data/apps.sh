@@ -21,6 +21,7 @@ CLI_TOOLS=(
   sd            # sed intuitivo e moderno
   tokei         # Contador de linhas de código
   hyperfine     # Benchmarking CLI
+  mise          # Runtime version manager (node, python, ruby...)
 )
 
 IA_TOOLS=(

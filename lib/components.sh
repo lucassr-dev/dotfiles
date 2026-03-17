@@ -15,9 +15,11 @@ ui_box() {
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
   local width=$((term_w > 70 ? 70 : term_w - 4))
+  [[ $width -lt 42 ]] && width=42
   local inner=$((width - 2))
 
-  local title_vis=${#title}
+  local title_vis
+  title_vis=$(_visible_len "$title")
   local line_len=$((inner - title_vis - 3))
   (( line_len < 1 )) && line_len=1
 
@@ -46,7 +48,8 @@ ui_box() {
 # Uso: ui_section "Título da Seção"
 ui_section() {
   local title="$1"
-  local title_len=${#title}
+  local title_len
+  title_len=$(_visible_len "$title")
   local line_len=$((title_len + 4))
   local sep=""
   printf -v sep '%*s' "$line_len" ''

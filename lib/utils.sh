@@ -13,8 +13,15 @@ _visible_len() {
   local clean
   clean=$(printf '%s' "$text" | _strip_ansi)
   local display_w
-  display_w=$(printf '%s' "$clean" | wc -L 2>/dev/null) || display_w=${#clean}
-  echo "$display_w"
+  if display_w=$(printf '%s' "$clean" | wc -L 2>/dev/null); then
+    # wc -L counts display columns (handles wide chars/emoji on most platforms)
+    echo "$display_w"
+  else
+    # Fallback: byte length + 1 extra per common wide emoji
+    local emoji_count
+    emoji_count=$(printf '%s' "$clean" | grep -oE '[🔌🎨🖼✨🎭🐟🔤🛠🤖💻🐚📦🔐📋🖥🧰🌐📝🏠⚡💡📂🔧🐧👤📁🔄⏭✅❌⚠ℹ🍺🔑🗂📤⏱🎯🔢📊]' 2>/dev/null | wc -l) || emoji_count=0
+    echo $((${#clean} + emoji_count))
+  fi
 }
 
 _wrap_text() {
@@ -38,7 +45,10 @@ _wrap_text() {
       current="$word"
       continue
     fi
-    if (( ${#current} + 1 + ${#word} <= max_width )); then
+    local cur_w word_w
+    cur_w=$(_visible_len "$current")
+    word_w=$(_visible_len "$word")
+    if (( cur_w + 1 + word_w <= max_width )); then
       current="$current $word"
     else
       out_lines+=("$current")

@@ -176,11 +176,7 @@ confirm_selection() {
   echo ""
 
   local title_visual_w
-  if declare -F _visual_width >/dev/null; then
-    title_visual_w=$(_visual_width "$title")
-  else
-    title_visual_w=${#title}
-  fi
+  title_visual_w=$(_visible_len "$title")
   local fill_len=$((inner_w - title_visual_w - 2))
   [[ $fill_len -lt 0 ]] && fill_len=0
   local fill
@@ -189,8 +185,10 @@ confirm_selection() {
 
   if [[ ${#items[@]} -gt 0 ]]; then
     for item in "${items[@]}"; do
-      if [[ ${#item} -le $content_w ]]; then
-        local pad=$((inner_w - 4 - ${#item}))
+      local item_vis
+      item_vis=$(_visible_len "$item")
+      if [[ $item_vis -le $content_w ]]; then
+        local pad=$((inner_w - 4 - item_vis))
         [[ $pad -lt 0 ]] && pad=0
         echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${item}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
       else
@@ -203,23 +201,30 @@ confirm_selection() {
         for word in "${words[@]}"; do
           if [[ -z "$current_line" ]]; then
             current_line="$word"
-          elif [[ $((${#current_line} + 1 + ${#word})) -le $content_w ]]; then
-            current_line="$current_line $word"
           else
-            local pad=$((inner_w - 4 - ${#current_line}))
-            [[ $pad -lt 0 ]] && pad=0
-            if [[ $first_line -eq 1 ]]; then
-              echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
-              first_line=0
+            local cur_vis word_vis
+            cur_vis=$(_visible_len "$current_line")
+            word_vis=$(_visible_len "$word")
+            if (( cur_vis + 1 + word_vis <= content_w )); then
+              current_line="$current_line $word"
             else
-              echo -e "${UI_CYAN}│${UI_RESET}    ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+              local pad=$(( inner_w - 4 - cur_vis ))
+              [[ $pad -lt 0 ]] && pad=0
+              if [[ $first_line -eq 1 ]]; then
+                echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+                first_line=0
+              else
+                echo -e "${UI_CYAN}│${UI_RESET}    ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+              fi
+              current_line="$word"
             fi
-            current_line="$word"
           fi
         done
 
         if [[ -n "$current_line" ]]; then
-          local pad=$((inner_w - 4 - ${#current_line}))
+          local cur_vis
+          cur_vis=$(_visible_len "$current_line")
+          local pad=$(( inner_w - 4 - cur_vis ))
           [[ $pad -lt 0 ]] && pad=0
           if [[ $first_line -eq 1 ]]; then
             echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
@@ -277,6 +282,7 @@ ask_cli_tools() {
       sd)         tools_with_desc+=("sd         - sed intuitivo e moderno (find & replace)") ;;
       tokei)      tools_with_desc+=("tokei      - Contador de linhas de código por linguagem") ;;
       hyperfine)  tools_with_desc+=("hyperfine  - Benchmarking CLI (medir tempo de comandos)") ;;
+      mise)       tools_with_desc+=("mise       - Runtime version manager (node, python, ruby...)") ;;
       *)          tools_with_desc+=("$tool") ;;
     esac
   done

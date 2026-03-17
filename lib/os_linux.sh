@@ -223,7 +223,6 @@ install_gum_fallback() {
         run_with_sudo mkdir -p /etc/apt/keyrings 2>/dev/null
         curl -fsSL https://repo.charm.sh/apt/gpg.key | run_with_sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg 2>/dev/null
         echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | run_with_sudo tee /etc/apt/sources.list.d/charm.list > /dev/null
-        LINUX_PKG_UPDATED=0
         install_linux_packages "optional" gum
       fi
       ;;
@@ -450,7 +449,6 @@ install_wezterm_linux() {
     msg "  📦 Instalando WezTerm via repositório oficial..."
     if curl -fsSL https://apt.fury.io/wez/gpg.key | run_with_sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg; then
       echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | run_with_sudo tee /etc/apt/sources.list.d/wezterm.list > /dev/null
-      LINUX_PKG_UPDATED=0
       install_linux_packages optional wezterm
       return 0
     else

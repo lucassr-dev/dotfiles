@@ -249,6 +249,7 @@ record_failure() {
     warn "$message"
     [[ -n "$fix_hint" ]] && warn "💡 $fix_hint"
   fi
+  return 1
 }
 
 has_cmd() {
@@ -306,8 +307,10 @@ is_app_installed() {
   [[ -n "$snap_pkg" ]] && snap_pkg="${snap_pkg%% *}"
 
   # Linux: dpkg, rpm, snap, flatpak
-  [[ -n "$apt_pkg" ]] && has_cmd dpkg && dpkg -l "$apt_pkg" 2>/dev/null | grep -q '^ii' && return 0
-  [[ -n "$apt_pkg" ]] && has_cmd rpm && rpm -q "$apt_pkg" >/dev/null 2>&1 && return 0
+  if [[ "${TARGET_OS:-}" == "linux" ]] || [[ "${TARGET_OS:-}" == "wsl2" ]]; then
+    [[ -n "$apt_pkg" ]] && has_cmd dpkg && dpkg -l "$apt_pkg" 2>/dev/null | grep -q '^ii' && return 0
+    [[ -n "$apt_pkg" ]] && has_cmd rpm && rpm -q "$apt_pkg" >/dev/null 2>&1 && return 0
+  fi
   [[ -n "$snap_pkg" ]] && has_snap_pkg "$snap_pkg" && return 0
   [[ -n "$flatpak_ref" ]] && has_flatpak_ref "$flatpak_ref" && return 0
 
@@ -1752,47 +1755,81 @@ ask_configs_to_copy() {
     config_keys+=("COPY_STARSHIP_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; then
+  # Helper inline para checar se item foi selecionado
+  local _has_vscode=0 _has_cursor=0 _has_zed=0 _has_helix=0
+  for _ide in "${SELECTED_IDES[@]}"; do
+    case "$_ide" in
+      vscode)  _has_vscode=1 ;;
+      cursor)  _has_cursor=1 ;;
+      zed)     _has_zed=1 ;;
+      helix)   _has_helix=1 ;;
+    esac
+  done
+
+  local _has_lazygit=0 _has_yazi=0 _has_btop=0 _has_bat=0 _has_ripgrep=0 _has_direnv=0 _has_aider=0
+  for _tool in "${SELECTED_CLI_TOOLS[@]}"; do
+    case "$_tool" in
+      lazygit)  _has_lazygit=1 ;;
+      yazi)     _has_yazi=1 ;;
+      btop)     _has_btop=1 ;;
+      bat)      _has_bat=1 ;;
+      ripgrep)  _has_ripgrep=1 ;;
+      direnv)   _has_direnv=1 ;;
+    esac
+  done
+  for _ia in "${SELECTED_IA_TOOLS[@]}"; do
+    [[ "$_ia" == "aider" ]] && _has_aider=1
+  done
+  local _has_kitty=0 _has_alacritty=0 _has_wezterm=0
+  for _term in "${SELECTED_TERMINALS[@]}"; do
+    case "$_term" in
+      kitty)     _has_kitty=1 ;;
+      alacritty) _has_alacritty=1 ;;
+      wezterm)   _has_wezterm=1 ;;
+    esac
+  done
+
+  if (( _has_vscode || _has_cursor )) && { [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; }; then
     config_options+=("vscode-config   - VS Code (settings + extensões)")
     config_keys+=("COPY_VSCODE_SETTINGS")
   fi
 
-  if [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
+  if [[ $_has_lazygit -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
     config_options+=("lazygit-config  - Lazygit (theme + keybindings)")
     config_keys+=("COPY_LAZYGIT_CONFIG")
   fi
 
-  if [[ -d "$CONFIG_SHARED/yazi" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/yazi" 2>/dev/null)" ]]; then
+  if [[ $_has_yazi -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/yazi" 2>/dev/null)" ]]; then
     config_options+=("yazi-config     - Yazi (file manager)")
     config_keys+=("COPY_YAZI_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
+  if [[ $_has_btop -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
     config_options+=("btop-config     - Btop (resource monitor)")
     config_keys+=("COPY_BTOP_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/bat/config" ]]; then
+  if [[ $_has_bat -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]; then
     config_options+=("bat-config      - bat (syntax highlighting + tema)")
     config_keys+=("COPY_BAT_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
+  if [[ $_has_kitty -eq 1 ]] && [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
     config_options+=("kitty-config    - Kitty (terminal)")
     config_keys+=("COPY_KITTY_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
+  if [[ $_has_alacritty -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
     config_options+=("alacritty-config - Alacritty (terminal)")
     config_keys+=("COPY_ALACRITTY_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
+  if [[ $_has_wezterm -eq 1 ]] && [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
     config_options+=("wezterm-config  - WezTerm (terminal)")
     config_keys+=("COPY_WEZTERM_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
+  if [[ $_has_ripgrep -eq 1 ]] && [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
     config_options+=("ripgrep-config  - Ripgrep (~/.ripgreprc)")
     config_keys+=("COPY_RIPGREP_CONFIG")
   fi
@@ -1822,17 +1859,17 @@ ask_configs_to_copy() {
     config_keys+=("COPY_CARGO_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
+  if [[ $_has_zed -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
     config_options+=("zed-config      - Zed (editor)")
     config_keys+=("COPY_ZED_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
+  if [[ $_has_helix -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
     config_options+=("helix-config    - Helix (editor)")
     config_keys+=("COPY_HELIX_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
+  if [[ $_has_aider -eq 1 ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
     config_options+=("aider-config    - Aider (~/.aider.conf.yml)")
     config_keys+=("COPY_AIDER_CONFIG")
   fi
@@ -1842,7 +1879,7 @@ ask_configs_to_copy() {
     config_keys+=("COPY_DOCKER_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
+  if [[ $_has_direnv -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
     config_options+=("direnv-config   - Direnv (~/.config/direnv/)")
     config_keys+=("COPY_DIRENV_CONFIG")
   fi
@@ -2749,19 +2786,6 @@ apply_shared_configs() {
     msg "  ⏭️  SSH Keys: usuário optou por não copiar (padrão por segurança)"
   fi
 }
-
-# copy_vscode_settings() → Movido para lib/fileops.sh
-
-# apply_linux_configs, apply_macos_configs, apply_windows_configs,
-# copy_windows_terminal_settings, copy_windows_powershell_profiles
-# → Movidos para lib/os_linux.sh, lib/os_macos.sh, lib/os_windows.sh
-
-
-# ════════════════════════════════════════════════════════════════
-# VS Code Extensions - Export/Import
-# ════════════════════════════════════════════════════════════════
-
-# export_vscode_extensions(), install_vscode_extensions() → Movidos para lib/fileops.sh
 
 # ════════════════════════════════════════════════════════════════
 # Brewfile (macOS) - Export/Import

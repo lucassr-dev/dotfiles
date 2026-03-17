@@ -39,7 +39,7 @@ center_colored() {
   local text="$1"
   local width="${2:-$(get_term_width)}"
   local clean_text
-  clean_text=$(echo -e "$text" | sed 's/\x1b\[[0-9;]*m//g')
+  clean_text=$(echo -e "$text" | sed -E 's/\x1b\[[0-9;]*m//g')
   local text_len=${#clean_text}
   local padding=$(( (width - text_len) / 2 ))
   [[ $padding -gt 0 ]] && printf "%${padding}s" ""
@@ -152,16 +152,6 @@ show_welcome_message() {
 # FUNÇÕES DE NAVEGAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
 
-_visual_width() {
-  local text="$1"
-  local clean
-  clean=$(printf '%s' "$text" | sed -E 's/\x1b\[[0-9;]*m//g')
-  local emoji_count=0
-  emoji_count=$(printf '%s' "$clean" | grep -oE '[🔌🎨🖼✨🎭🐟🔤🛠🤖💻🐚📦🔐📋🖥🧰🌐📝🏠⚡💡📂🔧🐧👤]' 2>/dev/null | wc -l || echo 0)
-  local char_len=${#clean}
-  echo $((char_len + emoji_count))
-}
-
 show_section_header() {
   local title="$1"
   local width
@@ -173,11 +163,14 @@ show_section_header() {
   line=$(printf '═%.0s' $(seq 1 "$inner"))
   local title_text="$title"
   local title_visual_w
-  title_visual_w=$(_visual_width "$title_text")
+  title_visual_w=$(_visible_len "$title_text")
   local pad=$((inner - 2 - title_visual_w))
   if [[ $pad -lt 0 ]]; then
-    title_text="${title_text:0:$((inner - 5))}..."
-    title_visual_w=$(_visual_width "$title_text")
+    # ANSI-safe truncation: strip codes, truncate visible text, readd no codes (title is plain)
+    local clean_title
+    clean_title=$(printf '%s' "$title_text" | _strip_ansi)
+    title_text="${clean_title:0:$((inner - 5))}..."
+    title_visual_w=$(_visible_len "$title_text")
     pad=$((inner - 2 - title_visual_w))
     [[ $pad -lt 0 ]] && pad=0
   fi
