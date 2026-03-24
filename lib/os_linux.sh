@@ -508,7 +508,7 @@ apply_linux_configs() {
   [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
   [[ -d "$source_dir" ]] || return
   msg "▶ Copiando configs Linux"
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]]; then
     copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"
   else
     msg "  ⏭️  Terminal config: usuário optou por não copiar"

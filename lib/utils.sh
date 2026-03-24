@@ -5,7 +5,10 @@
 # ═══════════════════════════════════════════════════════════
 
 _strip_ansi() {
-  sed -E 's/\x1b\[[0-9;]*m//g'
+  # Remove both actual ESC bytes (\x1b) and bash literal forms (\033 / \e)
+  # Colors in this codebase are defined as "\033[...m" strings (not $'\033[...m'),
+  # so they contain literal backslash+033 — not the ESC byte — until printf %b renders them.
+  sed -E 's/\x1b\[[0-9;]*m//g; s/\\(033|e)\[[0-9;]*m//g'
 }
 
 _visible_len() {

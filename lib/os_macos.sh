@@ -411,18 +411,18 @@ apply_macos_configs() {
   [[ -d "$source_dir" ]] || return
   msg "▶ Copiando configs macOS"
 
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]]; then
     copy_dir "$source_dir/ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
   else
     msg "  ⏭️  Terminal config (Ghostty): usuário optou por não copiar"
   fi
 
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]] && [[ -f "$source_dir/rectangle/com.knollsoft.Rectangle.plist" ]]; then
     copy_file "$source_dir/rectangle/com.knollsoft.Rectangle.plist" "$HOME/Library/Preferences/com.knollsoft.Rectangle.plist"
     msg "  ✅ Rectangle configurado (reinicie o app para aplicar)"
   fi
 
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]] && [[ -f "$source_dir/stats/com.exelban.Stats.plist" ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]] && [[ -f "$source_dir/stats/com.exelban.Stats.plist" ]]; then
     copy_file "$source_dir/stats/com.exelban.Stats.plist" "$HOME/Library/Preferences/com.exelban.Stats.plist"
     msg "  ✅ Stats configurado (reinicie o app para aplicar)"
   fi

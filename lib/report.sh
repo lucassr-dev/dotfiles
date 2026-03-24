@@ -122,7 +122,7 @@ print_post_install_report() {
 
   # ── Header: Título + Stats ──
   echo -e "${UI_BORDER}╭$(_rpt_hline "$inner_w")╮${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_GREEN}${UI_BOLD}  INSTALAÇÃO CONCLUÍDA${UI_RESET}" "center"
+  _rpt_box_line "$inner_w" "${UI_GREEN}${UI_BOLD} ◆ INSTALAÇÃO CONCLUÍDA ◆${UI_RESET}" "center"
   echo -e "${UI_BORDER}├$(_rpt_hline "$inner_w")┤${UI_RESET}"
 
   local pkg_count=${#INSTALLED_PACKAGES[@]}
@@ -135,27 +135,21 @@ print_post_install_report() {
   local elapsed
   elapsed=$(_report_time_str)
 
-  # Stats em grid 2x2 (cores condicionais)
-  local stat_w=$((half_w - 2))
+  # Stats (ícone + número bold + label muted)
   local errors_color="$UI_GREEN"
   [[ $total_errors -gt 0 ]] && errors_color="$UI_RED"
 
-  printf "%b│%b  %b✓ Instalados: %-${stat_w}s%b  %b⚠ Falhas: %-${stat_w}s%b %b│%b\n" \
-    "$UI_BORDER" "$UI_RESET" \
-    "$UI_GREEN" "$total_installed" "$UI_RESET" \
-    "$errors_color" "$total_errors" "$UI_RESET" \
-    "$UI_BORDER" "$UI_RESET"
-  printf "%b│%b  %b📁 Configs: %-${stat_w}s%b  %b⏱  %-${stat_w}s%b %b│%b\n" \
-    "$UI_BORDER" "$UI_RESET" \
-    "$UI_BLUE" "$configs_count" "$UI_RESET" \
-    "$UI_MUTED" "${elapsed:-N/A}" "$UI_RESET" \
-    "$UI_BORDER" "$UI_RESET"
+  _rpt_box_line "$inner_w" "  ${UI_GREEN}✓${UI_RESET}  ${UI_PEACH}${UI_BOLD}${total_installed}${UI_RESET}  ${UI_MUTED}instalados     ${errors_color}✗${UI_RESET}  ${errors_color}${UI_BOLD}${total_errors}${UI_RESET}  ${UI_MUTED}falhas${UI_RESET}"
+  _rpt_box_line "$inner_w" "  ${UI_BLUE}📁${UI_RESET}  ${UI_BLUE}${UI_BOLD}${configs_count}${UI_RESET}  ${UI_MUTED}configs        ⏱  ${elapsed:-N/A}${UI_RESET}"
 
   # ── Sistema ──
-  _rpt_section_header "$inner_w" "SISTEMA"
-  _rpt_box_line "$inner_w" "${UI_MUTED}Host${UI_RESET}     ${UI_TEXT}${hostname}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Usuário${UI_RESET}  ${UI_TEXT}${username}${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_MUTED}SO${UI_RESET}       ${UI_TEXT}${TARGET_OS:-linux}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Shell${UI_RESET}    ${UI_TEXT}${current_shell}${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_MUTED}IP${UI_RESET}       ${UI_DIM}${host_ip}${UI_RESET}"
+  local so_color="$UI_TEAL"
+  [[ "${TARGET_OS:-linux}" == "macos" ]]   && so_color="$UI_PEACH"
+  [[ "${TARGET_OS:-linux}" == "windows" ]] && so_color="$UI_BLUE"
+  _rpt_section_header "$inner_w" "💻 SISTEMA"
+  _rpt_box_line "$inner_w" "${UI_MUTED}Host    ${UI_RESET}${UI_TEXT}${hostname}${UI_RESET}     ${UI_MUTED}Usuário ${UI_RESET}${UI_PEACH}${username}${UI_RESET}"
+  _rpt_box_line "$inner_w" "${UI_MUTED}SO      ${UI_RESET}${so_color}${TARGET_OS:-linux}${UI_RESET}     ${UI_MUTED}Shell   ${UI_RESET}${UI_GREEN}${current_shell}${UI_RESET}"
+  _rpt_box_line "$inner_w" "${UI_MUTED}IP      ${UI_RESET}${UI_DIM}${host_ip}${UI_RESET}"
 
   # ── Ferramentas + Runtimes (duas colunas) ──
   local tools=()
@@ -184,7 +178,7 @@ print_post_install_report() {
   local max_rows=${#tools[@]}
   [[ ${#runtimes[@]} -gt $max_rows ]] && max_rows=${#runtimes[@]}
 
-  _rpt_dual_header "$col_w" "FERRAMENTAS" "RUNTIMES"
+  _rpt_dual_header "$col_w" "🔧 FERRAMENTAS" "⚡ RUNTIMES"
   for (( i=0; i<max_rows; i++ )); do
     printf "%b│%b %b%-*s%b %b│%b %b%-*s%b %b│%b\n" \
       "$UI_BORDER" "$UI_RESET" \
@@ -211,7 +205,7 @@ print_post_install_report() {
   local max_steps=${#next_steps[@]}
   [[ ${#commands[@]} -gt $max_steps ]] && max_steps=${#commands[@]}
 
-  _rpt_dual_divider "$col_w" "PRÓXIMO PASSO" "COMANDOS ÚTEIS"
+  _rpt_dual_divider "$col_w" "▶ PRÓXIMO PASSO" "💡 COMANDOS ÚTEIS"
   for (( i=0; i<max_steps; i++ )); do
     printf "%b│%b %b%-*s%b %b│%b %b%-*s%b %b│%b\n" \
       "$UI_BORDER" "$UI_RESET" \
@@ -231,7 +225,7 @@ print_post_install_report() {
 
   echo ""
   echo -e "${UI_BORDER}╭$(_rpt_hline "$inner_w")╮${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_ACCENT}${UI_BOLD}LINKS${UI_RESET}" "center"
+  _rpt_box_line "$inner_w" "${UI_ACCENT}${UI_BOLD}🔗 LINKS${UI_RESET}" "center"
   echo -e "${UI_BORDER}├$(_rpt_hline "$inner_w")┤${UI_RESET}"
   _rpt_box_line "$inner_w" "${UI_MUTED}Backup${UI_RESET}       ${UI_DIM}${backup_link}${UI_RESET}"
   _rpt_box_line "$inner_w" "${UI_MUTED}Site${UI_RESET}         ${UI_LINK}https://lucassr.dev${UI_RESET}"

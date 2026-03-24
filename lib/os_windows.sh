@@ -179,7 +179,7 @@ install_php_windows() {
 apply_windows_configs() {
   [[ -d "$CONFIG_WINDOWS" ]] || return
   msg "▶ Copiando configs Windows"
-  if [[ ${COPY_TERMINAL_CONFIG:-1} -eq 1 ]]; then
+  if [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]]; then
     copy_windows_terminal_settings
     copy_windows_powershell_profiles
   else

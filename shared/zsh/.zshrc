@@ -5,7 +5,7 @@
 # ═══════════════════════════════════════════════════════════
 export ZSH="$HOME/.oh-my-zsh"
 
-plugins=(git docker npm sudo zsh-autosuggestions fast-syntax-highlighting)
+plugins=(git sudo extract z zsh-autosuggestions fast-syntax-highlighting zsh-completions you-should-use fzf-tab zsh-autocomplete)
 
 prompt_load_omz_with_p10k() {
   ZSH_THEME="powerlevel10k/powerlevel10k"

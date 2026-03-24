@@ -156,8 +156,8 @@ _sync_globals_to_state() {
   state_set "config.install_fish" "${INSTALL_FISH:-1}"
   state_set "config.install_nushell" "${INSTALL_NUSHELL:-0}"
   state_set "config.install_base_deps" "${INSTALL_BASE_DEPS:-1}"
-  state_set "config.copy_terminal" "${COPY_TERMINAL_CONFIG:-1}"
-  state_set "config.copy_vscode" "${COPY_VSCODE_SETTINGS:-1}"
+  state_set "config.copy_terminal" "${COPY_TERMINAL_CONFIG:-0}"
+  state_set "config.copy_vscode" "${COPY_VSCODE_SETTINGS:-0}"
   state_set "config.copy_ssh" "${COPY_SSH_KEYS:-0}"
 
   # Selections (arrays → csv)
@@ -193,8 +193,8 @@ _sync_state_to_globals() {
   INSTALL_FISH="$(state_get 'config.install_fish' '1')"
   INSTALL_NUSHELL="$(state_get 'config.install_nushell' '0')"
   INSTALL_BASE_DEPS="$(state_get 'config.install_base_deps' '1')"
-  COPY_TERMINAL_CONFIG="$(state_get 'config.copy_terminal' '1')"
-  COPY_VSCODE_SETTINGS="$(state_get 'config.copy_vscode' '1')"
+  COPY_TERMINAL_CONFIG="$(state_get 'config.copy_terminal' '0')"
+  COPY_VSCODE_SETTINGS="$(state_get 'config.copy_vscode' '0')"
   COPY_SSH_KEYS="$(state_get 'config.copy_ssh' '0')"
 
   state_get_array_into "selections.cli_tools" SELECTED_CLI_TOOLS

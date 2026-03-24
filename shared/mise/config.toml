@@ -2,7 +2,7 @@
 # Runtimes/CLIs globais via mise. Apenas os três abaixo são instalados por padrão pelo script.
 
 [tools]
-node = "latest"
+node = "lts"
 python = "latest"
 php = "latest"
 

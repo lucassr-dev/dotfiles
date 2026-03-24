@@ -37,35 +37,35 @@ INSTALL_NUSHELL="${INSTALL_NUSHELL:-0}"
 INSTALL_BASE_DEPS=1
 BASE_DEPS_INSTALLED=0
 
-COPY_ZSH_CONFIG=1
-COPY_FISH_CONFIG=1
-COPY_NUSHELL_CONFIG=1
-COPY_GIT_CONFIG=1
-COPY_NVIM_CONFIG=1
-COPY_TMUX_CONFIG=1
-COPY_TERMINAL_CONFIG=1
-COPY_MISE_CONFIG=1
-COPY_STARSHIP_CONFIG=1
+COPY_ZSH_CONFIG=0
+COPY_FISH_CONFIG=0
+COPY_NUSHELL_CONFIG=0
+COPY_GIT_CONFIG=0
+COPY_NVIM_CONFIG=0
+COPY_TMUX_CONFIG=0
+COPY_TERMINAL_CONFIG=0
+COPY_MISE_CONFIG=0
+COPY_STARSHIP_CONFIG=0
 COPY_SSH_KEYS=0
-COPY_VSCODE_SETTINGS=1
-COPY_LAZYGIT_CONFIG=1
-COPY_YAZI_CONFIG=1
-COPY_BTOP_CONFIG=1
-COPY_BAT_CONFIG=1
-COPY_KITTY_CONFIG=1
-COPY_ALACRITTY_CONFIG=1
-COPY_WEZTERM_CONFIG=1
-COPY_RIPGREP_CONFIG=1
-COPY_NPM_CONFIG=1
-COPY_PNPM_CONFIG=1
-COPY_YARN_CONFIG=1
-COPY_PIP_CONFIG=1
-COPY_CARGO_CONFIG=1
-COPY_ZED_CONFIG=1
-COPY_HELIX_CONFIG=1
-COPY_AIDER_CONFIG=1
-COPY_DOCKER_CONFIG=1
-COPY_DIRENV_CONFIG=1
+COPY_VSCODE_SETTINGS=0
+COPY_LAZYGIT_CONFIG=0
+COPY_YAZI_CONFIG=0
+COPY_BTOP_CONFIG=0
+COPY_BAT_CONFIG=0
+COPY_KITTY_CONFIG=0
+COPY_ALACRITTY_CONFIG=0
+COPY_WEZTERM_CONFIG=0
+COPY_RIPGREP_CONFIG=0
+COPY_NPM_CONFIG=0
+COPY_PNPM_CONFIG=0
+COPY_YARN_CONFIG=0
+COPY_PIP_CONFIG=0
+COPY_CARGO_CONFIG=0
+COPY_ZED_CONFIG=0
+COPY_HELIX_CONFIG=0
+COPY_AIDER_CONFIG=0
+COPY_DOCKER_CONFIG=0
+COPY_DIRENV_CONFIG=0
 
 PRIVATE_DIR="${DOTFILES_PRIVATE_DIR:-}"
 PRIVATE_SHARED=""
@@ -1006,111 +1006,6 @@ _join_items() {
   fi
 }
 
-_truncate_text() {
-  local width="$1" text="$2"
-  if [[ $width -le 0 ]]; then
-    printf ''
-    return
-  fi
-  local visual
-  visual=$(_visible_len "$text")
-  if [[ $visual -le $width ]]; then
-    printf '%s' "$text"
-    return
-  fi
-  if [[ $width -le 3 ]]; then
-    printf '%s' "${text:0:$width}"
-    return
-  fi
-  printf '%s...' "${text:0:$((width - 3))}"
-}
-
-_truncate_items() {
-  local max_width="$1"
-  shift
-  local items=("$@")
-  local total=${#items[@]}
-
-  if [[ $total -eq 0 ]]; then
-    echo "(nenhum)"
-    return
-  fi
-
-  if [[ $max_width -le 0 ]]; then
-    echo "(...)"
-    return
-  fi
-
-  local result=""
-  local included=0
-  local i=0
-  for ((i=0; i<total; i++)); do
-    local candidate="${items[i]}"
-    [[ -n "$result" ]] && candidate="$result, ${items[i]}"
-    local remaining_after=$((total - i - 1))
-    local suffix=""
-    [[ $remaining_after -gt 0 ]] && suffix=" +${remaining_after}"
-
-    if [[ $(_visible_len "${candidate}${suffix}") -le $max_width ]]; then
-      result="$candidate"
-      included=$((i + 1))
-    else
-      break
-    fi
-  done
-
-  if [[ $included -eq $total ]]; then
-    echo "$result"
-    return
-  fi
-
-  if [[ $included -eq 0 ]]; then
-    local omitted=$((total - 1))
-    local suffix=""
-    [[ $omitted -gt 0 ]] && suffix=" +${omitted}"
-    if [[ -z "$suffix" ]]; then
-      _truncate_text "$max_width" "${items[0]}"
-      echo ""
-      return
-    fi
-    if [[ $(_visible_len "$suffix") -ge $max_width ]]; then
-      _truncate_text "$max_width" "$suffix"
-      echo ""
-      return
-    fi
-    local first_w=$((max_width - $(_visible_len "$suffix")))
-    [[ $first_w -lt 1 ]] && first_w=1
-    local first_item
-    first_item=$(_truncate_text "$first_w" "${items[0]}")
-    echo "${first_item}${suffix}"
-    return
-  fi
-
-  local remaining=$((total - included))
-  local suffix=" +${remaining}"
-  local final="${result}${suffix}"
-  while [[ $(_visible_len "$final") -gt $max_width ]]; do
-    if [[ "$result" == *", "* ]]; then
-      result="${result%, *}"
-      ((remaining++))
-      suffix=" +${remaining}"
-      final="${result}${suffix}"
-    else
-      if [[ $(_visible_len "$suffix") -ge $max_width ]]; then
-        _truncate_text "$max_width" "$suffix"
-        echo ""
-        return
-      fi
-      local value_w=$((max_width - $(_visible_len "$suffix")))
-      [[ $value_w -lt 1 ]] && value_w=1
-      result=$(_truncate_text "$value_w" "$result")
-      final="${result}${suffix}"
-      break
-    fi
-  done
-
-  echo "$final"
-}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RESUMO DE SELEÇÕES INTERATIVAS
@@ -1135,6 +1030,24 @@ _rv_divider() {
   local pad=$((inner_w - title_vis - 3))
   [[ $pad -lt 0 ]] && pad=0
   echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rv_hline "$pad")┤${UI_RESET}"
+}
+
+# Seção com badge de contagem alinhado à direita
+# Uso: _rv_section inner_w "TÍTULO" [count]
+_rv_section() {
+  local inner_w="$1" title="$2" count="${3:-}"
+  local title_vis
+  title_vis=$(_visible_len "$title")
+  if [[ -n "$count" ]] && [[ "$count" != "0" ]]; then
+    local count_len=${#count}
+    local fill=$(( inner_w - title_vis - count_len - 6 ))
+    [[ $fill -lt 1 ]] && fill=1
+    echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rv_hline "$fill") ${UI_PEACH}${UI_BOLD}${count}${UI_RESET}${UI_BORDER} ┤${UI_RESET}"
+  else
+    local pad=$(( inner_w - title_vis - 3 ))
+    [[ $pad -lt 0 ]] && pad=0
+    echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rv_hline "$pad")┤${UI_RESET}"
+  fi
 }
 
 _print_box_line() {
@@ -1255,7 +1168,7 @@ review_selections() {
     local inner_w=$((w - 2))
 
     echo -e "${UI_BORDER}╭$(_rv_hline "$inner_w")╮${UI_RESET}"
-    _print_box_line "$inner_w" "${UI_PEACH}${UI_BOLD}  RESUMO FINAL${UI_RESET}" "center"
+    _print_box_line "$inner_w" "${UI_ACCENT}${UI_BOLD}  RESUMO FINAL${UI_RESET}" "center"
     echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
 
     # ── Ações da Instalação ──
@@ -1269,15 +1182,18 @@ review_selections() {
     [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && actions_to_do+=("Starship")
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && actions_to_do+=("OMP")
     [[ ${COPY_SSH_KEYS:-0} -eq 1 ]] && actions_to_do+=("SSH")
-    local actions_str="${UI_DIM}(nenhum)${UI_RESET}"
-    [[ ${#actions_to_do[@]} -gt 0 ]] && actions_str="${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
+    local actions_plain="${UI_MUTED}(nenhum)${UI_RESET}"
+    [[ ${#actions_to_do[@]} -gt 0 ]] && actions_plain="${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
 
     local backup_ts
     backup_ts="$HOME/.bkp-$(date +%Y%m%d-%H%M)/"
 
-    _print_box_line "$inner_w" "${UI_MUTED}Pacotes:${UI_RESET}     ${UI_GREEN}${total_pkgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}Configs:${UI_RESET} ${UI_BLUE}${total_cfgs}${UI_RESET}  ${UI_MUTED}│${UI_RESET}  ${UI_MUTED}SO:${UI_RESET} ${UI_TEXT}${TARGET_OS:-linux}${UI_RESET}"
-    _print_box_line "$inner_w" "${UI_MUTED}Configurar:${UI_RESET}  ${actions_str}"
-    _print_box_line "$inner_w" "${UI_MUTED}Backup em:${UI_RESET}   ${UI_DIM}${backup_ts}${UI_RESET}"
+    local so_color="$UI_TEAL"
+    [[ "${TARGET_OS:-linux}" == "macos" ]]   && so_color="$UI_PEACH"
+    [[ "${TARGET_OS:-linux}" == "windows" ]] && so_color="$UI_BLUE"
+    _print_box_line "$inner_w" "  ${UI_PEACH}${UI_BOLD}${total_pkgs}${UI_RESET} ${UI_MUTED}pacotes${UI_RESET}     ${UI_BLUE}${UI_BOLD}${total_cfgs}${UI_RESET} ${UI_MUTED}configs${UI_RESET}     ${so_color}${TARGET_OS:-linux}${UI_RESET}"
+    _print_box_line "$inner_w" "  ${UI_MUTED}Ações   ${UI_RESET} ${actions_plain}"
+    _print_box_line "$inner_w" "  ${UI_MUTED}Backup  ${UI_RESET} ${UI_DIM}${backup_ts}${UI_RESET}"
 
     local selected_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
@@ -1311,303 +1227,161 @@ review_selections() {
     fi
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && themes_selected+=("OMP")
 
-    _wrap_items_multiline() {
-      local max_w="$1"
-      shift
+    # ── Helper: label-valor com coluna fixa e quebra automática de linha ──
+    # Uso: _print_lv lbl_w "Label" "empty_msg" item1 item2 ...
+    _print_lv() {
+      local lbl_w="$1" label="$2" empty_val="$3"
+      shift 3
       local items=("$@")
-      local lines=()
-      local current=""
-      local item test_line
-
-      [[ $max_w -lt 10 ]] && max_w=10
-      for item in "${items[@]}"; do
-        test_line="$item"
-        [[ -n "$current" ]] && test_line="${current}, ${item}"
-        if [[ $(_visible_len "$test_line") -le $max_w ]]; then
-          current="$test_line"
-        else
-          [[ -n "$current" ]] && lines+=("$current")
-          if [[ $(_visible_len "$item") -le $max_w ]]; then
-            current="$item"
-          else
-            lines+=("$(_truncate_text "$max_w" "$item")")
-            current=""
-          fi
-        fi
-      done
-      [[ -n "$current" ]] && lines+=("$current")
-      local IFS='|'
-      echo "${lines[*]}"
-    }
-
-    _print_wrapped_items() {
-      local label="$1"
-      local empty_value="$2"
-      shift 2
-      local items=("$@")
-
-      local label_plain="${label}:"
-      local label_vis
-      label_vis=$(_visible_len "$label_plain")
-      local value_w=$((inner_w - label_vis - 8))
+      local label_str="${label}:"
+      local label_vis pad label_col
+      label_vis=$(_visible_len "$label_str")
+      pad=$(( lbl_w - label_vis ))
+      [[ $pad -lt 0 ]] && pad=0
+      printf -v label_col '%s%*s' "$label_str" "$pad" ''
+      local value_w=$(( inner_w - lbl_w - 4 ))
       [[ $value_w -lt 10 ]] && value_w=10
-
-      local -a wrapped_lines=()
-      if [[ ${#items[@]} -gt 0 ]]; then
-        local wrapped
-        wrapped=$(_wrap_items_multiline "$value_w" "${items[@]}")
-        IFS='|' read -ra wrapped_lines <<< "$wrapped"
-      else
-        wrapped_lines=("$empty_value")
+      if [[ ${#items[@]} -eq 0 ]]; then
+        _print_box_line "$inner_w" "  ${UI_MUTED}${label_col}${UI_RESET}${UI_DIM}${empty_val}${UI_RESET}"
+        return
       fi
-      [[ ${#wrapped_lines[@]} -eq 0 ]] && wrapped_lines=("$empty_value")
-
-      _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}${label}:${UI_RESET} ${UI_TEXT}${wrapped_lines[0]}${UI_RESET}"
-
-      local prefix
-      prefix=$(printf '%*s' "$((label_vis + 1))" '')
-      local i=0
-      for ((i=1; i<${#wrapped_lines[@]}; i++)); do
-        _print_box_line "$inner_w" "  ${UI_DIM}${prefix}${UI_RESET}${UI_TEXT}${wrapped_lines[i]}${UI_RESET}"
+      local combined
+      combined=$(printf '%s, ' "${items[@]}")
+      combined="${combined%, }"
+      local -a lines=()
+      _wrap_text "$combined" "$value_w" lines
+      [[ ${#lines[@]} -eq 0 ]] && lines=("$combined")
+      _print_box_line "$inner_w" "  ${UI_MUTED}${label_col}${UI_RESET}${UI_TEXT}${lines[0]}${UI_RESET}"
+      local indent
+      printf -v indent '%*s' "$((lbl_w + 2))" ''
+      local i
+      for (( i=1; i<${#lines[@]}; i++ )); do
+        _print_box_line "$inner_w" "${indent}${UI_TEXT}${lines[i]}${UI_RESET}"
       done
     }
 
-    _items_to_text() {
-      local empty_value="$1"
-      shift
-      local items=("$@")
-      if [[ ${#items[@]} -gt 0 ]]; then
-        _join_items "${items[@]}"
-      else
-        echo "$empty_value"
-      fi
-    }
-
-    _print_pair_items() {
-      local left_label="$1" left_empty="$2" left_arr_name="$3"
-      local right_label="$4" right_empty="$5" right_arr_name="$6"
-      local -n left_arr="$left_arr_name"
-      local -n right_arr="$right_arr_name"
-
-      local left_text right_text
-      left_text=$(_items_to_text "$left_empty" "${left_arr[@]}")
-      right_text=$(_items_to_text "$right_empty" "${right_arr[@]}")
-
-      local left_fmt right_fmt pair_line
-      left_fmt="${UI_BOLD}${UI_YELLOW}${left_label}:${UI_RESET} ${UI_TEXT}${left_text}${UI_RESET}"
-      right_fmt="${UI_BOLD}${UI_YELLOW}${right_label}:${UI_RESET} ${UI_TEXT}${right_text}${UI_RESET}"
-      pair_line="• ${left_fmt} ${UI_DIM}|${UI_RESET} ${right_fmt}"
-
-      if [[ ${#left_arr[@]} -le 6 ]] && [[ ${#right_arr[@]} -le 6 ]] && [[ $(_visible_len "$pair_line") -le $((inner_w - 2)) ]]; then
-        _print_box_line "$inner_w" "$pair_line"
-      else
-        _print_wrapped_items "$left_label" "$left_empty" "${left_arr[@]}"
-        _print_box_line "$inner_w" " "
-        _print_wrapped_items "$right_label" "$right_empty" "${right_arr[@]}"
-      fi
-    }
-
-    local env_count=$((${#selected_shells[@]} + ${#SELECTED_TERMINALS[@]} + ${#themes_selected[@]} + ${#SELECTED_NERD_FONTS[@]}))
-    _rv_divider "$inner_w" "AMBIENTE ${UI_RESET}${UI_DIM}(${env_count})"
-    _print_pair_items "Shells" "(nenhum)" "selected_shells" "Terminal" "(nenhum)" "SELECTED_TERMINALS"
-    _print_box_line "$inner_w" " "
-    _print_wrapped_items "Temas" "(nenhum)" "${themes_selected[@]}"
-    _print_box_line "$inner_w" " "
-    _print_wrapped_items "Fontes" "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
-    _print_box_line "$inner_w" " "
-
-    local tools_count=$((${#SELECTED_CLI_TOOLS[@]} + ${#SELECTED_IA_TOOLS[@]} + ${#SELECTED_RUNTIMES[@]}))
-    _rv_divider "$inner_w" "FERRAMENTAS ${UI_RESET}${UI_DIM}(${tools_count})"
-    _print_wrapped_items "Ferramentas CLI" "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
-    _print_box_line "$inner_w" " "
-    _print_wrapped_items "Ferramentas IA" "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
-    _print_box_line "$inner_w" " "
-    _print_wrapped_items "Runtimes" "(nenhum)" "${SELECTED_RUNTIMES[@]}"
-    _print_box_line "$inner_w" " "
-
-    local gui_total=0
-    gui_total=$((${#SELECTED_IDES[@]} + ${#SELECTED_BROWSERS[@]} + ${#SELECTED_DEV_TOOLS[@]} + \
-                 ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
-                 ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
-
-    if [[ $gui_total -gt 0 ]]; then
-      _rv_divider "$inner_w" "APPS GUI ${UI_RESET}${UI_DIM}(${gui_total})"
-
-      local gui_data_w=$((inner_w - 15))
-      if [[ ${#SELECTED_IDES[@]} -gt 0 ]]; then
-        local ides_str
-        ides_str=$(_truncate_items "$gui_data_w" "${SELECTED_IDES[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}IDEs:${UI_RESET}      ${UI_TEXT}$ides_str${UI_RESET}"
-      fi
-      if [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]; then
-        local browsers_str
-        browsers_str=$(_truncate_items "$gui_data_w" "${SELECTED_BROWSERS[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Navegadores:${UI_RESET} ${UI_TEXT}$browsers_str${UI_RESET}"
-      fi
-      if [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]; then
-        local devtools_str
-        devtools_str=$(_truncate_items "$gui_data_w" "${SELECTED_DEV_TOOLS[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Dev Tools:${UI_RESET} ${UI_TEXT}$devtools_str${UI_RESET}"
-      fi
-      if [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]; then
-        local dbs_str
-        dbs_str=$(_truncate_items "$gui_data_w" "${SELECTED_DATABASES[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Bancos:${UI_RESET}    ${UI_TEXT}$dbs_str${UI_RESET}"
-      fi
-      if [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]; then
-        local prod_str
-        prod_str=$(_truncate_items "$gui_data_w" "${SELECTED_PRODUCTIVITY[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Produtiv.:${UI_RESET} ${UI_TEXT}$prod_str${UI_RESET}"
-      fi
-      if [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]]; then
-        local comm_str
-        comm_str=$(_truncate_items "$gui_data_w" "${SELECTED_COMMUNICATION[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Comunic.:${UI_RESET}  ${UI_TEXT}$comm_str${UI_RESET}"
-      fi
-      if [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]; then
-        local media_str
-        media_str=$(_truncate_items "$gui_data_w" "${SELECTED_MEDIA[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Mídia:${UI_RESET}     ${UI_TEXT}$media_str${UI_RESET}"
-      fi
-      if [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]; then
-        local utils_str
-        utils_str=$(_truncate_items "$gui_data_w" "${SELECTED_UTILITIES[@]}")
-        _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}Utilitár.:${UI_RESET} ${UI_TEXT}$utils_str${UI_RESET}"
-      fi
-      _rv_divider "$inner_w" "COPIAR CONFIGURAÇÕES"
-    else
-      _rv_divider "$inner_w" "COPIAR CONFIGURAÇÕES"
-    fi
-
+    # ── Helper: item de config com ✓/✗ coloridos ──
     _rv_cfg_item() {
       local available="$1" selected_flag="$2" name="$3"
       if [[ $available -eq 1 ]]; then
         if [[ $selected_flag -eq 1 ]]; then
-          echo "${UI_GREEN}✓${UI_RESET}${name}"
+          echo "${UI_GREEN}${UI_BOLD}✓${UI_RESET} ${UI_TEXT}${name}${UI_RESET}"
         else
-          echo "${UI_DIM}✗${name}${UI_RESET}"
+          echo "${UI_DIM}✗ ${name}${UI_RESET}"
         fi
       fi
     }
 
+    # ── Helper: linha de config com label fixo e itens ✓/✗ ──
+    _print_cfg_row() {
+      local lbl_w="$1" label="$2" arr_name="$3"
+      local -n _cfg_ref="$arr_name"
+      [[ ${#_cfg_ref[@]} -eq 0 ]] && return
+      local label_str="${label}:"
+      local label_vis pad label_col
+      label_vis=$(_visible_len "$label_str")
+      pad=$(( lbl_w - label_vis ))
+      [[ $pad -lt 0 ]] && pad=0
+      printf -v label_col '%s%*s' "$label_str" "$pad" ''
+      local text="${_cfg_ref[*]}"
+      _print_box_line "$inner_w" "  ${UI_MUTED}${label_col}${UI_RESET}${text}"
+    }
+
+    # ── AMBIENTE ──
+    local env_count=$((${#selected_shells[@]} + ${#SELECTED_TERMINALS[@]} + ${#themes_selected[@]} + ${#SELECTED_NERD_FONTS[@]}))
+    _rv_section "$inner_w" "🏠 AMBIENTE" "$env_count"
+    _print_lv 10 "Shells"   "(nenhum)"  "${selected_shells[@]}"
+    _print_lv 10 "Terminal" "(nenhum)"  "${SELECTED_TERMINALS[@]}"
+    _print_lv 10 "Temas"    "(nenhum)"  "${themes_selected[@]}"
+    _print_lv 10 "Fontes"   "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
+
+    # ── FERRAMENTAS ──
+    local tools_count=$((${#SELECTED_CLI_TOOLS[@]} + ${#SELECTED_IA_TOOLS[@]} + ${#SELECTED_RUNTIMES[@]}))
+    _rv_section "$inner_w" "🔧 FERRAMENTAS" "$tools_count"
+    _print_lv 10 "CLI"      "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
+    _print_lv 10 "IA"       "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
+    _print_lv 10 "Runtimes" "(nenhum)"  "${SELECTED_RUNTIMES[@]}"
+
+    # ── APPS GUI ──
+    local gui_total=0
+    gui_total=$((${#SELECTED_IDES[@]} + ${#SELECTED_BROWSERS[@]} + ${#SELECTED_DEV_TOOLS[@]} + \
+                 ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
+                 ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
+    if [[ $gui_total -gt 0 ]]; then
+      _rv_section "$inner_w" "🖥 APPS GUI" "$gui_total"
+      [[ ${#SELECTED_IDES[@]} -gt 0 ]]          && _print_lv 14 "IDEs"          "(nenhum)" "${SELECTED_IDES[@]}"
+      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]      && _print_lv 14 "Navegadores"   "(nenhum)" "${SELECTED_BROWSERS[@]}"
+      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]     && _print_lv 14 "Dev Tools"     "(nenhum)" "${SELECTED_DEV_TOOLS[@]}"
+      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]     && _print_lv 14 "Bancos"        "(nenhum)" "${SELECTED_DATABASES[@]}"
+      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]  && _print_lv 14 "Produtividade" "(nenhum)" "${SELECTED_PRODUCTIVITY[@]}"
+      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _print_lv 14 "Comunicação"   "(nenhum)" "${SELECTED_COMMUNICATION[@]}"
+      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]         && _print_lv 14 "Mídia"         "(nenhum)" "${SELECTED_MEDIA[@]}"
+      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]     && _print_lv 14 "Utilitários"   "(nenhum)" "${SELECTED_UTILITIES[@]}"
+    fi
+
+    # ── COPIAR CONFIGURAÇÕES ──
     local cfg_shells=()
-    [[ ${INSTALL_ZSH:-0} -eq 1 ]] && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_ZSH_CONFIG:-0}" "Zsh")")
-    [[ ${INSTALL_FISH:-0} -eq 1 ]] && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_FISH_CONFIG:-0}" "Fish")")
+    [[ ${INSTALL_ZSH:-0} -eq 1 ]]     && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_ZSH_CONFIG:-0}"    "Zsh")")
+    [[ ${INSTALL_FISH:-0} -eq 1 ]]    && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_FISH_CONFIG:-0}"   "Fish")")
     [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_NUSHELL_CONFIG:-0}" "Nushell")")
+
+    local cfg_terminals=()
+    for term in "${SELECTED_TERMINALS[@]}"; do
+      case "$term" in
+        ghostty)   cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_TERMINAL_CONFIG:-0}"  "ghostty")") ;;
+        kitty)     cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_KITTY_CONFIG:-0}"     "kitty")") ;;
+        alacritty) cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_ALACRITTY_CONFIG:-0}" "alacritty")") ;;
+        wezterm)   cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_WEZTERM_CONFIG:-0}"   "wezterm")") ;;
+      esac
+    done
 
     local cfg_editors=()
     local has_neovim=0 has_vscode=0 has_zed=0 has_helix=0
     for ide in "${SELECTED_IDES[@]}"; do
       case "$ide" in
-        neovim) has_neovim=1 ;;
-        vscode) has_vscode=1 ;;
-        zed) has_zed=1 ;;
-        helix) has_helix=1 ;;
+        neovim) has_neovim=1 ;; vscode) has_vscode=1 ;;
+        zed)    has_zed=1    ;; helix)  has_helix=1   ;;
       esac
     done
-    [[ $has_neovim -eq 1 ]] && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_NVIM_CONFIG:-0}" "Neovim")")
+    [[ $has_neovim -eq 1 ]] && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_NVIM_CONFIG:-0}"     "Neovim")")
     [[ $has_vscode -eq 1 ]] && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_VSCODE_SETTINGS:-0}" "VSCode")")
-    [[ $has_zed -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]] && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_ZED_CONFIG:-0}" "Zed")")
-    [[ $has_helix -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]] && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_HELIX_CONFIG:-0}" "Helix")")
+    [[ $has_zed -eq 1    ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]]  && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_ZED_CONFIG:-0}"   "Zed")")
+    [[ $has_helix -eq 1  ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]]  && cfg_editors+=("$(_rv_cfg_item 1 "${COPY_HELIX_CONFIG:-0}" "Helix")")
 
     local cfg_tools=()
     local has_tmux=0 has_lazygit=0 has_yazi=0 has_btop=0 has_bat=0 has_direnv=0
     for tool in "${SELECTED_CLI_TOOLS[@]}"; do
       case "$tool" in
-        tmux) has_tmux=1 ;;
-        lazygit) has_lazygit=1 ;;
-        yazi) has_yazi=1 ;;
-        btop) has_btop=1 ;;
-        bat) has_bat=1 ;;
-        direnv) has_direnv=1 ;;
+        tmux)    has_tmux=1    ;; lazygit) has_lazygit=1 ;;
+        yazi)    has_yazi=1    ;; btop)    has_btop=1     ;;
+        bat)     has_bat=1     ;; direnv)  has_direnv=1   ;;
       esac
     done
-    [[ $has_tmux -eq 1 ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_TMUX_CONFIG:-0}" "tmux")")
-    [[ $has_lazygit -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_LAZYGIT_CONFIG:-0}" "lazygit")")
-    [[ $has_yazi -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_YAZI_CONFIG:-0}" "yazi")")
-    [[ $has_btop -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_BTOP_CONFIG:-0}" "btop")")
-    [[ $has_bat -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_BAT_CONFIG:-0}" "bat")")
-    [[ $has_direnv -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_DIRENV_CONFIG:-0}" "direnv")")
-    [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_GIT_CONFIG:-0}" "Git")")
-
-    local cfg_terminals=()
-    for term in "${SELECTED_TERMINALS[@]}"; do
-      case "$term" in
-        ghostty) cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_TERMINAL_CONFIG:-0}" "ghostty")") ;;
-        kitty) cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_KITTY_CONFIG:-0}" "kitty")") ;;
-        alacritty) cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_ALACRITTY_CONFIG:-0}" "alacritty")") ;;
-        wezterm) cfg_terminals+=("$(_rv_cfg_item 1 "${COPY_WEZTERM_CONFIG:-0}" "wezterm")") ;;
-      esac
-    done
+    [[ $has_tmux -eq 1    ]] && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_TMUX_CONFIG:-0}"    "tmux")")
+    [[ $has_lazygit -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]  && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_LAZYGIT_CONFIG:-0}" "lazygit")")
+    [[ $has_yazi -eq 1    ]] && [[ -d "$CONFIG_SHARED/yazi" ]]                 && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_YAZI_CONFIG:-0}"    "yazi")")
+    [[ $has_btop -eq 1    ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]       && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_BTOP_CONFIG:-0}"    "btop")")
+    [[ $has_bat -eq 1     ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]           && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_BAT_CONFIG:-0}"     "bat")")
+    [[ $has_direnv -eq 1  ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]     && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_DIRENV_CONFIG:-0}"  "direnv")")
+    [[ ${GIT_CONFIGURE:-0} -eq 1 ]]                                            && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_GIT_CONFIG:-0}"     "Git")")
 
     local cfg_runtime=()
-    [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_MISE_CONFIG:-0}" "Mise")")
-    [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_STARSHIP_CONFIG:-0}" "Starship")")
+    [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_MISE_CONFIG:-0}"     "Mise")")
+    [[ ${INSTALL_STARSHIP:-0} -eq 1    ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_STARSHIP_CONFIG:-0}" "Starship")")
 
-    _cfg_join_text() {
-      local arr_name="$1"
-      local -n arr_ref="$arr_name"
-      if [[ ${#arr_ref[@]} -gt 0 ]]; then
-        local IFS=' '
-        echo "${arr_ref[*]}"
-      fi
-    }
-
-    _print_cfg_single() {
-      local label="$1" arr_name="$2"
-      local -n arr_ref="$arr_name"
-      [[ ${#arr_ref[@]} -eq 0 ]] && return
-      local text
-      text=$(_cfg_join_text "$arr_name")
-      _print_box_line "$inner_w" "• ${UI_BOLD}${UI_YELLOW}${label}:${UI_RESET} ${UI_TEXT}${text}${UI_RESET}"
-    }
-
-    _print_cfg_pair() {
-      local left_label="$1" left_arr_name="$2" right_label="$3" right_arr_name="$4"
-      local -n left_ref="$left_arr_name"
-      local -n right_ref="$right_arr_name"
-
-      if [[ ${#left_ref[@]} -eq 0 ]] && [[ ${#right_ref[@]} -eq 0 ]]; then
-        return
-      fi
-
-      if [[ ${#left_ref[@]} -gt 0 ]] && [[ ${#right_ref[@]} -gt 0 ]] && \
-         [[ ${#left_ref[@]} -le 6 ]] && [[ ${#right_ref[@]} -le 6 ]]; then
-        local left_txt right_txt pair_line
-        left_txt=$(_cfg_join_text "$left_arr_name")
-        right_txt=$(_cfg_join_text "$right_arr_name")
-        pair_line="• ${UI_BOLD}${UI_YELLOW}${left_label}:${UI_RESET} ${UI_TEXT}${left_txt}${UI_RESET} ${UI_DIM}|${UI_RESET} ${UI_BOLD}${UI_YELLOW}${right_label}:${UI_RESET} ${UI_TEXT}${right_txt}${UI_RESET}"
-        if [[ $(_visible_len "$pair_line") -le $((inner_w - 2)) ]]; then
-          _print_box_line "$inner_w" "$pair_line"
-          return
-        fi
-      fi
-
-      _print_cfg_single "$left_label" "$left_arr_name"
-      if [[ ${#left_ref[@]} -gt 0 ]] && [[ ${#right_ref[@]} -gt 0 ]]; then
-        _print_box_line "$inner_w" " "
-      fi
-      _print_cfg_single "$right_label" "$right_arr_name"
-    }
-
-    _print_cfg_pair "Shells" "cfg_shells" "Terminais" "cfg_terminals"
-    if [[ ${#cfg_shells[@]} -gt 0 ]] || [[ ${#cfg_terminals[@]} -gt 0 ]]; then
-      _print_box_line "$inner_w" " "
-    fi
-    _print_cfg_pair "Editores" "cfg_editors" "Runtimes" "cfg_runtime"
-    if [[ ${#cfg_editors[@]} -gt 0 ]] || [[ ${#cfg_runtime[@]} -gt 0 ]]; then
-      _print_box_line "$inner_w" " "
-    fi
-    _print_cfg_single "Ferramentas" "cfg_tools"
+    _rv_section "$inner_w" "📋 COPIAR CONFIGURAÇÕES" "$total_cfgs"
+    _print_cfg_row 13 "Shells"      "cfg_shells"
+    _print_cfg_row 13 "Terminais"   "cfg_terminals"
+    _print_cfg_row 13 "Editores"    "cfg_editors"
+    _print_cfg_row 13 "Runtimes"    "cfg_runtime"
+    _print_cfg_row 13 "Ferramentas" "cfg_tools"
 
     local has_any_cfg=0
-    [[ ${#cfg_shells[@]} -gt 0 ]] && has_any_cfg=1
-    [[ ${#cfg_editors[@]} -gt 0 ]] && has_any_cfg=1
-    [[ ${#cfg_tools[@]} -gt 0 ]] && has_any_cfg=1
-    [[ ${#cfg_terminals[@]} -gt 0 ]] && has_any_cfg=1
-    [[ ${#cfg_runtime[@]} -gt 0 ]] && has_any_cfg=1
+    [[ ${#cfg_shells[@]} -gt 0    || ${#cfg_editors[@]} -gt 0   || \
+       ${#cfg_tools[@]} -gt 0     || ${#cfg_terminals[@]} -gt 0 || \
+       ${#cfg_runtime[@]} -gt 0 ]] && has_any_cfg=1
     if [[ $has_any_cfg -eq 0 ]]; then
-      _print_box_line "$inner_w" "${UI_DIM}(nenhuma configuração disponível)${UI_RESET}"
+      _print_box_line "$inner_w" "  ${UI_DIM}(nenhuma configuração disponível)${UI_RESET}"
     fi
 
     _rv_section_footer "$inner_w"
@@ -2517,88 +2291,88 @@ install_selected_gui_apps() {
 copy_tool_configs() {
   msg "▶ Copiando configurações de ferramentas CLI"
 
-  if [[ ${COPY_LAZYGIT_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
+  if [[ ${COPY_LAZYGIT_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
     copy_dir "$CONFIG_SHARED/lazygit" "$HOME/.config/lazygit"
   fi
 
-  if [[ ${COPY_YAZI_CONFIG:-1} -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]]; then
+  if [[ ${COPY_YAZI_CONFIG:-0} -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]]; then
     copy_dir "$CONFIG_SHARED/yazi" "$HOME/.config/yazi"
   fi
 
-  if [[ ${COPY_BTOP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
+  if [[ ${COPY_BTOP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
     copy_dir "$CONFIG_SHARED/btop" "$HOME/.config/btop"
   fi
 
-  if [[ ${COPY_BAT_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]; then
+  if [[ ${COPY_BAT_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]; then
     copy_dir "$CONFIG_SHARED/bat" "$HOME/.config/bat"
   fi
 
-  if [[ ${COPY_KITTY_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
+  if [[ ${COPY_KITTY_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
     copy_dir "$CONFIG_SHARED/kitty" "$HOME/.config/kitty"
   fi
 
-  if [[ ${COPY_ALACRITTY_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
+  if [[ ${COPY_ALACRITTY_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
     copy_dir "$CONFIG_SHARED/alacritty" "$HOME/.config/alacritty"
   fi
 
-  if [[ ${COPY_WEZTERM_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
+  if [[ ${COPY_WEZTERM_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
     copy_dir "$CONFIG_SHARED/wezterm" "$HOME/.config/wezterm"
   fi
 
-  if [[ ${COPY_RIPGREP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
+  if [[ ${COPY_RIPGREP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
     copy_file "$CONFIG_SHARED/.ripgreprc" "$HOME/.ripgreprc"
   fi
 
-  if [[ ${COPY_NPM_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
+  if [[ ${COPY_NPM_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
     copy_file "$CONFIG_SHARED/npm/.npmrc" "$HOME/.npmrc"
   fi
 
-  if [[ ${COPY_PNPM_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
+  if [[ ${COPY_PNPM_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
     mkdir -p "$HOME/.config/pnpm"
     copy_file "$CONFIG_SHARED/pnpm/.pnpmrc" "$HOME/.config/pnpm/.pnpmrc"
   fi
 
-  if [[ ${COPY_YARN_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
+  if [[ ${COPY_YARN_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
     copy_file "$CONFIG_SHARED/yarn/.yarnrc" "$HOME/.yarnrc"
   fi
 
-  if [[ ${COPY_PIP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
+  if [[ ${COPY_PIP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
     mkdir -p "$HOME/.config/pip"
     copy_file "$CONFIG_SHARED/pip/pip.conf" "$HOME/.config/pip/pip.conf"
   fi
 
-  if [[ ${COPY_CARGO_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
+  if [[ ${COPY_CARGO_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
     mkdir -p "$HOME/.cargo"
     copy_file "$CONFIG_SHARED/cargo/config.toml" "$HOME/.cargo/config.toml"
   fi
 
-  if [[ ${COPY_ZED_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
+  if [[ ${COPY_ZED_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
     mkdir -p "$HOME/.config/zed"
     copy_file "$CONFIG_SHARED/zed/settings.json" "$HOME/.config/zed/settings.json"
   fi
 
-  if [[ ${COPY_HELIX_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
+  if [[ ${COPY_HELIX_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
     mkdir -p "$HOME/.config/helix"
     copy_file "$CONFIG_SHARED/helix/config.toml" "$HOME/.config/helix/config.toml"
   fi
 
-  if [[ ${COPY_AIDER_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
+  if [[ ${COPY_AIDER_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
     copy_file "$CONFIG_SHARED/aider/.aider.conf.yml" "$HOME/.aider.conf.yml"
   fi
 
-  if [[ ${COPY_DOCKER_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
+  if [[ ${COPY_DOCKER_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
     mkdir -p "$HOME/.docker"
     copy_file "$CONFIG_SHARED/docker/config.json" "$HOME/.docker/config.json"
   fi
 
-  if [[ ${COPY_DIRENV_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
+  if [[ ${COPY_DIRENV_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
     mkdir -p "$HOME/.config/direnv"
     copy_file "$CONFIG_SHARED/direnv/.direnvrc" "$HOME/.config/direnv/direnvrc"
   fi
 }
 
 install_bat_catppuccin_theme() {
-  [[ ${COPY_BAT_CONFIG:-1} -eq 0 ]] && return 0
+  [[ ${COPY_BAT_CONFIG:-0} -eq 0 ]] && return 0
 
   local bat_cmd=""
   if has_cmd bat; then
@@ -2655,7 +2429,7 @@ install_bat_catppuccin_theme() {
 apply_shared_configs() {
   msg "▶ Copiando configs compartilhadas"
 
-  if is_truthy "$INSTALL_FISH" && has_cmd fish && [[ ${COPY_FISH_CONFIG:-1} -eq 1 ]]; then
+  if is_truthy "$INSTALL_FISH" && has_cmd fish && [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]]; then
     local preserved_fish_config=""
     preserved_fish_config="$(extract_user_path_config_fish)"
 
@@ -2666,13 +2440,13 @@ apply_shared_configs() {
       msg "  🔄 Verificando configurações de PATH para preservar..."
       append_preserved_config "$HOME/.config/fish/config.fish" "$preserved_fish_config"
     fi
-  elif is_truthy "$INSTALL_FISH" && [[ ${COPY_FISH_CONFIG:-1} -eq 0 ]]; then
+  elif is_truthy "$INSTALL_FISH" && [[ ${COPY_FISH_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Fish config: usuário optou por não copiar"
   elif is_truthy "$INSTALL_FISH" && ! has_cmd fish; then
     msg "  ⚠️ Fish não encontrado, pulando config."
   fi
 
-  if is_truthy "$INSTALL_ZSH" && has_cmd zsh && [[ ${COPY_ZSH_CONFIG:-1} -eq 1 ]]; then
+  if is_truthy "$INSTALL_ZSH" && has_cmd zsh && [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]]; then
     local preserved_zsh_config=""
     preserved_zsh_config="$(extract_user_path_config_zsh)"
 
@@ -2689,24 +2463,24 @@ apply_shared_configs() {
     else
       msg "  ⚠️ Powerlevel10k não encontrado em ~/.oh-my-zsh, pulando .p10k.zsh."
     fi
-  elif is_truthy "$INSTALL_ZSH" && [[ ${COPY_ZSH_CONFIG:-1} -eq 0 ]]; then
+  elif is_truthy "$INSTALL_ZSH" && [[ ${COPY_ZSH_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Zsh config: usuário optou por não copiar"
   elif is_truthy "$INSTALL_ZSH" && ! has_cmd zsh; then
     msg "  ⚠️ Zsh não encontrado, pulando .zshrc."
   fi
 
-  if is_truthy "$INSTALL_NUSHELL" && has_cmd nu && [[ ${COPY_NUSHELL_CONFIG:-1} -eq 1 ]]; then
+  if is_truthy "$INSTALL_NUSHELL" && has_cmd nu && [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]]; then
     mkdir -p "$HOME/.config/nushell"
     copy_file "$CONFIG_SHARED/nushell/config.nu" "$HOME/.config/nushell/config.nu"
     copy_file "$CONFIG_SHARED/nushell/env.nu" "$HOME/.config/nushell/env.nu"
     mkdir -p "$HOME/.config/nushell/scripts"
-  elif is_truthy "$INSTALL_NUSHELL" && [[ ${COPY_NUSHELL_CONFIG:-1} -eq 0 ]]; then
+  elif is_truthy "$INSTALL_NUSHELL" && [[ ${COPY_NUSHELL_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Nushell config: usuário optou por não copiar"
   elif is_truthy "$INSTALL_NUSHELL" && ! has_cmd nu; then
     msg "  ⚠️ Nushell não encontrado após instalação, pulando config."
   fi
 
-  if has_cmd git && [[ ${COPY_GIT_CONFIG:-1} -eq 1 ]]; then
+  if has_cmd git && [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]]; then
     local git_base="$CONFIG_SHARED/git/.gitconfig"
     local git_personal="$CONFIG_SHARED/git/.gitconfig-personal"
     local git_work="$CONFIG_SHARED/git/.gitconfig-work"
@@ -2720,46 +2494,46 @@ apply_shared_configs() {
     copy_file "$git_base" "$HOME/.gitconfig"
     [[ -f "$git_personal" ]] && copy_file "$git_personal" "$HOME/.gitconfig-personal"
     [[ -f "$git_work" ]] && copy_file "$git_work" "$HOME/.gitconfig-work"
-  elif [[ ${COPY_GIT_CONFIG:-1} -eq 0 ]]; then
+  elif [[ ${COPY_GIT_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Git config: usuário optou por não copiar"
   elif ! has_cmd git; then
     msg "  ⚠️ Git não encontrado, pulando .gitconfig."
   fi
 
-  if has_cmd mise && [[ ${COPY_MISE_CONFIG:-1} -eq 1 ]]; then
+  if has_cmd mise && [[ ${COPY_MISE_CONFIG:-0} -eq 1 ]]; then
     copy_dir "$CONFIG_SHARED/mise" "$HOME/.config/mise"
-  elif [[ ${COPY_MISE_CONFIG:-1} -eq 0 ]]; then
+  elif [[ ${COPY_MISE_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Mise config: usuário optou por não copiar"
   elif ! has_cmd mise; then
     msg "  ⚠️ Mise não encontrado, pulando config."
   fi
 
-  if has_cmd starship && [[ ${COPY_STARSHIP_CONFIG:-1} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]]; then
+  if has_cmd starship && [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]]; then
     mkdir -p "$HOME/.config"
     copy_file "$CONFIG_SHARED/starship.toml" "$HOME/.config/starship.toml"
-  elif [[ ${COPY_STARSHIP_CONFIG:-1} -eq 0 ]]; then
+  elif [[ ${COPY_STARSHIP_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Starship config: usuário optou por não copiar"
   elif ! has_cmd starship; then
     msg "  ⚠️ Starship não encontrado, pulando config."
   fi
 
-  if has_cmd nvim && [[ ${COPY_NVIM_CONFIG:-1} -eq 1 ]]; then
+  if has_cmd nvim && [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]]; then
     copy_dir "$CONFIG_SHARED/nvim" "$HOME/.config/nvim"
-  elif [[ ${COPY_NVIM_CONFIG:-1} -eq 0 ]]; then
+  elif [[ ${COPY_NVIM_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Neovim config: usuário optou por não copiar"
   elif ! has_cmd nvim; then
     msg "  ⚠️ Neovim não encontrado, pulando config."
   fi
 
-  if has_cmd tmux && [[ ${COPY_TMUX_CONFIG:-1} -eq 1 ]]; then
+  if has_cmd tmux && [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]]; then
     copy_file "$CONFIG_SHARED/tmux/.tmux.conf" "$HOME/.tmux.conf"
-  elif [[ ${COPY_TMUX_CONFIG:-1} -eq 0 ]]; then
+  elif [[ ${COPY_TMUX_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Tmux config: usuário optou por não copiar"
   elif ! has_cmd tmux; then
     msg "  ⚠️ tmux não encontrado, pulando .tmux.conf."
   fi
 
-  if [[ ${COPY_VSCODE_SETTINGS:-1} -eq 1 ]]; then
+  if [[ ${COPY_VSCODE_SETTINGS:-0} -eq 1 ]]; then
     copy_vscode_settings
   else
     msg "  ⏭️  VS Code settings: usuário optou por não copiar"
@@ -3065,8 +2839,6 @@ main() {
     review_selections
 
     checkpoint_save "install"
-    msg "  💾 Checkpoint salvo. Se a instalação falhar, execute novamente para retomar."
-    sleep 1
   else
     msg "  ⏩ Retomando instalação do checkpoint..."
   fi

@@ -224,7 +224,7 @@ export_vscode_extensions() {
 install_vscode_extensions() {
   local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
 
-  if [[ ${COPY_VSCODE_SETTINGS:-1} -ne 1 ]]; then
+  if [[ ${COPY_VSCODE_SETTINGS:-0} -ne 1 ]]; then
     msg "  ⏭️  VS Code extensions: usuário optou por não copiar/instalar"
     return
   fi
