@@ -29,54 +29,6 @@ get_version() {
   esac
 }
 
-_rpt_hline() {
-  local w="$1" line=""
-  printf -v line '%*s' "$w" ''
-  printf '%s' "${line// /─}"
-}
-
-_rpt_box_line() {
-  local inner_w="$1" content="$2" align="${3:-left}"
-  local vis_len pad
-  vis_len=$(_visible_len "$content")
-  pad=$((inner_w - 2 - vis_len))
-  [[ $pad -lt 0 ]] && pad=0
-
-  if [[ "$align" == "center" ]]; then
-    local lp=$((pad / 2)) rp=$((pad - pad / 2))
-    printf "%b│%b %*s%b%*s %b│%b\n" "$UI_BORDER" "$UI_RESET" "$lp" "" "$content" "$rp" "" "$UI_BORDER" "$UI_RESET"
-  else
-    printf "%b│%b %b%*s %b│%b\n" "$UI_BORDER" "$UI_RESET" "$content" "$pad" "" "$UI_BORDER" "$UI_RESET"
-  fi
-}
-
-_rpt_section_header() {
-  local inner_w="$1" title="$2"
-  local title_len
-  title_len=$(_visible_len "$title")
-  local pad=$((inner_w - title_len - 3))
-  [[ $pad -lt 0 ]] && pad=0
-  echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rpt_hline "$pad")┤${UI_RESET}"
-}
-
-_rpt_dual_header() {
-  local col_w="$1" left="$2" right="$3"
-  local lp=$((col_w - $(_visible_len "$left") - 3))
-  local rp=$((col_w - $(_visible_len "$right") - 3))
-  [[ $lp -lt 0 ]] && lp=0
-  [[ $rp -lt 0 ]] && rp=0
-  echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${left}${UI_RESET}${UI_BORDER} $(_rpt_hline "$lp")┬─ ${UI_ACCENT}${UI_BOLD}${right}${UI_RESET}${UI_BORDER} $(_rpt_hline "$rp")┤${UI_RESET}"
-}
-
-_rpt_dual_divider() {
-  local col_w="$1" left="$2" right="$3"
-  local lp=$((col_w - $(_visible_len "$left") - 3))
-  local rp=$((col_w - $(_visible_len "$right") - 3))
-  [[ $lp -lt 0 ]] && lp=0
-  [[ $rp -lt 0 ]] && rp=0
-  echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${left}${UI_RESET}${UI_BORDER} $(_rpt_hline "$lp")┼─ ${UI_ACCENT}${UI_BOLD}${right}${UI_RESET}${UI_BORDER} $(_rpt_hline "$rp")┤${UI_RESET}"
-}
-
 _rpt_add_tool() {
   local -n _arr="$1"
   local name="$2" cmd="$3" width="$4"
@@ -110,20 +62,43 @@ print_post_install_report() {
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
 
-  local col_w=36
-  [[ $term_w -lt 78 ]] && col_w=30
-  [[ $term_w -lt 66 ]] && col_w=24
-  local inner_w=$((col_w * 2 + 1))
-  local cell_w=$((col_w - 2))
-  local half_w=$(( (inner_w - 3) / 2 ))
+  local width=$((term_w > 76 ? 76 : term_w - 4))
+  [[ $width -lt 40 ]] && width=40
+  local col_w=$(( (width - 6) / 2 ))
+
+  _rpt_div() {
+    local title="$1"
+    local title_vis fill fill_str
+    title_vis=$(_visible_len "$title")
+    fill=$(( width - title_vis - 4 ))
+    [[ $fill -lt 0 ]] && fill=0
+    printf -v fill_str '%*s' "$fill" ''
+    echo -e "${UI_BORDER}── ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} ${fill_str// /─}${UI_RESET}"
+  }
+
+  _rpt_dual_div() {
+    local left="$1" right="$2"
+    local lv rv lf rf lfill rfill
+    lv=$(_visible_len "$left"); rv=$(_visible_len "$right")
+    lf=$(( col_w - lv - 1 )); rf=$(( col_w - rv - 1 ))
+    [[ $lf -lt 0 ]] && lf=0; [[ $rf -lt 0 ]] && rf=0
+    printf -v lfill '%*s' "$lf" ''; printf -v rfill '%*s' "$rf" ''
+    echo -e "${UI_BORDER}── ${UI_ACCENT}${UI_BOLD}${left}${UI_RESET}${UI_BORDER} ${lfill// /─}  ── ${UI_ACCENT}${UI_BOLD}${right}${UI_RESET}${UI_BORDER} ${rfill// /─}${UI_RESET}"
+  }
+
+  _rpt_hbar() {
+    local bar
+    printf -v bar '%*s' "$width" ''
+    echo -e "${UI_BORDER}${bar// /─}${UI_RESET}"
+  }
 
   clear_screen
   echo ""
 
-  # ── Header: Título + Stats ──
-  echo -e "${UI_BORDER}╭$(_rpt_hline "$inner_w")╮${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_GREEN}${UI_BOLD} ◆ INSTALAÇÃO CONCLUÍDA ◆${UI_RESET}" "center"
-  echo -e "${UI_BORDER}├$(_rpt_hline "$inner_w")┤${UI_RESET}"
+  _rpt_hbar
+  echo -e "  ${UI_GREEN}${UI_BOLD}◆  INSTALAÇÃO CONCLUÍDA  ◆${UI_RESET}"
+  _rpt_hbar
+  echo ""
 
   local pkg_count=${#INSTALLED_PACKAGES[@]}
   local misc_count=${#INSTALLED_MISC[@]}
@@ -135,60 +110,57 @@ print_post_install_report() {
   local elapsed
   elapsed=$(_report_time_str)
 
-  # Stats (ícone + número bold + label muted)
   local errors_color="$UI_GREEN"
   [[ $total_errors -gt 0 ]] && errors_color="$UI_RED"
 
-  _rpt_box_line "$inner_w" "  ${UI_GREEN}✓${UI_RESET}  ${UI_PEACH}${UI_BOLD}${total_installed}${UI_RESET}  ${UI_MUTED}instalados     ${errors_color}✗${UI_RESET}  ${errors_color}${UI_BOLD}${total_errors}${UI_RESET}  ${UI_MUTED}falhas${UI_RESET}"
-  _rpt_box_line "$inner_w" "  ${UI_BLUE}📁${UI_RESET}  ${UI_BLUE}${UI_BOLD}${configs_count}${UI_RESET}  ${UI_MUTED}configs        ⏱  ${elapsed:-N/A}${UI_RESET}"
+  printf "  ${UI_GREEN}✓${UI_RESET}  ${UI_PEACH}${UI_BOLD}%s${UI_RESET}  ${UI_MUTED}instalados${UI_RESET}     " "$total_installed"
+  printf "${errors_color}✗${UI_RESET}  ${errors_color}${UI_BOLD}%s${UI_RESET}  ${UI_MUTED}falhas${UI_RESET}\n" "$total_errors"
+  printf "  ${UI_BLUE}📁${UI_RESET}  ${UI_BLUE}${UI_BOLD}%s${UI_RESET}  ${UI_MUTED}configs${UI_RESET}          " "$configs_count"
+  printf "${UI_MUTED}⏱  %s${UI_RESET}\n" "${elapsed:-N/A}"
+  echo ""
 
-  # ── Sistema ──
   local so_color="$UI_TEAL"
   [[ "${TARGET_OS:-linux}" == "macos" ]]   && so_color="$UI_PEACH"
   [[ "${TARGET_OS:-linux}" == "windows" ]] && so_color="$UI_BLUE"
-  _rpt_section_header "$inner_w" "💻 SISTEMA"
-  _rpt_box_line "$inner_w" "${UI_MUTED}Host    ${UI_RESET}${UI_TEXT}${hostname}${UI_RESET}     ${UI_MUTED}Usuário ${UI_RESET}${UI_PEACH}${username}${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_MUTED}SO      ${UI_RESET}${so_color}${TARGET_OS:-linux}${UI_RESET}     ${UI_MUTED}Shell   ${UI_RESET}${UI_GREEN}${current_shell}${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_MUTED}IP      ${UI_RESET}${UI_DIM}${host_ip}${UI_RESET}"
 
-  # ── Ferramentas + Runtimes (duas colunas) ──
+  _rpt_div "💻 SISTEMA"
+  printf "  ${UI_MUTED}Host    ${UI_RESET}  ${UI_TEXT}%-22s${UI_RESET}${UI_MUTED}Usuário ${UI_RESET}  ${UI_PEACH}%s${UI_RESET}\n" "$hostname" "$username"
+  printf "  ${UI_MUTED}SO      ${UI_RESET}  ${so_color}%-22s${UI_RESET}${UI_MUTED}Shell   ${UI_RESET}  ${UI_GREEN}%s${UI_RESET}\n" "${TARGET_OS:-linux}" "$current_shell"
+  printf "  ${UI_MUTED}IP      ${UI_RESET}  ${UI_DIM}%s${UI_RESET}\n" "$host_ip"
+  echo ""
+
   local tools=()
-  _rpt_add_tool tools "Git" git "$cell_w"
-  _rpt_add_tool tools "Zsh" zsh "$cell_w"
-  _rpt_add_tool tools "Fish" fish "$cell_w"
-  _rpt_add_tool tools "Tmux" tmux "$cell_w"
-  _rpt_add_tool tools "Neovim" nvim "$cell_w"
-  _rpt_add_tool tools "Starship" starship "$cell_w"
-  _rpt_add_tool tools "VS Code" code "$cell_w"
-  _rpt_add_tool tools "Docker" docker "$cell_w"
-  _rpt_add_tool tools "Mise" mise "$cell_w"
-  _rpt_add_tool tools "Lazygit" lazygit "$cell_w"
+  _rpt_add_tool tools "Git" git "$col_w"
+  _rpt_add_tool tools "Zsh" zsh "$col_w"
+  _rpt_add_tool tools "Fish" fish "$col_w"
+  _rpt_add_tool tools "Tmux" tmux "$col_w"
+  _rpt_add_tool tools "Neovim" nvim "$col_w"
+  _rpt_add_tool tools "Starship" starship "$col_w"
+  _rpt_add_tool tools "VS Code" code "$col_w"
+  _rpt_add_tool tools "Docker" docker "$col_w"
+  _rpt_add_tool tools "Mise" mise "$col_w"
+  _rpt_add_tool tools "Lazygit" lazygit "$col_w"
   [[ ${#tools[@]} -eq 0 ]] && tools+=("(nenhuma)")
 
   local runtimes=()
-  _rpt_add_tool runtimes "Node" node "$cell_w"
-  _rpt_add_tool runtimes "Python" python "$cell_w"
-  _rpt_add_tool runtimes "PHP" php "$cell_w"
-  _rpt_add_tool runtimes "Rust" rust "$cell_w"
-  _rpt_add_tool runtimes "Go" go "$cell_w"
-  _rpt_add_tool runtimes "Bun" bun "$cell_w"
-  _rpt_add_tool runtimes "Deno" deno "$cell_w"
+  _rpt_add_tool runtimes "Node" node "$col_w"
+  _rpt_add_tool runtimes "Python" python "$col_w"
+  _rpt_add_tool runtimes "PHP" php "$col_w"
+  _rpt_add_tool runtimes "Rust" rust "$col_w"
+  _rpt_add_tool runtimes "Go" go "$col_w"
+  _rpt_add_tool runtimes "Bun" bun "$col_w"
+  _rpt_add_tool runtimes "Deno" deno "$col_w"
   [[ ${#runtimes[@]} -eq 0 ]] && runtimes+=("(nenhum)")
 
   local max_rows=${#tools[@]}
   [[ ${#runtimes[@]} -gt $max_rows ]] && max_rows=${#runtimes[@]}
 
-  _rpt_dual_header "$col_w" "🔧 FERRAMENTAS" "⚡ RUNTIMES"
+  _rpt_dual_div "🔧 FERRAMENTAS" "⚡ RUNTIMES"
   for (( i=0; i<max_rows; i++ )); do
-    printf "%b│%b %b%-*s%b %b│%b %b%-*s%b %b│%b\n" \
-      "$UI_BORDER" "$UI_RESET" \
-      "$UI_GREEN" "$cell_w" "${tools[i]:-}" "$UI_RESET" \
-      "$UI_BORDER" "$UI_RESET" \
-      "$UI_MAUVE" "$cell_w" "${runtimes[i]:-}" "$UI_RESET" \
-      "$UI_BORDER" "$UI_RESET"
+    printf "  ${UI_GREEN}%-*s${UI_RESET}    ${UI_MAUVE}%s${UI_RESET}\n" "$col_w" "${tools[i]:-}" "${runtimes[i]:-}"
   done
+  echo ""
 
-  # ── Próximos Passos + Comandos ──
   local next_steps=()
   next_steps+=("exec \$SHELL")
   [[ ${INSTALL_POWERLEVEL10K:-0} -eq 1 ]] && next_steps+=("p10k configure")
@@ -205,31 +177,23 @@ print_post_install_report() {
   local max_steps=${#next_steps[@]}
   [[ ${#commands[@]} -gt $max_steps ]] && max_steps=${#commands[@]}
 
-  _rpt_dual_divider "$col_w" "▶ PRÓXIMO PASSO" "💡 COMANDOS ÚTEIS"
+  _rpt_dual_div "▶ PRÓXIMO PASSO" "💡 COMANDOS ÚTEIS"
   for (( i=0; i<max_steps; i++ )); do
-    printf "%b│%b %b%-*s%b %b│%b %b%-*s%b %b│%b\n" \
-      "$UI_BORDER" "$UI_RESET" \
-      "$UI_YELLOW" "$cell_w" "${next_steps[i]:-}" "$UI_RESET" \
-      "$UI_BORDER" "$UI_RESET" \
-      "$UI_MUTED" "$cell_w" "${commands[i]:-}" "$UI_RESET" \
-      "$UI_BORDER" "$UI_RESET"
+    printf "  ${UI_YELLOW}%-*s${UI_RESET}    ${UI_MUTED}%s${UI_RESET}\n" "$col_w" "${next_steps[i]:-}" "${commands[i]:-}"
   done
-  echo -e "${UI_BORDER}╰$(_rpt_hline "$col_w")┴$(_rpt_hline "$col_w")╯${UI_RESET}"
+  echo ""
 
-  # ── Footer: Backup + Links ──
   local backup_link="${BACKUP_DIR:-}"
   if [[ -n "$backup_link" ]] && [[ ! -d "$backup_link" ]]; then
     backup_link="(nenhum backup criado)"
   fi
   [[ -z "$backup_link" ]] && backup_link="(nenhum backup criado)"
 
+  _rpt_div "🔗 LINKS"
+  printf "  ${UI_MUTED}Backup       ${UI_RESET}  ${UI_DIM}%s${UI_RESET}\n" "$backup_link"
+  printf "  ${UI_MUTED}Site         ${UI_RESET}  ${UI_LINK}%s${UI_RESET}\n" "https://lucassr.dev"
+  printf "  ${UI_MUTED}Repositório  ${UI_RESET}  ${UI_LINK}%s${UI_RESET}\n" "https://github.com/lucassr-dev/.config"
   echo ""
-  echo -e "${UI_BORDER}╭$(_rpt_hline "$inner_w")╮${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_ACCENT}${UI_BOLD}🔗 LINKS${UI_RESET}" "center"
-  echo -e "${UI_BORDER}├$(_rpt_hline "$inner_w")┤${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_MUTED}Backup${UI_RESET}       ${UI_DIM}${backup_link}${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_MUTED}Site${UI_RESET}         ${UI_LINK}https://lucassr.dev${UI_RESET}"
-  _rpt_box_line "$inner_w" "${UI_MUTED}Repositório${UI_RESET}  ${UI_LINK}https://github.com/lucassr-dev/.config${UI_RESET}"
-  echo -e "${UI_BORDER}╰$(_rpt_hline "$inner_w")╯${UI_RESET}"
+  _rpt_hbar
   echo ""
 }

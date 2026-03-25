@@ -1011,58 +1011,20 @@ _join_items() {
 # RESUMO DE SELEÇÕES INTERATIVAS
 # ══════════════════════════════════════════════════════════════════════════════
 
-_rv_hline() {
-  local width="$1"
-  local i line=""
-  for ((i=0; i<width; i++)); do line+="─"; done
-  printf '%s' "$line"
-}
-
-_rv_section_footer() {
-  local inner_w="$1"
-  echo -e "${UI_BORDER}╰$(_rv_hline "$inner_w")╯${UI_RESET}"
-}
-
-_rv_divider() {
-  local inner_w="$1" title="$2"
-  local title_vis
+_rv_div() {
+  local w="$1" title="$2"
+  local title_vis fill fill_str
   title_vis=$(_visible_len "$title")
-  local pad=$((inner_w - title_vis - 3))
-  [[ $pad -lt 0 ]] && pad=0
-  echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rv_hline "$pad")┤${UI_RESET}"
+  fill=$(( w - title_vis - 4 ))
+  [[ $fill -lt 0 ]] && fill=0
+  printf -v fill_str '%*s' "$fill" ''
+  echo -e "${UI_BORDER}── ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} ${fill_str// /─}${UI_RESET}"
 }
 
-# Seção com badge de contagem alinhado à direita
-# Uso: _rv_section inner_w "TÍTULO" [count]
-_rv_section() {
-  local inner_w="$1" title="$2" count="${3:-}"
-  local title_vis
-  title_vis=$(_visible_len "$title")
-  if [[ -n "$count" ]] && [[ "$count" != "0" ]]; then
-    local count_len=${#count}
-    local fill=$(( inner_w - title_vis - count_len - 6 ))
-    [[ $fill -lt 1 ]] && fill=1
-    echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rv_hline "$fill") ${UI_PEACH}${UI_BOLD}${count}${UI_RESET}${UI_BORDER} ┤${UI_RESET}"
-  else
-    local pad=$(( inner_w - title_vis - 3 ))
-    [[ $pad -lt 0 ]] && pad=0
-    echo -e "${UI_BORDER}├─ ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} $(_rv_hline "$pad")┤${UI_RESET}"
-  fi
-}
-
-_print_box_line() {
-  local inner_w="$1" content="$2" align="${3:-left}"
-  local visible_len
-  visible_len=$(_visible_len "$content")
-  local pad=$((inner_w - 2 - visible_len))
-  [[ $pad -lt 0 ]] && pad=0
-  if [[ "$align" == "center" ]]; then
-    local left_pad=$((pad / 2))
-    local right_pad=$((pad - left_pad))
-    echo -e "${UI_BORDER}│${UI_RESET} $(printf '%*s' "$left_pad" '')${content}$(printf '%*s' "$right_pad" '') ${UI_BORDER}│${UI_RESET}"
-  else
-    echo -e "${UI_BORDER}│${UI_RESET} ${content}$(printf '%*s' "$pad" '') ${UI_BORDER}│${UI_RESET}"
-  fi
+_rv_hbar() {
+  local w="$1" bar
+  printf -v bar '%*s' "$w" ''
+  echo -e "${UI_BORDER}${bar// /─}${UI_RESET}"
 }
 
 _count_total_packages() {
@@ -1160,18 +1122,15 @@ review_selections() {
     local term_width
     term_width=$(tput cols 2>/dev/null || echo 80)
 
-    local w=$((term_width > 100 ? 100 : term_width - 4))
-    [[ $w -lt 60 ]] && w=60
+    local width=$((term_width > 76 ? 76 : term_width - 4))
+    [[ $width -lt 40 ]] && width=40
 
     echo ""
+    _rv_hbar "$width"
+    echo -e "  ${UI_GREEN}${UI_BOLD}RESUMO FINAL${UI_RESET}"
+    _rv_hbar "$width"
+    echo ""
 
-    local inner_w=$((w - 2))
-
-    echo -e "${UI_BORDER}╭$(_rv_hline "$inner_w")╮${UI_RESET}"
-    _print_box_line "$inner_w" "${UI_ACCENT}${UI_BOLD}  RESUMO FINAL${UI_RESET}" "center"
-    echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
-
-    # ── Ações da Instalação ──
     local total_pkgs total_cfgs
     total_pkgs=$(_count_total_packages)
     total_cfgs=$(_count_configs_to_copy)
@@ -1182,18 +1141,18 @@ review_selections() {
     [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && actions_to_do+=("Starship")
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && actions_to_do+=("OMP")
     [[ ${COPY_SSH_KEYS:-0} -eq 1 ]] && actions_to_do+=("SSH")
-    local actions_plain="${UI_MUTED}(nenhum)${UI_RESET}"
+    local actions_plain="${UI_DIM}(nenhum)${UI_RESET}"
     [[ ${#actions_to_do[@]} -gt 0 ]] && actions_plain="${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
-
-    local backup_ts
-    backup_ts="$HOME/.bkp-$(date +%Y%m%d-%H%M)/"
 
     local so_color="$UI_TEAL"
     [[ "${TARGET_OS:-linux}" == "macos" ]]   && so_color="$UI_PEACH"
     [[ "${TARGET_OS:-linux}" == "windows" ]] && so_color="$UI_BLUE"
-    _print_box_line "$inner_w" "  ${UI_PEACH}${UI_BOLD}${total_pkgs}${UI_RESET} ${UI_MUTED}pacotes${UI_RESET}     ${UI_BLUE}${UI_BOLD}${total_cfgs}${UI_RESET} ${UI_MUTED}configs${UI_RESET}     ${so_color}${TARGET_OS:-linux}${UI_RESET}"
-    _print_box_line "$inner_w" "  ${UI_MUTED}Ações   ${UI_RESET} ${actions_plain}"
-    _print_box_line "$inner_w" "  ${UI_MUTED}Backup  ${UI_RESET} ${UI_DIM}${backup_ts}${UI_RESET}"
+
+    printf "  ${UI_PEACH}${UI_BOLD}📦 %s${UI_RESET}  ${UI_MUTED}pacotes${UI_RESET}     " "$total_pkgs"
+    printf "${UI_BLUE}${UI_BOLD}📁 %s${UI_RESET}  ${UI_MUTED}configs${UI_RESET}     " "$total_cfgs"
+    printf "${so_color}🐧 %s${UI_RESET}\n" "${TARGET_OS:-linux}"
+    printf "  ${UI_MUTED}⚙️  Ações${UI_RESET}   ${actions_plain}\n"
+    echo ""
 
     local selected_shells=()
     [[ ${INSTALL_ZSH:-0} -eq 1 ]] && selected_shells+=("zsh")
@@ -1227,9 +1186,7 @@ review_selections() {
     fi
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && themes_selected+=("OMP")
 
-    # ── Helper: label-valor com coluna fixa e quebra automática de linha ──
-    # Uso: _print_lv lbl_w "Label" "empty_msg" item1 item2 ...
-    _print_lv() {
+    _rv_lv() {
       local lbl_w="$1" label="$2" empty_val="$3"
       shift 3
       local items=("$@")
@@ -1239,10 +1196,10 @@ review_selections() {
       pad=$(( lbl_w - label_vis ))
       [[ $pad -lt 0 ]] && pad=0
       printf -v label_col '%s%*s' "$label_str" "$pad" ''
-      local value_w=$(( inner_w - lbl_w - 4 ))
+      local value_w=$(( width - lbl_w - 4 ))
       [[ $value_w -lt 10 ]] && value_w=10
       if [[ ${#items[@]} -eq 0 ]]; then
-        _print_box_line "$inner_w" "  ${UI_MUTED}${label_col}${UI_RESET}${UI_DIM}${empty_val}${UI_RESET}"
+        printf "  ${UI_MUTED}%s${UI_RESET}${UI_DIM}%s${UI_RESET}\n" "$label_col" "$empty_val"
         return
       fi
       local combined
@@ -1251,16 +1208,15 @@ review_selections() {
       local -a lines=()
       _wrap_text "$combined" "$value_w" lines
       [[ ${#lines[@]} -eq 0 ]] && lines=("$combined")
-      _print_box_line "$inner_w" "  ${UI_MUTED}${label_col}${UI_RESET}${UI_TEXT}${lines[0]}${UI_RESET}"
+      printf "  ${UI_MUTED}%s${UI_RESET}${UI_TEXT}%s${UI_RESET}\n" "$label_col" "${lines[0]}"
       local indent
       printf -v indent '%*s' "$((lbl_w + 2))" ''
       local i
       for (( i=1; i<${#lines[@]}; i++ )); do
-        _print_box_line "$inner_w" "${indent}${UI_TEXT}${lines[i]}${UI_RESET}"
+        printf "  %s${UI_TEXT}%s${UI_RESET}\n" "$indent" "${lines[i]}"
       done
     }
 
-    # ── Helper: item de config com ✓/✗ coloridos ──
     _rv_cfg_item() {
       local available="$1" selected_flag="$2" name="$3"
       if [[ $available -eq 1 ]]; then
@@ -1272,8 +1228,7 @@ review_selections() {
       fi
     }
 
-    # ── Helper: linha de config com label fixo e itens ✓/✗ ──
-    _print_cfg_row() {
+    _rv_cfg_row() {
       local lbl_w="$1" label="$2" arr_name="$3"
       local -n _cfg_ref="$arr_name"
       [[ ${#_cfg_ref[@]} -eq 0 ]] && return
@@ -1284,39 +1239,37 @@ review_selections() {
       [[ $pad -lt 0 ]] && pad=0
       printf -v label_col '%s%*s' "$label_str" "$pad" ''
       local text="${_cfg_ref[*]}"
-      _print_box_line "$inner_w" "  ${UI_MUTED}${label_col}${UI_RESET}${text}"
+      printf "  ${UI_MUTED}%s${UI_RESET}%b\n" "$label_col" "$text"
     }
 
-    # ── AMBIENTE ──
-    local env_count=$((${#selected_shells[@]} + ${#SELECTED_TERMINALS[@]} + ${#themes_selected[@]} + ${#SELECTED_NERD_FONTS[@]}))
-    _rv_section "$inner_w" "🏠 AMBIENTE" "$env_count"
-    _print_lv 10 "Shells"   "(nenhum)"  "${selected_shells[@]}"
-    _print_lv 10 "Terminal" "(nenhum)"  "${SELECTED_TERMINALS[@]}"
-    _print_lv 10 "Temas"    "(nenhum)"  "${themes_selected[@]}"
-    _print_lv 10 "Fontes"   "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
+    _rv_div "$width" "🏠 AMBIENTE"
+    _rv_lv 10 "Shells"   "(nenhum)"  "${selected_shells[@]}"
+    _rv_lv 10 "Terminal" "(nenhum)"  "${SELECTED_TERMINALS[@]}"
+    _rv_lv 10 "Temas"    "(nenhum)"  "${themes_selected[@]}"
+    _rv_lv 10 "Fontes"   "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
+    echo ""
 
-    # ── FERRAMENTAS ──
-    local tools_count=$((${#SELECTED_CLI_TOOLS[@]} + ${#SELECTED_IA_TOOLS[@]} + ${#SELECTED_RUNTIMES[@]}))
-    _rv_section "$inner_w" "🔧 FERRAMENTAS" "$tools_count"
-    _print_lv 10 "CLI"      "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
-    _print_lv 10 "IA"       "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
-    _print_lv 10 "Runtimes" "(nenhum)"  "${SELECTED_RUNTIMES[@]}"
+    _rv_div "$width" "🔧 FERRAMENTAS"
+    _rv_lv 10 "CLI"      "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
+    _rv_lv 10 "IA"       "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
+    _rv_lv 10 "Runtimes" "(nenhum)"  "${SELECTED_RUNTIMES[@]}"
+    echo ""
 
-    # ── APPS GUI ──
     local gui_total=0
     gui_total=$((${#SELECTED_IDES[@]} + ${#SELECTED_BROWSERS[@]} + ${#SELECTED_DEV_TOOLS[@]} + \
                  ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
                  ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
     if [[ $gui_total -gt 0 ]]; then
-      _rv_section "$inner_w" "🖥 APPS GUI" "$gui_total"
-      [[ ${#SELECTED_IDES[@]} -gt 0 ]]          && _print_lv 14 "IDEs"          "(nenhum)" "${SELECTED_IDES[@]}"
-      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]      && _print_lv 14 "Navegadores"   "(nenhum)" "${SELECTED_BROWSERS[@]}"
-      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]     && _print_lv 14 "Dev Tools"     "(nenhum)" "${SELECTED_DEV_TOOLS[@]}"
-      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]     && _print_lv 14 "Bancos"        "(nenhum)" "${SELECTED_DATABASES[@]}"
-      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]  && _print_lv 14 "Produtividade" "(nenhum)" "${SELECTED_PRODUCTIVITY[@]}"
-      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _print_lv 14 "Comunicação"   "(nenhum)" "${SELECTED_COMMUNICATION[@]}"
-      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]         && _print_lv 14 "Mídia"         "(nenhum)" "${SELECTED_MEDIA[@]}"
-      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]     && _print_lv 14 "Utilitários"   "(nenhum)" "${SELECTED_UTILITIES[@]}"
+      _rv_div "$width" "🖥 APPS GUI"
+      [[ ${#SELECTED_IDES[@]} -gt 0 ]]          && _rv_lv 14 "IDEs"          "" "${SELECTED_IDES[@]}"
+      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]      && _rv_lv 14 "Navegadores"   "" "${SELECTED_BROWSERS[@]}"
+      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]     && _rv_lv 14 "Dev Tools"     "" "${SELECTED_DEV_TOOLS[@]}"
+      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]     && _rv_lv 14 "Bancos"        "" "${SELECTED_DATABASES[@]}"
+      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]  && _rv_lv 14 "Produtividade" "" "${SELECTED_PRODUCTIVITY[@]}"
+      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _rv_lv 14 "Comunicação"   "" "${SELECTED_COMMUNICATION[@]}"
+      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]         && _rv_lv 14 "Mídia"         "" "${SELECTED_MEDIA[@]}"
+      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]     && _rv_lv 14 "Utilitários"   "" "${SELECTED_UTILITIES[@]}"
+      echo ""
     fi
 
     # ── COPIAR CONFIGURAÇÕES ──
@@ -1369,36 +1322,32 @@ review_selections() {
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_MISE_CONFIG:-0}"     "Mise")")
     [[ ${INSTALL_STARSHIP:-0} -eq 1    ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_STARSHIP_CONFIG:-0}" "Starship")")
 
-    _rv_section "$inner_w" "📋 COPIAR CONFIGURAÇÕES" "$total_cfgs"
-    _print_cfg_row 13 "Shells"      "cfg_shells"
-    _print_cfg_row 13 "Terminais"   "cfg_terminals"
-    _print_cfg_row 13 "Editores"    "cfg_editors"
-    _print_cfg_row 13 "Runtimes"    "cfg_runtime"
-    _print_cfg_row 13 "Ferramentas" "cfg_tools"
+    _rv_div "$width" "📋 COPIAR CONFIGURAÇÕES"
+    _rv_cfg_row 13 "Shells"      "cfg_shells"
+    _rv_cfg_row 13 "Terminais"   "cfg_terminals"
+    _rv_cfg_row 13 "Editores"    "cfg_editors"
+    _rv_cfg_row 13 "Runtimes"    "cfg_runtime"
+    _rv_cfg_row 13 "Ferramentas" "cfg_tools"
 
     local has_any_cfg=0
     [[ ${#cfg_shells[@]} -gt 0    || ${#cfg_editors[@]} -gt 0   || \
        ${#cfg_tools[@]} -gt 0     || ${#cfg_terminals[@]} -gt 0 || \
        ${#cfg_runtime[@]} -gt 0 ]] && has_any_cfg=1
     if [[ $has_any_cfg -eq 0 ]]; then
-      _print_box_line "$inner_w" "  ${UI_DIM}(nenhuma configuração disponível)${UI_RESET}"
+      printf "  ${UI_DIM}(nenhuma configuração disponível)${UI_RESET}\n"
     fi
 
-    _rv_section_footer "$inner_w"
+    echo ""
+    _rv_hbar "$width"
     echo ""
 
-    # ── Ações ──
-    echo -e "${UI_BORDER}╭$(_rv_hline "$inner_w")╮${UI_RESET}"
-    _print_box_line "$inner_w" "${UI_ACCENT}${UI_BOLD}EDITAR SELEÇÕES${UI_RESET}" "center"
-    echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
+    local n="${UI_PEACH}${UI_BOLD}" r="${UI_RESET}"
+    printf "  ${n}0${r} ${UI_MUTED}Config${r}   ${n}1${r} ${UI_MUTED}Shells${r}   ${n}2${r} ${UI_MUTED}Fontes${r}   ${n}3${r} ${UI_MUTED}Terminais${r}   ${n}4${r} ${UI_MUTED}CLI${r}\n"
+    printf "  ${n}5${r} ${UI_MUTED}IA${r}       ${n}6${r} ${UI_MUTED}Apps GUI${r}   ${n}7${r} ${UI_MUTED}Runtimes${r}   ${n}8${r} ${UI_MUTED}Git${r}\n"
+    echo ""
+    printf "  ${UI_GREEN}${UI_BOLD}Enter${r}  ${UI_MUTED}Iniciar instalação${r}       ${UI_RED}${UI_BOLD}S${r}  ${UI_MUTED}Sair${r}\n"
 
-    local n="${UI_PEACH}"
-    local t="${UI_TEXT}"
-    _print_box_line "$inner_w" " ${n}0${UI_RESET} ${t}Config${UI_RESET}  ${n}1${UI_RESET} ${t}Shells${UI_RESET}  ${n}2${UI_RESET} ${t}Fontes${UI_RESET}  ${n}3${UI_RESET} ${t}Terminais${UI_RESET}  ${n}4${UI_RESET} ${t}CLI${UI_RESET}  ${n}5${UI_RESET} ${t}IA${UI_RESET}"
-    _print_box_line "$inner_w" " ${n}6${UI_RESET} ${t}Apps GUI${UI_RESET}  ${n}7${UI_RESET} ${t}Runtimes${UI_RESET}  ${n}8${UI_RESET} ${t}Git${UI_RESET}"
-    echo -e "${UI_BORDER}├$(_rv_hline "$inner_w")┤${UI_RESET}"
-    _print_box_line "$inner_w" "${UI_GREEN}${UI_BOLD}Enter${UI_RESET} ${UI_MUTED}Iniciar instalação${UI_RESET}   ${UI_RED}${UI_BOLD}S${UI_RESET} ${UI_MUTED}Sair${UI_RESET}"
-    _rv_section_footer "$inner_w"
+    _rv_hbar "$width"
     echo ""
     read -r -p "  → " choice
 
@@ -1442,7 +1391,7 @@ review_selections() {
         ask_git_configuration
         ;;
       0)
-        ask_configs_to_copy
+        _toggle_configs
         ;;
       *)
         msg "  ⚠️ Opção inválida."
@@ -1466,7 +1415,184 @@ confirm_action() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SELEÇÃO DE CONFIGURAÇÕES A COPIAR
+# TOGGLE CONFIGS — toggle inline rápido no RESUMO FINAL (opção 0)
+# ══════════════════════════════════════════════════════════════════════════════
+_toggle_configs() {
+  local cfg_names=()
+  local cfg_keys=()
+  local cfg_labels=()
+
+  [[ ${INSTALL_ZSH:-0} -eq 1 ]]      && cfg_names+=("Zsh")      && cfg_keys+=("COPY_ZSH_CONFIG")
+  [[ ${INSTALL_FISH:-0} -eq 1 ]]     && cfg_names+=("Fish")     && cfg_keys+=("COPY_FISH_CONFIG")
+  [[ ${INSTALL_NUSHELL:-0} -eq 1 ]]  && cfg_names+=("Nushell")  && cfg_keys+=("COPY_NUSHELL_CONFIG")
+  [[ ${GIT_CONFIGURE:-0} -eq 1 ]]    && cfg_names+=("Git")      && cfg_keys+=("COPY_GIT_CONFIG")
+
+  local _ide
+  for _ide in "${SELECTED_IDES[@]}"; do
+    case "$_ide" in
+      neovim)       [[ -d "$CONFIG_SHARED/nvim" ]]                 && cfg_names+=("Neovim")  && cfg_keys+=("COPY_NVIM_CONFIG") ;;
+      vscode|cursor) [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] && cfg_names+=("VSCode")  && cfg_keys+=("COPY_VSCODE_SETTINGS") ;;
+      zed)          [[ -f "$CONFIG_SHARED/zed/settings.json" ]]    && cfg_names+=("Zed")     && cfg_keys+=("COPY_ZED_CONFIG") ;;
+      helix)        [[ -f "$CONFIG_SHARED/helix/config.toml" ]]    && cfg_names+=("Helix")   && cfg_keys+=("COPY_HELIX_CONFIG") ;;
+    esac
+  done
+
+  local _tool
+  for _tool in "${SELECTED_CLI_TOOLS[@]}"; do
+    case "$_tool" in
+      tmux)    [[ -d "$CONFIG_SHARED/tmux" ]]                && cfg_names+=("tmux")    && cfg_keys+=("COPY_TMUX_CONFIG") ;;
+      lazygit) [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]  && cfg_names+=("lazygit") && cfg_keys+=("COPY_LAZYGIT_CONFIG") ;;
+      yazi)    [[ -d "$CONFIG_SHARED/yazi" ]]                 && cfg_names+=("yazi")    && cfg_keys+=("COPY_YAZI_CONFIG") ;;
+      btop)    [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]       && cfg_names+=("btop")    && cfg_keys+=("COPY_BTOP_CONFIG") ;;
+      bat)     [[ -f "$CONFIG_SHARED/bat/config" ]]           && cfg_names+=("bat")     && cfg_keys+=("COPY_BAT_CONFIG") ;;
+      ripgrep) [[ -f "$CONFIG_SHARED/.ripgreprc" ]]           && cfg_names+=("ripgrep") && cfg_keys+=("COPY_RIPGREP_CONFIG") ;;
+      direnv)  [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]     && cfg_names+=("direnv")  && cfg_keys+=("COPY_DIRENV_CONFIG") ;;
+    esac
+  done
+
+  local _ia
+  for _ia in "${SELECTED_IA_TOOLS[@]}"; do
+    [[ "$_ia" == "aider" ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]] && cfg_names+=("aider") && cfg_keys+=("COPY_AIDER_CONFIG")
+  done
+
+  local _term
+  for _term in "${SELECTED_TERMINALS[@]}"; do
+    case "$_term" in
+      ghostty)   cfg_names+=("ghostty")   && cfg_keys+=("COPY_TERMINAL_CONFIG") ;;
+      kitty)     [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]       && cfg_names+=("kitty")     && cfg_keys+=("COPY_KITTY_CONFIG") ;;
+      alacritty) [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]] && cfg_names+=("alacritty") && cfg_keys+=("COPY_ALACRITTY_CONFIG") ;;
+      wezterm)   [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]     && cfg_names+=("wezterm")   && cfg_keys+=("COPY_WEZTERM_CONFIG") ;;
+    esac
+  done
+
+  [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_names+=("Starship") && cfg_keys+=("COPY_STARSHIP_CONFIG")
+  [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_names+=("Mise") && cfg_keys+=("COPY_MISE_CONFIG")
+
+  local _rt
+  for _rt in "${SELECTED_RUNTIMES[@]}"; do
+    case "$_rt" in
+      node)   [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]       && cfg_names+=("npm")   && cfg_keys+=("COPY_NPM_CONFIG") ;;
+      python) [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]     && cfg_names+=("pip")   && cfg_keys+=("COPY_PIP_CONFIG") ;;
+      rust)   [[ -f "$CONFIG_SHARED/cargo/config.toml" ]] && cfg_names+=("cargo") && cfg_keys+=("COPY_CARGO_CONFIG") ;;
+    esac
+  done
+
+  local _dt
+  for _dt in "${SELECTED_DEV_TOOLS[@]}"; do
+    [[ "$_dt" == "docker" ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]] && cfg_names+=("Docker") && cfg_keys+=("COPY_DOCKER_CONFIG")
+  done
+
+  if [[ ${#cfg_names[@]} -eq 0 ]]; then
+    msg "  ℹ️  Nenhuma configuração disponível."
+    sleep 1
+    return
+  fi
+
+  while true; do
+    clear_screen
+    echo ""
+    echo -e "  ${UI_ACCENT}${UI_BOLD}📋 Toggle Configs${UI_RESET}  ${UI_MUTED}(digite número para alternar, Enter para voltar)${UI_RESET}"
+    echo ""
+
+    local i cols=3
+    local col_w=25
+    local count=${#cfg_names[@]}
+
+    for (( i=0; i<count; i++ )); do
+      local key="${cfg_keys[$i]}"
+      local val="${!key:-0}"
+      local icon="${UI_DIM}✗${UI_RESET}"
+      [[ $val -eq 1 ]] && icon="${UI_GREEN}${UI_BOLD}✓${UI_RESET}"
+      local num="${UI_PEACH}${UI_BOLD}$((i+1))${UI_RESET}"
+      printf "  ${num} ${icon} ${UI_TEXT}%-16s${UI_RESET}" "${cfg_names[$i]}"
+      if (( (i+1) % cols == 0 )); then
+        echo ""
+      fi
+    done
+    (( count % cols != 0 )) && echo ""
+    echo ""
+
+    local toggle_choice
+    read -r -p "  → " toggle_choice
+
+    [[ -z "$toggle_choice" ]] && return
+
+    if [[ "$toggle_choice" =~ ^[0-9]+$ ]] && (( toggle_choice >= 1 && toggle_choice <= count )); then
+      local idx=$((toggle_choice - 1))
+      local key="${cfg_keys[$idx]}"
+      local cur="${!key:-0}"
+      if [[ $cur -eq 1 ]]; then
+        eval "$key=0"
+      else
+        eval "$key=1"
+      fi
+    fi
+  done
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AUTO-ENABLE CONFIGS — habilita COPY_* para apps selecionados com config no repo
+# ══════════════════════════════════════════════════════════════════════════════
+_auto_enable_configs() {
+  [[ ${INSTALL_ZSH:-0} -eq 1 ]]     && COPY_ZSH_CONFIG=1
+  [[ ${INSTALL_FISH:-0} -eq 1 ]]    && COPY_FISH_CONFIG=1
+  [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && COPY_NUSHELL_CONFIG=1
+  [[ ${GIT_CONFIGURE:-0} -eq 1 ]]   && COPY_GIT_CONFIG=1
+  [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && COPY_STARSHIP_CONFIG=1
+  [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && COPY_MISE_CONFIG=1
+  [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]] && COPY_TERMINAL_CONFIG=1
+
+  local _ide _tool _ia _term _rt _dt
+  for _ide in "${SELECTED_IDES[@]}"; do
+    case "$_ide" in
+      neovim)  [[ -d "$CONFIG_SHARED/nvim" ]]                 && COPY_NVIM_CONFIG=1 ;;
+      vscode|cursor)  [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] && COPY_VSCODE_SETTINGS=1 ;;
+      zed)     [[ -f "$CONFIG_SHARED/zed/settings.json" ]]    && COPY_ZED_CONFIG=1 ;;
+      helix)   [[ -f "$CONFIG_SHARED/helix/config.toml" ]]    && COPY_HELIX_CONFIG=1 ;;
+    esac
+  done
+
+  for _tool in "${SELECTED_CLI_TOOLS[@]}"; do
+    case "$_tool" in
+      tmux)    [[ -d "$CONFIG_SHARED/tmux" ]]                  && COPY_TMUX_CONFIG=1 ;;
+      lazygit) [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]    && COPY_LAZYGIT_CONFIG=1 ;;
+      yazi)    [[ -d "$CONFIG_SHARED/yazi" ]]                   && COPY_YAZI_CONFIG=1 ;;
+      btop)    [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]         && COPY_BTOP_CONFIG=1 ;;
+      bat)     [[ -f "$CONFIG_SHARED/bat/config" ]]             && COPY_BAT_CONFIG=1 ;;
+      ripgrep) [[ -f "$CONFIG_SHARED/.ripgreprc" ]]             && COPY_RIPGREP_CONFIG=1 ;;
+      direnv)  [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]       && COPY_DIRENV_CONFIG=1 ;;
+    esac
+  done
+
+  for _ia in "${SELECTED_IA_TOOLS[@]}"; do
+    [[ "$_ia" == "aider" ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]] && COPY_AIDER_CONFIG=1
+  done
+
+  for _term in "${SELECTED_TERMINALS[@]}"; do
+    case "$_term" in
+      kitty)     [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]       && COPY_KITTY_CONFIG=1 ;;
+      alacritty) [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]] && COPY_ALACRITTY_CONFIG=1 ;;
+      wezterm)   [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]     && COPY_WEZTERM_CONFIG=1 ;;
+    esac
+  done
+
+  for _rt in "${SELECTED_RUNTIMES[@]}"; do
+    case "$_rt" in
+      node)   [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]        && COPY_NPM_CONFIG=1
+              [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]      && COPY_PNPM_CONFIG=1
+              [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]       && COPY_YARN_CONFIG=1 ;;
+      python) [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]       && COPY_PIP_CONFIG=1 ;;
+      rust)   [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]  && COPY_CARGO_CONFIG=1 ;;
+    esac
+  done
+
+  for _dt in "${SELECTED_DEV_TOOLS[@]}"; do
+    [[ "$_dt" == "docker" ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]] && COPY_DOCKER_CONFIG=1
+  done
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SELEÇÃO DE CONFIGURAÇÕES A COPIAR (toggle manual via opção 0 do RESUMO FINAL)
 # ══════════════════════════════════════════════════════════════════════════════
 ask_configs_to_copy() {
   local config_options=()
@@ -1562,6 +1688,18 @@ ask_configs_to_copy() {
       wezterm)   _has_wezterm=1 ;;
     esac
   done
+  local _has_node=0 _has_python=0 _has_rust=0
+  for _rt in "${SELECTED_RUNTIMES[@]}"; do
+    case "$_rt" in
+      node)   _has_node=1 ;;
+      python) _has_python=1 ;;
+      rust)   _has_rust=1 ;;
+    esac
+  done
+  local _has_docker=0
+  for _dt in "${SELECTED_DEV_TOOLS[@]}"; do
+    [[ "$_dt" == "docker" ]] && _has_docker=1
+  done
 
   if (( _has_vscode || _has_cursor )) && { [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; }; then
     config_options+=("vscode-config   - VS Code (settings + extensões)")
@@ -1608,27 +1746,27 @@ ask_configs_to_copy() {
     config_keys+=("COPY_RIPGREP_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
+  if [[ $_has_node -eq 1 ]] && [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
     config_options+=("npm-config      - NPM (~/.npmrc)")
     config_keys+=("COPY_NPM_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
+  if [[ $_has_node -eq 1 ]] && [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
     config_options+=("pnpm-config     - PNPM (~/.config/pnpm/)")
     config_keys+=("COPY_PNPM_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
+  if [[ $_has_node -eq 1 ]] && [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
     config_options+=("yarn-config     - Yarn (~/.yarnrc)")
     config_keys+=("COPY_YARN_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
+  if [[ $_has_python -eq 1 ]] && [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
     config_options+=("pip-config      - Pip (~/.config/pip/)")
     config_keys+=("COPY_PIP_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
+  if [[ $_has_rust -eq 1 ]] && [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
     config_options+=("cargo-config    - Cargo (~/.cargo/)")
     config_keys+=("COPY_CARGO_CONFIG")
   fi
@@ -1648,7 +1786,7 @@ ask_configs_to_copy() {
     config_keys+=("COPY_AIDER_CONFIG")
   fi
 
-  if [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
+  if [[ $_has_docker -eq 1 ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
     config_options+=("docker-config   - Docker (~/.docker/)")
     config_keys+=("COPY_DOCKER_CONFIG")
   fi
@@ -2831,7 +2969,8 @@ main() {
     ask_gui_apps
     ask_runtimes
     ask_git_configuration
-    ask_configs_to_copy
+
+    _auto_enable_configs
 
     # ══════════════════════════════════════════════════════════════
     # Confirmação Final e Checkpoint

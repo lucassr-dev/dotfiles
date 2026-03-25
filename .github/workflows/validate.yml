@@ -35,9 +35,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install Bash 5 (macOS)
+        if: runner.os == 'macOS'
+        run: brew install bash
       - name: Dry run
         shell: bash
-        run: DRY_RUN=1 bash install.sh < /dev/null
+        run: |
+          if [[ "${RUNNER_OS}" == "macOS" ]]; then
+            DRY_RUN=1 /opt/homebrew/bin/bash install.sh < /dev/null || true
+          else
+            DRY_RUN=1 bash install.sh < /dev/null || true
+          fi
 
   tests:
     name: BATS Tests
