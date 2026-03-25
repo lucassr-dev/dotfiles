@@ -208,3 +208,21 @@ Layout sem bordas laterais — dividers horizontais (`── TITULO ────
 1. Criar `_install_via_newpm()` em `lib/install_priority.sh`
 2. Adicionar ao `case` em `install_with_priority()`
 3. Adicionar deteccao em `is_app_installed()` (install.sh)
+
+## Referencias de Design
+
+### Diretrizes de CLI e Acessibilidade
+
+- [CLIG](https://clig.dev/) — "Human-first design", "Saying (just) enough", "Ease of discovery"
+- [NO_COLOR](https://no-color.org/) — Padrao para desabilitar cores via `NO_COLOR`
+- [WCAG 2.2 Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html)
+- [WCAG 2.2 Info and Relationships](https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html)
+
+### Ferramentas e Projetos de Referencia
+
+- [Gum](https://github.com/charmbracelet/gum) — Componentes terminais configuraveis para shell scripts
+- [fzf](https://github.com/junegunn/fzf) — Labels de borda, headers e areas de informacao dinamica
+- [Lip Gloss](https://github.com/charmbracelet/lipgloss) — Medicao de largura, composicao e alinhamento preservando ANSI
+- [Ratatui Layout](https://ratatui.rs/concepts/layout/) — Layouts responsivos com Min/Max/Percentage
+- [gh-dash](https://github.com/dlvhdr/gh-dash) — Dashboard rico sem quebrar o fluxo do terminal
+- [chezmoi](https://www.chezmoi.io/user-guide/command-overview/) — Separacao clara entre status, diff e apply

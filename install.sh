@@ -87,6 +87,7 @@ declare -a OPTIONAL_ERRORS=()
 declare -a COPIED_PATHS=()
 declare -a INSTALLED_PACKAGES=()
 declare -a INSTALLED_MISC=()
+POST_INSTALL_REPORT_SHOWN=0
 
 # ═══════════════════════════════════════════════════════════
 # Trap para cleanup em caso de interrupção (Ctrl+C)
@@ -1013,18 +1014,35 @@ _join_items() {
 
 _rv_div() {
   local w="$1" title="$2"
+  local pad_left="${left_pad:-0}"
+  local divider_color="${rv_divider_color:-$UI_BORDER}"
+  local section_color="${rv_section_color:-${UI_LAVENDER:-$UI_ACCENT}}"
   local title_vis fill fill_str
   title_vis=$(_visible_len "$title")
   fill=$(( w - title_vis - 4 ))
   [[ $fill -lt 0 ]] && fill=0
   printf -v fill_str '%*s' "$fill" ''
-  echo -e "${UI_BORDER}── ${UI_ACCENT}${UI_BOLD}${title}${UI_RESET}${UI_BORDER} ${fill_str// /─}${UI_RESET}"
+  printf "%*s%b\n" "$pad_left" "" "${divider_color}── ${section_color}${UI_BOLD}${title}${UI_RESET}${divider_color} ${fill_str// /─}${UI_RESET}"
 }
 
 _rv_hbar() {
   local w="$1" bar
+  local pad_left="${left_pad:-0}"
+  local divider_color="${rv_divider_color:-$UI_BORDER}"
   printf -v bar '%*s' "$w" ''
-  echo -e "${UI_BORDER}${bar// /─}${UI_RESET}"
+  printf "%*s%b\n" "$pad_left" "" "${divider_color}${bar// /─}${UI_RESET}"
+}
+
+_rv_measure_label_width() {
+  local min_width="$1"
+  shift
+  local max_width="$min_width"
+  local label label_vis
+  for label in "$@"; do
+    label_vis=$(_visible_len "${label}:")
+    [[ $label_vis -gt $max_width ]] && max_width="$label_vis"
+  done
+  echo $((max_width + 1))
 }
 
 _count_total_packages() {
@@ -1122,14 +1140,12 @@ review_selections() {
     local term_width
     term_width=$(tput cols 2>/dev/null || echo 80)
 
-    local width=$((term_width > 76 ? 76 : term_width - 4))
-    [[ $width -lt 40 ]] && width=40
-
-    echo ""
-    _rv_hbar "$width"
-    echo -e "  ${UI_GREEN}${UI_BOLD}RESUMO FINAL${UI_RESET}"
-    _rv_hbar "$width"
-    echo ""
+    local width=$((term_width > 98 ? 92 : term_width - 6))
+    [[ $width -lt 48 ]] && width=48
+    local left_pad=2
+    local rv_divider_color="${UI_OVERLAY1:-$UI_BORDER}"
+    local rv_section_color="${UI_MAUVE:-$UI_ACCENT}"
+    local rv_label_color="${UI_LAVENDER:-$UI_ACCENT}"
 
     local total_pkgs total_cfgs
     total_pkgs=$(_count_total_packages)
@@ -1145,13 +1161,28 @@ review_selections() {
     [[ ${#actions_to_do[@]} -gt 0 ]] && actions_plain="${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
 
     local so_color="$UI_TEAL"
-    [[ "${TARGET_OS:-linux}" == "macos" ]]   && so_color="$UI_PEACH"
-    [[ "${TARGET_OS:-linux}" == "windows" ]] && so_color="$UI_BLUE"
+    local so_icon="🐧"
+    local so_name="${TARGET_OS:-linux}"
+    if [[ "${TARGET_OS:-linux}" == "macos" ]]; then
+      so_color="$UI_PEACH"
+      so_icon="🍎"
+      so_name="macOS"
+    elif [[ "${TARGET_OS:-linux}" == "windows" ]]; then
+      so_color="$UI_BLUE"
+      so_icon="⊞"
+      so_name="Windows"
+    elif [[ "${TARGET_OS:-linux}" == "wsl2" ]]; then
+      so_color="$UI_SKY"
+      so_name="WSL2"
+    else
+      so_name="Linux"
+    fi
 
-    printf "  ${UI_PEACH}${UI_BOLD}📦 %s${UI_RESET}  ${UI_MUTED}pacotes${UI_RESET}     " "$total_pkgs"
-    printf "${UI_BLUE}${UI_BOLD}📁 %s${UI_RESET}  ${UI_MUTED}configs${UI_RESET}     " "$total_cfgs"
-    printf "${so_color}🐧 %s${UI_RESET}\n" "${TARGET_OS:-linux}"
-    printf "  ${UI_MUTED}⚙️  Ações${UI_RESET}   ${actions_plain}\n"
+    echo ""
+    _rv_hbar "$width"
+    printf "%*s%b\n" "$left_pad" "" "  ${UI_GREEN}${UI_BOLD}RESUMO FINAL${UI_RESET}"
+    printf "%*s%b\n" "$left_pad" "" "  ${UI_SUBTEXT1}Revise o plano abaixo. Use ${UI_YELLOW}${UI_BOLD}0-8${UI_RESET}${UI_SUBTEXT1} para ajustar qualquer grupo antes de iniciar.${UI_RESET}"
+    _rv_hbar "$width"
     echo ""
 
     local selected_shells=()
@@ -1190,6 +1221,8 @@ review_selections() {
       local lbl_w="$1" label="$2" empty_val="$3"
       shift 3
       local items=("$@")
+      local pad_left="${left_pad:-0}"
+      local label_color="${rv_label_color:-$UI_MUTED}"
       local label_str="${label}:"
       local label_vis pad label_col
       label_vis=$(_visible_len "$label_str")
@@ -1199,21 +1232,55 @@ review_selections() {
       local value_w=$(( width - lbl_w - 4 ))
       [[ $value_w -lt 10 ]] && value_w=10
       if [[ ${#items[@]} -eq 0 ]]; then
-        printf "  ${UI_MUTED}%s${UI_RESET}${UI_DIM}%s${UI_RESET}\n" "$label_col" "$empty_val"
+        printf "%*s  ${label_color}%s${UI_RESET}${UI_DIM}%s${UI_RESET}\n" "$pad_left" "" "$label_col" "$empty_val"
         return
       fi
-      local combined
-      combined=$(printf '%s, ' "${items[@]}")
-      combined="${combined%, }"
       local -a lines=()
-      _wrap_text "$combined" "$value_w" lines
-      [[ ${#lines[@]} -eq 0 ]] && lines=("$combined")
-      printf "  ${UI_MUTED}%s${UI_RESET}${UI_TEXT}%s${UI_RESET}\n" "$label_col" "${lines[0]}"
+      local line="" item candidate
+      for item in "${items[@]}"; do
+        if [[ -z "$line" ]]; then
+          line="$item"
+          continue
+        fi
+        candidate="${line}, ${item}"
+        if (( $(_visible_len "$candidate") > value_w )); then
+          lines+=("${line},")
+          line="$item"
+        else
+          line="$candidate"
+        fi
+      done
+      [[ -n "$line" ]] && lines+=("$line")
+      printf "%*s  ${label_color}%s${UI_RESET}${UI_TEXT}%s${UI_RESET}\n" "$pad_left" "" "$label_col" "${lines[0]}"
       local indent
       printf -v indent '%*s' "$((lbl_w + 2))" ''
       local i
       for (( i=1; i<${#lines[@]}; i++ )); do
-        printf "  %s${UI_TEXT}%s${UI_RESET}\n" "$indent" "${lines[i]}"
+        printf "%*s  %s${UI_TEXT}%s${UI_RESET}\n" "$pad_left" "" "$indent" "${lines[i]}"
+      done
+    }
+
+    _rv_kv() {
+      local lbl_w="$1" label="$2" value="$3"
+      local pad_left="${left_pad:-0}"
+      local label_color="${rv_label_color:-$UI_MUTED}"
+      local label_str="${label}:"
+      local label_vis pad label_col
+      label_vis=$(_visible_len "$label_str")
+      pad=$(( lbl_w - label_vis ))
+      [[ $pad -lt 0 ]] && pad=0
+      printf -v label_col '%s%*s' "$label_str" "$pad" ''
+      local value_w=$(( width - lbl_w - 4 ))
+      [[ $value_w -lt 10 ]] && value_w=10
+      local -a lines=()
+      _wrap_text "$value" "$value_w" lines
+      [[ ${#lines[@]} -eq 0 ]] && lines=("$value")
+      printf "%*s  ${label_color}%s${UI_RESET}%b\n" "$pad_left" "" "$label_col" "${lines[0]}"
+      local indent
+      printf -v indent '%*s' "$((lbl_w + 2))" ''
+      local i
+      for (( i=1; i<${#lines[@]}; i++ )); do
+        printf "%*s  %s%b\n" "$pad_left" "" "$indent" "${lines[i]}"
       done
     }
 
@@ -1232,27 +1299,73 @@ review_selections() {
       local lbl_w="$1" label="$2" arr_name="$3"
       local -n _cfg_ref="$arr_name"
       [[ ${#_cfg_ref[@]} -eq 0 ]] && return
+      local pad_left="${left_pad:-0}"
+      local label_color="${rv_label_color:-$UI_MUTED}"
       local label_str="${label}:"
       local label_vis pad label_col
       label_vis=$(_visible_len "$label_str")
       pad=$(( lbl_w - label_vis ))
       [[ $pad -lt 0 ]] && pad=0
       printf -v label_col '%s%*s' "$label_str" "$pad" ''
-      local text="${_cfg_ref[*]}"
-      printf "  ${UI_MUTED}%s${UI_RESET}%b\n" "$label_col" "$text"
+      local value_w=$(( width - lbl_w - 4 ))
+      [[ $value_w -lt 10 ]] && value_w=10
+      local -a lines=()
+      local line="" item candidate
+      for item in "${_cfg_ref[@]}"; do
+        if [[ -z "$line" ]]; then
+          line="$item"
+          continue
+        fi
+        candidate="${line}  ${item}"
+        if (( $(_visible_len "$candidate") > value_w )); then
+          lines+=("$line")
+          line="$item"
+        else
+          line="$candidate"
+        fi
+      done
+      [[ -n "$line" ]] && lines+=("$line")
+      printf "%*s  ${label_color}%s${UI_RESET}%b\n" "$pad_left" "" "$label_col" "${lines[0]}"
+      local indent
+      printf -v indent '%*s' "$((lbl_w + 2))" ''
+      local i
+      for (( i=1; i<${#lines[@]}; i++ )); do
+        printf "%*s  %s%b\n" "$pad_left" "" "$indent" "${lines[i]}"
+      done
     }
 
+    _rv_menu_cell() {
+      local num="$1" label="$2" cell_w="$3"
+      local cell_plain="${num} ${label}"
+      local pad=$(( cell_w - $(_visible_len "$cell_plain") ))
+      [[ $pad -lt 0 ]] && pad=0
+      printf "${UI_YELLOW}${UI_BOLD}%s${UI_RESET} ${UI_SUBTEXT1}%s${UI_RESET}%*s" "$num" "$label" "$pad" ""
+    }
+
+    local env_label_w tools_label_w apps_label_w cfg_label_w
+    env_label_w=$(_rv_measure_label_width 10 "Shells" "Terminais" "Temas" "Fontes")
+    tools_label_w=$(_rv_measure_label_width 10 "CLI" "IA" "Runtimes")
+    apps_label_w=$(_rv_measure_label_width 12 "IDEs" "Navegadores" "Dev Tools" "Bancos" "Produtividade" "Comunicação" "Mídia" "Utilitários")
+    cfg_label_w=$(_rv_measure_label_width 12 "Shells" "Terminais" "Editores" "Runtimes" "Ferramentas")
+
+    _rv_kv 15 "Pacotes" "${UI_PEACH}${UI_BOLD}${total_pkgs}${UI_RESET} ${UI_TEXT}selecionados${UI_RESET}"
+    _rv_kv 15 "Configs" "${UI_BLUE}${UI_BOLD}${total_cfgs}${UI_RESET} ${UI_TEXT}para copiar${UI_RESET}"
+    _rv_kv 15 "Sistema" "${so_color}${UI_BOLD}${so_icon} ${so_name}${UI_RESET}"
+    _rv_kv 15 "Ações extras" "${actions_plain}"
+    _rv_kv 15 "Backup" "${UI_DIM}${BACKUP_DIR}${UI_RESET}"
+    echo ""
+
     _rv_div "$width" "🏠 AMBIENTE"
-    _rv_lv 10 "Shells"   "(nenhum)"  "${selected_shells[@]}"
-    _rv_lv 10 "Terminal" "(nenhum)"  "${SELECTED_TERMINALS[@]}"
-    _rv_lv 10 "Temas"    "(nenhum)"  "${themes_selected[@]}"
-    _rv_lv 10 "Fontes"   "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
+    _rv_lv "$env_label_w" "Shells"    "(nenhum)"  "${selected_shells[@]}"
+    _rv_lv "$env_label_w" "Terminais" "(nenhum)"  "${SELECTED_TERMINALS[@]}"
+    _rv_lv "$env_label_w" "Temas"     "(nenhum)"  "${themes_selected[@]}"
+    _rv_lv "$env_label_w" "Fontes"    "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
     echo ""
 
     _rv_div "$width" "🔧 FERRAMENTAS"
-    _rv_lv 10 "CLI"      "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
-    _rv_lv 10 "IA"       "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
-    _rv_lv 10 "Runtimes" "(nenhum)"  "${SELECTED_RUNTIMES[@]}"
+    _rv_lv "$tools_label_w" "CLI"      "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
+    _rv_lv "$tools_label_w" "IA"       "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
+    _rv_lv "$tools_label_w" "Runtimes" "(nenhum)"  "${SELECTED_RUNTIMES[@]}"
     echo ""
 
     local gui_total=0
@@ -1261,14 +1374,14 @@ review_selections() {
                  ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
     if [[ $gui_total -gt 0 ]]; then
       _rv_div "$width" "🖥 APPS GUI"
-      [[ ${#SELECTED_IDES[@]} -gt 0 ]]          && _rv_lv 14 "IDEs"          "" "${SELECTED_IDES[@]}"
-      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]      && _rv_lv 14 "Navegadores"   "" "${SELECTED_BROWSERS[@]}"
-      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]     && _rv_lv 14 "Dev Tools"     "" "${SELECTED_DEV_TOOLS[@]}"
-      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]     && _rv_lv 14 "Bancos"        "" "${SELECTED_DATABASES[@]}"
-      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]  && _rv_lv 14 "Produtividade" "" "${SELECTED_PRODUCTIVITY[@]}"
-      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _rv_lv 14 "Comunicação"   "" "${SELECTED_COMMUNICATION[@]}"
-      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]         && _rv_lv 14 "Mídia"         "" "${SELECTED_MEDIA[@]}"
-      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]     && _rv_lv 14 "Utilitários"   "" "${SELECTED_UTILITIES[@]}"
+      [[ ${#SELECTED_IDES[@]} -gt 0 ]]          && _rv_lv "$apps_label_w" "IDEs"          "" "${SELECTED_IDES[@]}"
+      [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]      && _rv_lv "$apps_label_w" "Navegadores"   "" "${SELECTED_BROWSERS[@]}"
+      [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]     && _rv_lv "$apps_label_w" "Dev Tools"     "" "${SELECTED_DEV_TOOLS[@]}"
+      [[ ${#SELECTED_DATABASES[@]} -gt 0 ]]     && _rv_lv "$apps_label_w" "Bancos"        "" "${SELECTED_DATABASES[@]}"
+      [[ ${#SELECTED_PRODUCTIVITY[@]} -gt 0 ]]  && _rv_lv "$apps_label_w" "Produtividade" "" "${SELECTED_PRODUCTIVITY[@]}"
+      [[ ${#SELECTED_COMMUNICATION[@]} -gt 0 ]] && _rv_lv "$apps_label_w" "Comunicação"   "" "${SELECTED_COMMUNICATION[@]}"
+      [[ ${#SELECTED_MEDIA[@]} -gt 0 ]]         && _rv_lv "$apps_label_w" "Mídia"         "" "${SELECTED_MEDIA[@]}"
+      [[ ${#SELECTED_UTILITIES[@]} -gt 0 ]]     && _rv_lv "$apps_label_w" "Utilitários"   "" "${SELECTED_UTILITIES[@]}"
       echo ""
     fi
 
@@ -1323,33 +1436,51 @@ review_selections() {
     [[ ${INSTALL_STARSHIP:-0} -eq 1    ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_STARSHIP_CONFIG:-0}" "Starship")")
 
     _rv_div "$width" "📋 COPIAR CONFIGURAÇÕES"
-    _rv_cfg_row 13 "Shells"      "cfg_shells"
-    _rv_cfg_row 13 "Terminais"   "cfg_terminals"
-    _rv_cfg_row 13 "Editores"    "cfg_editors"
-    _rv_cfg_row 13 "Runtimes"    "cfg_runtime"
-    _rv_cfg_row 13 "Ferramentas" "cfg_tools"
+    _rv_cfg_row "$cfg_label_w" "Shells"      "cfg_shells"
+    _rv_cfg_row "$cfg_label_w" "Terminais"   "cfg_terminals"
+    _rv_cfg_row "$cfg_label_w" "Editores"    "cfg_editors"
+    _rv_cfg_row "$cfg_label_w" "Runtimes"    "cfg_runtime"
+    _rv_cfg_row "$cfg_label_w" "Ferramentas" "cfg_tools"
 
     local has_any_cfg=0
     [[ ${#cfg_shells[@]} -gt 0    || ${#cfg_editors[@]} -gt 0   || \
        ${#cfg_tools[@]} -gt 0     || ${#cfg_terminals[@]} -gt 0 || \
        ${#cfg_runtime[@]} -gt 0 ]] && has_any_cfg=1
     if [[ $has_any_cfg -eq 0 ]]; then
-      printf "  ${UI_DIM}(nenhuma configuração disponível)${UI_RESET}\n"
+      printf "%*s  ${UI_DIM}(nenhuma configuração disponível)${UI_RESET}\n" "$left_pad" ""
     fi
 
     echo ""
-    _rv_hbar "$width"
+    _rv_div "$width" "✏️ AJUSTAR SELEÇÕES"
+    printf "%*s%b\n" "$left_pad" "" "  ${UI_SUBTEXT1}Digite o número da seção que deseja revisar:${UI_RESET}"
     echo ""
 
-    local n="${UI_PEACH}${UI_BOLD}" r="${UI_RESET}"
-    printf "  ${n}0${r} ${UI_MUTED}Config${r}   ${n}1${r} ${UI_MUTED}Shells${r}   ${n}2${r} ${UI_MUTED}Fontes${r}   ${n}3${r} ${UI_MUTED}Terminais${r}   ${n}4${r} ${UI_MUTED}CLI${r}\n"
-    printf "  ${n}5${r} ${UI_MUTED}IA${r}       ${n}6${r} ${UI_MUTED}Apps GUI${r}   ${n}7${r} ${UI_MUTED}Runtimes${r}   ${n}8${r} ${UI_MUTED}Git${r}\n"
+    local menu_numbers=(0 1 2 3 4 5 6 7 8)
+    local menu_labels=("Configs" "Shells" "Fontes" "Terminais" "CLI" "IA" "Apps GUI" "Runtimes" "Git")
+    local menu_cols=3
+    [[ $width -lt 64 ]] && menu_cols=2
+    [[ $width -lt 48 ]] && menu_cols=1
+    local menu_gap=3
+    local menu_cell_w=$(( (width - (menu_gap * (menu_cols - 1)) - 2) / menu_cols ))
+    [[ $menu_cell_w -lt 14 ]] && menu_cell_w=14
+    local i
+    for (( i=0; i<${#menu_numbers[@]}; i++ )); do
+      if (( i % menu_cols == 0 )); then
+        printf "%*s  " "$left_pad" ""
+      fi
+      _rv_menu_cell "${menu_numbers[i]}" "${menu_labels[i]}" "$menu_cell_w"
+      if (( (i + 1) % menu_cols == 0 || i == ${#menu_numbers[@]} - 1 )); then
+        echo ""
+      else
+        printf "%*s" "$menu_gap" ""
+      fi
+    done
     echo ""
-    printf "  ${UI_GREEN}${UI_BOLD}Enter${r}  ${UI_MUTED}Iniciar instalação${r}       ${UI_RED}${UI_BOLD}S${r}  ${UI_MUTED}Sair${r}\n"
+    printf "%*s  ${UI_GREEN}${UI_BOLD}Enter${UI_RESET} ${UI_SUBTEXT1}iniciar instalação${UI_RESET}   ${UI_RED}${UI_BOLD}S${UI_RESET} ${UI_SUBTEXT1}sair${UI_RESET}\n" "$left_pad" ""
 
     _rv_hbar "$width"
     echo ""
-    read -r -p "  → " choice
+    read -r -p "$(printf '%*s  → ' "$left_pad" '')" choice
 
     case "$choice" in
       ""|c|C)
@@ -1865,17 +1996,17 @@ ask_configs_to_copy() {
 }
 
 print_error_block() {
-  local title="$1"
-  shift
+  local pad="$1" title="$2"
+  shift 2
   local items=("$@")
   if [[ ${#items[@]} -eq 0 ]]; then
     return
   fi
-  msg "  $title"
+  printf "%*s  %b\n" "$pad" "" "$title"
   for item in "${items[@]}"; do
-    msg "   - $item"
+    printf "%*s   - %s\n" "$pad" "" "$item"
   done
-  msg ""
+  echo ""
 }
 
 print_final_summary() {
@@ -1889,22 +2020,31 @@ print_final_summary() {
   fi
 
   if [[ ${#CRITICAL_ERRORS[@]} -gt 0 || ${#OPTIONAL_ERRORS[@]} -gt 0 ]]; then
-    msg ""
-    msg "⚠️  Falhas durante a execução (${MODE}):"
-    msg "────────────────────────────────────────────────────────────"
-    print_error_block "❌ Falhas críticas:" "${CRITICAL_ERRORS[@]}"
-    print_error_block "⚠️  Falhas opcionais:" "${OPTIONAL_ERRORS[@]}"
+    local term_w
+    term_w=$(tput cols 2>/dev/null || echo 80)
+    local width=$((term_w > 100 ? 94 : term_w - 6))
+    [[ $width -lt 50 ]] && width=50
+    local lp=2
+    local fs_divider="${UI_OVERLAY1:-$UI_BORDER}"
+    local fs_section="${UI_MAUVE:-$UI_ACCENT}"
+    local bar
+    printf -v bar '%*s' "$width" ''
+
+    echo ""
+    printf "%*s%b\n" "$lp" "" "${fs_divider}── ${fs_section}${UI_BOLD}⚠ FALHAS (${MODE})${UI_RESET}${fs_divider} ${bar:0:$((width - 22))}${UI_RESET}"
+    print_error_block "$lp" "${UI_RED}${UI_BOLD}❌ Falhas críticas:${UI_RESET}" "${CRITICAL_ERRORS[@]}"
+    print_error_block "$lp" "${UI_WARNING}⚠️  Falhas opcionais:${UI_RESET}" "${OPTIONAL_ERRORS[@]}"
 
     if [[ ${#CRITICAL_ERRORS[@]} -eq 0 ]]; then
-      msg "  ✅ Execução concluída sem falhas críticas."
+      printf "%*s  %b\n" "$lp" "" "${UI_GREEN}✅ Execução concluída sem falhas críticas.${UI_RESET}"
     else
-      msg "  ❌ Execução finalizada com falhas críticas."
+      printf "%*s  %b\n" "$lp" "" "${UI_RED}❌ Execução finalizada com falhas críticas.${UI_RESET}"
     fi
 
-    msg ""
+    echo ""
   fi
 
-  if [[ -n "${INSTALL_LOG:-}" ]] && [[ -f "${INSTALL_LOG:-}" ]]; then
+  if [[ "${POST_INSTALL_REPORT_SHOWN:-0}" -ne 1 ]] && [[ -n "${INSTALL_LOG:-}" ]] && [[ -f "${INSTALL_LOG:-}" ]]; then
     msg "  📄 Log completo: ${INSTALL_LOG}"
   fi
 
@@ -2451,6 +2591,9 @@ copy_tool_configs() {
 
   if [[ ${COPY_ALACRITTY_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
     copy_dir "$CONFIG_SHARED/alacritty" "$HOME/.config/alacritty"
+    if [[ "${TARGET_OS:-linux}" == "macos" ]]; then
+      sed -i'' 's/command = "xdg-open"/command = "open"/' "$HOME/.config/alacritty/alacritty.toml" 2>/dev/null
+    fi
   fi
 
   if [[ ${COPY_WEZTERM_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
@@ -3049,6 +3192,7 @@ main() {
   fi
 
   print_post_install_report
+  POST_INSTALL_REPORT_SHOWN=1
 
   print_final_summary
 }

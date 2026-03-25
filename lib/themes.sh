@@ -1196,6 +1196,7 @@ install_fish_plugins() {
     msg "  ℹ️  Fisher já está instalado"
   fi
 
+  local failed_plugins=()
   for plugin in "${SELECTED_FISH_PLUGINS[@]}"; do
     local plugin_repo=""
     local plugin_name=""
@@ -1225,16 +1226,36 @@ install_fish_plugins() {
 
     if [[ -n "$plugin_repo" ]]; then
       msg "  📥 Instalando $plugin_name..."
-      if fish -c "fisher install $plugin_repo" 2>/dev/null; then
+      local fish_install_ok=0
+      local fish_err=""
+      fish_err=$(fish -c "fisher install $plugin_repo" 2>&1) && fish_install_ok=1
+
+      if [[ $fish_install_ok -eq 0 ]] && echo "$fish_err" | grep -q "conflicting files"; then
+        local conflict_file
+        while IFS= read -r conflict_file; do
+          conflict_file="${conflict_file#"${conflict_file%%[![:space:]]*}"}"
+          [[ "$conflict_file" == /*.fish ]] && rm -f "$conflict_file"
+        done <<< "$fish_err"
+        fish -c "fisher install $plugin_repo" >/dev/null 2>&1 && fish_install_ok=1
+      fi
+
+      if [[ $fish_install_ok -eq 1 ]]; then
         INSTALLED_MISC+=("fish-plugin: $plugin")
         msg "  ✅ $plugin instalado"
       else
+        failed_plugins+=("$plugin")
+        record_failure "optional" "Falha ao instalar plugin Fish: $plugin"
         warn "Falha ao instalar $plugin"
       fi
     fi
   done
 
-  msg "  ✅ Plugins Fish instalados com sucesso!"
+  if [[ ${#failed_plugins[@]} -eq 0 ]]; then
+    msg "  ✅ Plugins Fish instalados com sucesso!"
+  else
+    warn "Plugins Fish com falhas: ${failed_plugins[*]}"
+    return 1
+  fi
 }
 
 # ═══════════════════════════════════════════════════════════
