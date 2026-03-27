@@ -2080,10 +2080,11 @@ download_and_run_script() {
     read -r -a exec_args <<< "$script_args"
   fi
 
+  # < /dev/null evita que scripts interativos travem esperando input
   if is_truthy "$VERBOSE"; then
-    "$shell_bin" "$temp_script" "${exec_args[@]}" || rc=$?
+    "$shell_bin" "$temp_script" "${exec_args[@]}" < /dev/null || rc=$?
   else
-    "$shell_bin" "$temp_script" "${exec_args[@]}" >/dev/null 2>&1 || rc=$?
+    "$shell_bin" "$temp_script" "${exec_args[@]}" < /dev/null >/dev/null 2>&1 || rc=$?
   fi
   rm -f "$temp_script"
 
