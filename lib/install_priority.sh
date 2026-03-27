@@ -335,7 +335,7 @@ _install_atuin_official() {
   local level="${1:-optional}"
   msg "  📦 Instalando Atuin via script oficial..."
 
-  if download_and_run_script "https://setup.atuin.sh" "Atuin" "bash"; then
+  if download_and_run_script "https://setup.atuin.sh" "Atuin" "bash" "" "--non-interactive"; then
     INSTALLED_MISC+=("atuin: official")
     return 0
   fi
