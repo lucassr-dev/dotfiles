@@ -15,9 +15,62 @@ GIT_WORK_NAME=""
 GIT_WORK_EMAIL=""
 GIT_WORK_USER=""
 GIT_WORK_SSH_KEY=""
-GIT_EDITOR="nvim"
+GIT_EDITOR="code"
 GIT_PAGER="delta"
 GIT_CONFIGURE=0
+
+# Pré-carrega defaults a partir dos .gitconfig-personal/.gitconfig-work estáticos
+# para que o fluxo interativo sugira valores existentes em vez de campos vazios.
+_git_load_static_defaults() {
+  local config_dir="${CONFIG_SHARED:-shared}/git"
+  local private_dir="${PRIVATE_SHARED:-}"
+
+  # Prioridade: private_shared > config_shared > sistema atual
+  local personal_file="" work_file=""
+  if [[ -n "$private_dir" ]] && [[ -f "$private_dir/git/.gitconfig-personal" ]]; then
+    personal_file="$private_dir/git/.gitconfig-personal"
+  elif [[ -f "$config_dir/.gitconfig-personal" ]]; then
+    personal_file="$config_dir/.gitconfig-personal"
+  elif [[ -f "$HOME/.gitconfig-personal" ]]; then
+    personal_file="$HOME/.gitconfig-personal"
+  fi
+
+  if [[ -n "$private_dir" ]] && [[ -f "$private_dir/git/.gitconfig-work" ]]; then
+    work_file="$private_dir/git/.gitconfig-work"
+  elif [[ -f "$config_dir/.gitconfig-work" ]]; then
+    work_file="$config_dir/.gitconfig-work"
+  elif [[ -f "$HOME/.gitconfig-work" ]]; then
+    work_file="$HOME/.gitconfig-work"
+  fi
+
+  if [[ -n "$personal_file" ]]; then
+    GIT_PERSONAL_NAME="$(git config -f "$personal_file" user.name 2>/dev/null || true)"
+    GIT_PERSONAL_EMAIL="$(git config -f "$personal_file" user.email 2>/dev/null || true)"
+    GIT_PERSONAL_USER="$(git config -f "$personal_file" github.user 2>/dev/null || true)"
+    local ssh_cmd=""
+    ssh_cmd="$(git config -f "$personal_file" core.sshCommand 2>/dev/null || true)"
+    if [[ "$ssh_cmd" =~ -i[[:space:]]+([^[:space:]]+) ]]; then
+      GIT_PERSONAL_SSH_KEY="${BASH_REMATCH[1]}"
+      GIT_PERSONAL_SSH_KEY="${GIT_PERSONAL_SSH_KEY/#\~/$HOME}"
+      GIT_PERSONAL_SSH_KEY="${GIT_PERSONAL_SSH_KEY%\"}"
+      GIT_PERSONAL_SSH_KEY="${GIT_PERSONAL_SSH_KEY#\"}"
+    fi
+  fi
+
+  if [[ -n "$work_file" ]]; then
+    GIT_WORK_NAME="$(git config -f "$work_file" user.name 2>/dev/null || true)"
+    GIT_WORK_EMAIL="$(git config -f "$work_file" user.email 2>/dev/null || true)"
+    GIT_WORK_USER="$(git config -f "$work_file" github.user 2>/dev/null || true)"
+    local ssh_cmd=""
+    ssh_cmd="$(git config -f "$work_file" core.sshCommand 2>/dev/null || true)"
+    if [[ "$ssh_cmd" =~ -i[[:space:]]+([^[:space:]]+) ]]; then
+      GIT_WORK_SSH_KEY="${BASH_REMATCH[1]}"
+      GIT_WORK_SSH_KEY="${GIT_WORK_SSH_KEY/#\~/$HOME}"
+      GIT_WORK_SSH_KEY="${GIT_WORK_SSH_KEY%\"}"
+      GIT_WORK_SSH_KEY="${GIT_WORK_SSH_KEY#\"}"
+    fi
+  fi
+}
 
 # Sanitiza path de diretório para uso em gitdir includeIf
 # Remove caracteres perigosos que poderiam injetar diretivas git config
@@ -117,6 +170,7 @@ ask_git_configuration() {
     fi
 
     GIT_CONFIGURE=1
+    _git_load_static_defaults
 
   msg ""
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -153,9 +207,19 @@ ask_git_configuration() {
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   msg ""
 
-  read -r -p "  Nome completo: " GIT_PERSONAL_NAME
-  read -r -p "  Email: " GIT_PERSONAL_EMAIL
-  read -r -p "  Usuário GitHub/GitLab (opcional): " GIT_PERSONAL_USER
+  local _input=""
+  local _def_name="${GIT_PERSONAL_NAME:-}"
+  local _def_email="${GIT_PERSONAL_EMAIL:-}"
+  local _def_user="${GIT_PERSONAL_USER:-}"
+
+  read -r -p "  Nome completo${_def_name:+ [$_def_name]}: " _input
+  GIT_PERSONAL_NAME="${_input:-$_def_name}"
+
+  read -r -p "  Email${_def_email:+ [$_def_email]}: " _input
+  GIT_PERSONAL_EMAIL="${_input:-$_def_email}"
+
+  read -r -p "  Usuário GitHub/GitLab${_def_user:+ [$_def_user]}: " _input
+  GIT_PERSONAL_USER="${_input:-$_def_user}"
 
   msg ""
   msg "🔑 Chave SSH para conta pessoal:"
@@ -164,18 +228,33 @@ ask_git_configuration() {
   local ssh_keys=()
   _find_ssh_keys ssh_keys
 
+  # Determinar default da chave SSH pessoal
+  local _default_key_idx=1
+  if [[ -n "$GIT_PERSONAL_SSH_KEY" ]] && [[ ${#ssh_keys[@]} -gt 0 ]]; then
+    local _ki=1
+    for key in "${ssh_keys[@]}"; do
+      if [[ "$key" == "$GIT_PERSONAL_SSH_KEY" ]]; then
+        _default_key_idx=$_ki
+        break
+      fi
+      _ki=$((_ki + 1))
+    done
+  fi
+
   if [[ ${#ssh_keys[@]} -gt 0 ]]; then
     msg "  Chaves SSH encontradas:"
     local idx=1
     for key in "${ssh_keys[@]}"; do
-      msg "    $idx) $(basename "$key")"
+      local _marker=""
+      [[ $idx -eq $_default_key_idx ]] && _marker=" ←"
+      msg "    $idx) $(basename "$key")${_marker}"
       idx=$((idx + 1))
     done
     msg ""
 
     local key_choice=""
-    read -r -p "  Selecione uma chave (número) ou digite o caminho [1]: " key_choice
-    key_choice="${key_choice:-1}"
+    read -r -p "  Selecione uma chave (número) ou digite o caminho [$_default_key_idx]: " key_choice
+    key_choice="${key_choice:-$_default_key_idx}"
 
     if [[ "$key_choice" =~ ^[0-9]+$ ]] && (( key_choice >= 1 )) && (( key_choice <= ${#ssh_keys[@]} )); then
       GIT_PERSONAL_SSH_KEY="${ssh_keys[key_choice-1]}"
@@ -184,7 +263,9 @@ ask_git_configuration() {
     fi
   else
     msg "  ⚠️  Nenhuma chave SSH encontrada em ~/.ssh ou shared/.ssh"
-    read -r -p "  Caminho da chave SSH (Enter para não configurar): " GIT_PERSONAL_SSH_KEY
+    local _def_ssh="${GIT_PERSONAL_SSH_KEY:-}"
+    read -r -p "  Caminho da chave SSH${_def_ssh:+ [$_def_ssh]}: " _input
+    GIT_PERSONAL_SSH_KEY="${_input:-$_def_ssh}"
   fi
 
   msg ""
@@ -222,9 +303,18 @@ ask_git_configuration() {
   msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   msg ""
 
-  read -r -p "  Nome completo: " GIT_WORK_NAME
-  read -r -p "  Email: " GIT_WORK_EMAIL
-  read -r -p "  Usuário GitHub/GitLab (opcional): " GIT_WORK_USER
+  local _def_wname="${GIT_WORK_NAME:-}"
+  local _def_wemail="${GIT_WORK_EMAIL:-}"
+  local _def_wuser="${GIT_WORK_USER:-}"
+
+  read -r -p "  Nome completo${_def_wname:+ [$_def_wname]}: " _input
+  GIT_WORK_NAME="${_input:-$_def_wname}"
+
+  read -r -p "  Email${_def_wemail:+ [$_def_wemail]}: " _input
+  GIT_WORK_EMAIL="${_input:-$_def_wemail}"
+
+  read -r -p "  Usuário GitHub/GitLab${_def_wuser:+ [$_def_wuser]}: " _input
+  GIT_WORK_USER="${_input:-$_def_wuser}"
 
   msg ""
   msg "🔑 Chave SSH para conta de trabalho:"
@@ -233,18 +323,33 @@ ask_git_configuration() {
   local ssh_keys=()
   _find_ssh_keys ssh_keys
 
+  # Determinar default da chave SSH de trabalho
+  local _default_wkey_idx=2
+  if [[ -n "$GIT_WORK_SSH_KEY" ]] && [[ ${#ssh_keys[@]} -gt 0 ]]; then
+    local _ki=1
+    for key in "${ssh_keys[@]}"; do
+      if [[ "$key" == "$GIT_WORK_SSH_KEY" ]]; then
+        _default_wkey_idx=$_ki
+        break
+      fi
+      _ki=$((_ki + 1))
+    done
+  fi
+
   if [[ ${#ssh_keys[@]} -gt 0 ]]; then
     msg "  Chaves SSH encontradas:"
     local idx=1
     for key in "${ssh_keys[@]}"; do
-      msg "    $idx) $(basename "$key")"
+      local _marker=""
+      [[ $idx -eq $_default_wkey_idx ]] && _marker=" ←"
+      msg "    $idx) $(basename "$key")${_marker}"
       idx=$((idx + 1))
     done
     msg ""
 
     local key_choice=""
-    read -r -p "  Selecione uma chave (número) ou digite o caminho [2]: " key_choice
-    key_choice="${key_choice:-2}"
+    read -r -p "  Selecione uma chave (número) ou digite o caminho [$_default_wkey_idx]: " key_choice
+    key_choice="${key_choice:-$_default_wkey_idx}"
 
     if [[ "$key_choice" =~ ^[0-9]+$ ]] && (( key_choice >= 1 )) && (( key_choice <= ${#ssh_keys[@]} )); then
       GIT_WORK_SSH_KEY="${ssh_keys[key_choice-1]}"
@@ -253,7 +358,9 @@ ask_git_configuration() {
     fi
   else
     msg "  ⚠️  Nenhuma chave SSH encontrada em ~/.ssh ou shared/.ssh"
-    read -r -p "  Caminho da chave SSH (Enter para não configurar): " GIT_WORK_SSH_KEY
+    local _def_wssh="${GIT_WORK_SSH_KEY:-}"
+    read -r -p "  Caminho da chave SSH${_def_wssh:+ [$_def_wssh]}: " _input
+    GIT_WORK_SSH_KEY="${_input:-$_def_wssh}"
   fi
 
   msg ""
@@ -263,8 +370,8 @@ ask_git_configuration() {
   msg ""
 
   local editor_input=""
-  read -r -p "  Editor padrão (nvim/vim/nano/code) [nvim]: " editor_input
-  GIT_EDITOR="${editor_input:-nvim}"
+  read -r -p "  Editor padrão (nvim/vim/nano/code) [code]: " editor_input
+  GIT_EDITOR="${editor_input:-code}"
 
   local pager_input=""
   read -r -p "  Pager para diffs (delta/less/cat) [delta]: " pager_input
