@@ -83,6 +83,7 @@ ensure_rust_cargo() {
 
 install_cli_tools_linux() {
   detect_linux_pkg_manager
+  _ensure_catalog_loaded
 
   ensure_rust_cargo
   has_cmd cargo && ensure_cargo_binstall
@@ -128,6 +129,7 @@ install_cli_tools_linux() {
 }
 
 install_cli_tools_macos() {
+  _ensure_catalog_loaded
   local tool cmd_check
   for tool in "${SELECTED_CLI_TOOLS[@]}"; do
     case "$tool" in
@@ -150,6 +152,7 @@ install_cli_tools_macos() {
 }
 
 install_cli_tools_windows() {
+  _ensure_catalog_loaded
   local tool cmd_check
   for tool in "${SELECTED_CLI_TOOLS[@]}"; do
     case "$tool" in

@@ -1,6 +1,38 @@
 # PowerShell profile gerenciado pelo dev-env-setup (Windows + WSL)
 # Usa Starship por padrão, com alternância opcional via $env:DEV_PROMPT_PROVIDER (starship | oh-my-posh)
 
+# ═══════════════════════════════════════════════════════════
+# SSH Agent — Windows OpenSSH Service
+# ═══════════════════════════════════════════════════════════
+
+# Garantir que o serviço ssh-agent está rodando
+if (Get-Service ssh-agent -ErrorAction SilentlyContinue) {
+    $sshAgent = Get-Service ssh-agent
+    if ($sshAgent.Status -ne 'Running') {
+        try { Start-Service ssh-agent } catch {}
+    }
+}
+
+# Git deve usar o OpenSSH do Windows (não o bundled no Git Bash)
+$windowsSsh = "C:/Windows/System32/OpenSSH/ssh.exe"
+if (Test-Path $windowsSsh) {
+    $env:GIT_SSH = $windowsSsh
+}
+
+# Auto-load chaves privadas
+$sshDir = Join-Path $env:USERPROFILE ".ssh"
+if (Test-Path $sshDir) {
+    Get-ChildItem "$sshDir/id_*" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -ne '.pub' } |
+        ForEach-Object {
+            $loaded = ssh-add -l 2>$null
+            $fp = (ssh-keygen -lf $_.FullName 2>$null) -split '\s+' | Select-Object -Index 1
+            if ($fp -and $loaded -notmatch [regex]::Escape($fp)) {
+                ssh-add $_.FullName 2>$null
+            }
+        }
+}
+
 function Initialize-StarshipPrompt {
     if (Get-Command starship -ErrorAction SilentlyContinue) {
         Invoke-Expression (& starship init powershell)

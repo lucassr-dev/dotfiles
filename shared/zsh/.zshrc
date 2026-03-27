@@ -1,4 +1,35 @@
 # ═══════════════════════════════════════════════════════════
+# SSH Agent — auto-load chaves de ~/.ssh/
+# ═══════════════════════════════════════════════════════════
+
+if [[ -z "$SSH_AUTH_SOCK" ]] || [[ ! -S "$SSH_AUTH_SOCK" ]]; then
+  # Tentar sockets conhecidos (systemd, GNOME Keyring)
+  for _sock in "/run/user/$(id -u)/openssh_agent" \
+               "/run/user/$(id -u)/ssh-agent.socket" \
+               "/run/user/$(id -u)/gcr/ssh"; do
+    if [[ -S "$_sock" ]]; then
+      export SSH_AUTH_SOCK="$_sock"
+      break
+    fi
+  done
+  unset _sock
+fi
+
+# Fallback: iniciar ssh-agent próprio
+if [[ -z "$SSH_AUTH_SOCK" ]] || [[ ! -S "$SSH_AUTH_SOCK" ]]; then
+  eval "$(ssh-agent -s)" >/dev/null 2>&1
+fi
+
+# Auto-load chaves privadas (sem passphrase = sem prompt)
+for _key in ~/.ssh/id_*; do
+  [[ -f "$_key" ]] || continue
+  [[ "$_key" == *.pub ]] && continue
+  ssh-add -l 2>/dev/null | grep -q "$(ssh-keygen -lf "$_key" 2>/dev/null | awk '{print $2}')" \
+    || ssh-add "$_key" 2>/dev/null
+done
+unset _key
+
+# ═══════════════════════════════════════════════════════════
 # Prompt Setup (Oh My Zsh + P10k ✨ ou Starship 🚀)
 # Use DEV_PROMPT_ZSH (ou DEV_PROMPT_PROVIDER) para escolher:
 #   oh-my-zsh (default) | starship

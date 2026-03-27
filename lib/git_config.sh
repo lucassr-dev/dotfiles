@@ -425,6 +425,16 @@ EOF
     helper = cache --timeout=3600
 EOF
 
+  # Windows: adicionar credential manager-core (Git Credential Manager)
+  if [[ "${TARGET_OS:-}" == "windows" ]]; then
+    cat >> "$gitconfig" << 'EOF_WIN'
+
+[credential]
+    helper = manager-core
+EOF_WIN
+    msg "  ℹ️  Credential helper: manager-core (Windows)"
+  fi
+
   msg "  ✅ Criado: ~/.gitconfig"
   msg ""
 
@@ -442,9 +452,105 @@ EOF
     fi
   done
 
+  # ── Gerar ~/.ssh/config com Host aliases para GitHub ──
+  generate_ssh_config
+
   msg ""
   msg "  ✅ Configuração Git multi-conta concluída!"
   msg ""
 
   INSTALLED_MISC+=("git: multi-conta configurada")
+}
+
+# ═══════════════════════════════════════════════════════════
+# Geração de ~/.ssh/config com Host aliases
+# ═══════════════════════════════════════════════════════════
+#
+# Complementa o sshCommand do gitconfig. O sshCommand seleciona
+# a chave por diretório (pós-clone), enquanto o Host alias
+# permite clones com git@github.com-<user>:... (pré-clone).
+
+generate_ssh_config() {
+  local ssh_config="$HOME/.ssh/config"
+
+  # Se manage_ssh_keys já copiou o config estático do repo, não sobrescrever
+  if [[ -f "$ssh_config" ]] && grep -q "github.com-" "$ssh_config" 2>/dev/null; then
+    msg "  ℹ️  SSH config já contém Host aliases (copiado do repo)"
+    return 0
+  fi
+
+  local needs_write=0
+  local entries=()
+
+  # Coletar entradas a gerar (pessoal + trabalho)
+  if [[ -n "$GIT_PERSONAL_USER" ]] && [[ -n "$GIT_PERSONAL_SSH_KEY" ]]; then
+    local host_alias="github.com-${GIT_PERSONAL_USER}"
+    entries+=("$host_alias|$GIT_PERSONAL_SSH_KEY")
+  fi
+
+  if [[ -n "$GIT_WORK_USER" ]] && [[ -n "$GIT_WORK_SSH_KEY" ]]; then
+    local host_alias="github.com-${GIT_WORK_USER}"
+    entries+=("$host_alias|$GIT_WORK_SSH_KEY")
+  fi
+
+  [[ ${#entries[@]} -eq 0 ]] && return 0
+
+  mkdir -p "$HOME/.ssh"
+
+  # Verificar quais entradas já existem
+  local new_entries=()
+  for entry in "${entries[@]}"; do
+    local alias="${entry%%|*}"
+    if [[ -f "$ssh_config" ]] && grep -q "^Host ${alias}$" "$ssh_config" 2>/dev/null; then
+      msg "  ℹ️  SSH Host '$alias' já configurado"
+    else
+      new_entries+=("$entry")
+      needs_write=1
+    fi
+  done
+
+  [[ $needs_write -eq 0 ]] && return 0
+
+  # Adicionar novas entradas ao config (append, preserva existente)
+  {
+    # Separador se o arquivo já existe e tem conteúdo
+    if [[ -f "$ssh_config" ]] && [[ -s "$ssh_config" ]]; then
+      echo ""
+      echo "# ── Gerado por dotfiles installer ──"
+    else
+      echo "# ════════════════════════════════════════════════════════════════"
+      echo "# SSH Config - Gerado pelo dotfiles installer"
+      echo "# ════════════════════════════════════════════════════════════════"
+    fi
+
+    for entry in "${new_entries[@]}"; do
+      local alias="${entry%%|*}"
+      local key="${entry##*|}"
+      echo ""
+      echo "Host ${alias}"
+      echo "    HostName github.com"
+      echo "    User git"
+      echo "    IdentityFile ${key}"
+      echo "    IdentitiesOnly yes"
+    done
+
+    # Adicionar bloco global se o arquivo é novo
+    if [[ ! -f "$ssh_config" ]] || [[ ! -s "$ssh_config" ]]; then
+      echo ""
+      echo "# ════════════════════════════════════════════════════════════════"
+      echo "# Configurações Globais"
+      echo "# ════════════════════════════════════════════════════════════════"
+      echo "Host *"
+      echo "    AddKeysToAgent yes"
+      echo "    ServerAliveInterval 60"
+      echo "    ServerAliveCountMax 3"
+    fi
+  } >> "$ssh_config"
+
+  chmod 600 "$ssh_config"
+
+  for entry in "${new_entries[@]}"; do
+    local alias="${entry%%|*}"
+    msg "  ✅ SSH Host '${alias}' configurado"
+  done
 }

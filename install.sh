@@ -2399,6 +2399,112 @@ ensure_ghostty_linux() {
   return 1
 }
 
+# ═══════════════════════════════════════════════════════════
+# Pós-configuração: shell e terminal padrão
+# ═══════════════════════════════════════════════════════════
+
+apply_post_install_defaults() {
+  local changed=0
+
+  # ── Fish como shell padrão ──
+  if is_truthy "${INSTALL_FISH:-0}" && has_cmd fish; then
+    local current_shell
+    current_shell="$(basename "${SHELL:-}")"
+    if [[ "$current_shell" != "fish" ]]; then
+      local fish_path
+      fish_path="$(command -v fish)"
+      msg ""
+      msg "  🐟 Fish está instalado mas não é o shell padrão (atual: $current_shell)"
+      if ui_confirm "Definir Fish como shell padrão?"; then
+        if is_truthy "${DRY_RUN:-0}"; then
+          msg "  🔎 (dry-run) executaria: chsh -s $fish_path"
+        else
+          # Garantir que fish está em /etc/shells
+          if ! grep -qx "$fish_path" /etc/shells 2>/dev/null; then
+            msg "  📝 Adicionando $fish_path a /etc/shells..."
+            echo "$fish_path" | sudo tee -a /etc/shells >/dev/null 2>&1 || true
+          fi
+          if chsh -s "$fish_path" 2>/dev/null; then
+            msg "  ✅ Fish definido como shell padrão"
+            msg "  💡 Abra um novo terminal para usar o Fish"
+            changed=1
+          else
+            msg "  ⚠️  chsh falhou — defina manualmente com: chsh -s $fish_path"
+          fi
+        fi
+      else
+        msg "  ⏭️  Mantendo shell padrão: $current_shell"
+      fi
+    else
+      msg "  ✅ Fish já é o shell padrão"
+    fi
+  fi
+
+  # ── Terminal padrão (Linux/WSL2) ──
+  if [[ "$TARGET_OS" == "linux" || "$TARGET_OS" == "wsl2" ]]; then
+    local has_ghostty=0
+    for term in "${SELECTED_TERMINALS[@]}"; do
+      [[ "$term" == "ghostty" ]] && has_ghostty=1
+    done
+
+    if [[ $has_ghostty -eq 1 ]] && has_cmd ghostty; then
+      local ghostty_path
+      ghostty_path="$(command -v ghostty)"
+
+      msg ""
+      msg "  👻 Ghostty está instalado"
+      if ui_confirm "Definir Ghostty como terminal padrão?"; then
+        if is_truthy "${DRY_RUN:-0}"; then
+          msg "  🔎 (dry-run) definiria Ghostty como terminal padrão"
+        else
+          local set_ok=0
+
+          # Método 1: update-alternatives (Debian/Ubuntu)
+          if has_cmd update-alternatives; then
+            if sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator "$ghostty_path" 50 2>/dev/null; then
+              sudo update-alternatives --set x-terminal-emulator "$ghostty_path" 2>/dev/null && set_ok=1
+            fi
+          fi
+
+          # Método 2: GNOME/gsettings (complementar)
+          if has_cmd gsettings; then
+            # Criar .desktop se não existe (necessário para snap)
+            local desktop_file="$HOME/.local/share/applications/ghostty.desktop"
+            if [[ ! -f "$desktop_file" ]]; then
+              mkdir -p "$HOME/.local/share/applications"
+              cat > "$desktop_file" << DESKTOP
+[Desktop Entry]
+Name=Ghostty
+Comment=Terminal rápido e moderno
+Exec=$ghostty_path
+Icon=com.mitchellh.ghostty
+Type=Application
+Categories=System;TerminalEmulator;
+Keywords=terminal;shell;prompt;command;
+StartupNotify=true
+DESKTOP
+            fi
+            gsettings set org.gnome.desktop.default-applications.terminal exec "$ghostty_path" 2>/dev/null && set_ok=1
+            gsettings set org.gnome.desktop.default-applications.terminal exec-arg '' 2>/dev/null || true
+          fi
+
+          if [[ $set_ok -eq 1 ]]; then
+            msg "  ✅ Ghostty definido como terminal padrão"
+            changed=1
+          else
+            msg "  ⚠️  Não foi possível definir automaticamente"
+            msg "  💡 Defina manualmente nas configurações do sistema"
+          fi
+        fi
+      else
+        msg "  ⏭️  Terminal padrão não alterado"
+      fi
+    fi
+  fi
+
+  [[ $changed -eq 0 ]] && msg "  ℹ️  Nenhuma alteração de padrão aplicada"
+}
+
 ensure_uv() {
   if has_cmd uv; then
     return 0
@@ -2762,19 +2868,26 @@ apply_shared_configs() {
   fi
 
   if has_cmd git && [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]]; then
-    local git_base="$CONFIG_SHARED/git/.gitconfig"
-    local git_personal="$CONFIG_SHARED/git/.gitconfig-personal"
-    local git_work="$CONFIG_SHARED/git/.gitconfig-work"
+    # Se GIT_CONFIGURE=1, a geração dinâmica (install_git_configuration) vai
+    # sobrescrever esses arquivos. Copiar apenas quando NÃO há config interativo,
+    # para preservar o backup correto do original do usuário.
+    if [[ ${GIT_CONFIGURE:-0} -eq 1 ]]; then
+      msg "  ℹ️  Git config: será gerado interativamente (pulando cópia estática)"
+    else
+      local git_base="$CONFIG_SHARED/git/.gitconfig"
+      local git_personal="$CONFIG_SHARED/git/.gitconfig-personal"
+      local git_work="$CONFIG_SHARED/git/.gitconfig-work"
 
-    if [[ -n "$PRIVATE_SHARED" ]]; then
-      [[ -f "$PRIVATE_SHARED/git/.gitconfig" ]] && git_base="$PRIVATE_SHARED/git/.gitconfig"
-      [[ -f "$PRIVATE_SHARED/git/.gitconfig-personal" ]] && git_personal="$PRIVATE_SHARED/git/.gitconfig-personal"
-      [[ -f "$PRIVATE_SHARED/git/.gitconfig-work" ]] && git_work="$PRIVATE_SHARED/git/.gitconfig-work"
+      if [[ -n "$PRIVATE_SHARED" ]]; then
+        [[ -f "$PRIVATE_SHARED/git/.gitconfig" ]] && git_base="$PRIVATE_SHARED/git/.gitconfig"
+        [[ -f "$PRIVATE_SHARED/git/.gitconfig-personal" ]] && git_personal="$PRIVATE_SHARED/git/.gitconfig-personal"
+        [[ -f "$PRIVATE_SHARED/git/.gitconfig-work" ]] && git_work="$PRIVATE_SHARED/git/.gitconfig-work"
+      fi
+
+      copy_file "$git_base" "$HOME/.gitconfig"
+      [[ -f "$git_personal" ]] && copy_file "$git_personal" "$HOME/.gitconfig-personal"
+      [[ -f "$git_work" ]] && copy_file "$git_work" "$HOME/.gitconfig-work"
     fi
-
-    copy_file "$git_base" "$HOME/.gitconfig"
-    [[ -f "$git_personal" ]] && copy_file "$git_personal" "$HOME/.gitconfig-personal"
-    [[ -f "$git_work" ]] && copy_file "$git_work" "$HOME/.gitconfig-work"
   elif [[ ${COPY_GIT_CONFIG:-0} -eq 0 ]]; then
     msg "  ⏭️  Git config: usuário optou por não copiar"
   elif ! has_cmd git; then
@@ -3127,7 +3240,7 @@ main() {
 
   clear_screen
   exec > >(tee -a "$INSTALL_LOG") 2>&1
-  step_init 12
+  step_init 13
 
   local _shell_desc=""
   [[ ${INSTALL_ZSH:-0} -eq 1 ]] && _shell_desc+="Zsh "
@@ -3183,6 +3296,10 @@ main() {
 
   step_begin "Temas"
   install_selected_themes
+  step_end
+
+  step_begin "Padrões do Sistema" "shell e terminal"
+  apply_post_install_defaults
   step_end
 
   clear_screen
