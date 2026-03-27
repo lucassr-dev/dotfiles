@@ -13,11 +13,10 @@
 # ~/projects/    → Usa .gitconfig-personal (conta pessoal)
 # ~/work/        → Usa .gitconfig-work (conta trabalho)
 # ~/workspace/   → Usa .gitconfig-work (conta trabalho)
-# ~/humu/        → Usa .gitconfig-work (conta trabalho)
 #
 # Como usar:
 # 1. Clone seus repos pessoais em ~/personal/ ou ~/projects/
-# 2. Clone seus repos de trabalho em ~/work/, ~/workspace/ ou ~/humu/
+# 2. Clone seus repos de trabalho em ~/work/ ou ~/workspace/
 # 3. O Git alternará automaticamente name/email baseado no diretório
 # ════════════════════════════════════════════════════════════════
 
@@ -28,14 +27,11 @@
 [includeIf "gitdir:~/projects/"]
     path = ~/.gitconfig-personal
 
-# Conta trabalho (projetos Humu)
+# Conta trabalho
 [includeIf "gitdir:~/work/"]
     path = ~/.gitconfig-work
 
 [includeIf "gitdir:~/workspace/"]
-    path = ~/.gitconfig-work
-
-[includeIf "gitdir:~/humu/"]
     path = ~/.gitconfig-work
 
 # ════════════════════════════════════════════════════════════════
