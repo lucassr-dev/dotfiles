@@ -1014,16 +1014,22 @@ _join_items() {
 # ══════════════════════════════════════════════════════════════════════════════
 
 _rv_div() {
-  local w="$1" title="$2"
+  local w="$1" title="$2" count="${3:-}"
   local pad_left="${left_pad:-0}"
   local divider_color="${rv_divider_color:-$UI_BORDER}"
   local section_color="${rv_section_color:-${UI_LAVENDER:-$UI_ACCENT}}"
+  local count_suffix=""
+  [[ -n "$count" ]] && count_suffix=" ($count)"
   local title_vis fill fill_str
-  title_vis=$(_visible_len "$title")
+  title_vis=$(_visible_len "${title}${count_suffix}")
   fill=$(( w - title_vis - 4 ))
   [[ $fill -lt 0 ]] && fill=0
   printf -v fill_str '%*s' "$fill" ''
-  printf "%*s%b\n" "$pad_left" "" "${divider_color}── ${section_color}${UI_BOLD}${title}${UI_RESET}${divider_color} ${fill_str// /─}${UI_RESET}"
+  if [[ -n "$count" ]]; then
+    printf "%*s%b\n" "$pad_left" "" "${divider_color}── ${section_color}${UI_BOLD}${title}${UI_RESET} ${UI_SUBTEXT0}(${count})${UI_RESET}${divider_color} ${fill_str// /─}${UI_RESET}"
+  else
+    printf "%*s%b\n" "$pad_left" "" "${divider_color}── ${section_color}${UI_BOLD}${title}${UI_RESET}${divider_color} ${fill_str// /─}${UI_RESET}"
+  fi
 }
 
 _rv_hbar() {
@@ -1146,7 +1152,7 @@ review_selections() {
     local left_pad=2
     local rv_divider_color="${UI_OVERLAY1:-$UI_BORDER}"
     local rv_section_color="${UI_MAUVE:-$UI_ACCENT}"
-    local rv_label_color="${UI_LAVENDER:-$UI_ACCENT}"
+    local rv_label_color="${UI_SUBTEXT1:-$UI_MUTED}"
 
     local total_pkgs total_cfgs
     total_pkgs=$(_count_total_packages)
@@ -1158,8 +1164,6 @@ review_selections() {
     [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && actions_to_do+=("Starship")
     [[ ${INSTALL_OH_MY_POSH:-0} -eq 1 ]] && actions_to_do+=("OMP")
     [[ ${COPY_SSH_KEYS:-0} -eq 1 ]] && actions_to_do+=("SSH")
-    local actions_plain="${UI_DIM}(nenhum)${UI_RESET}"
-    [[ ${#actions_to_do[@]} -gt 0 ]] && actions_plain="${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
 
     local so_color="$UI_TEAL"
     local so_icon="🐧"
@@ -1181,7 +1185,8 @@ review_selections() {
 
     echo ""
     _rv_hbar "$width"
-    printf "%*s%b\n" "$left_pad" "" "  ${UI_GREEN}${UI_BOLD}RESUMO FINAL${UI_RESET}"
+    printf "%*s%b\n" "$left_pad" "" "  ${UI_GREEN}${UI_BOLD}📋 RESUMO FINAL${UI_RESET}"
+    echo ""
     printf "%*s%b\n" "$left_pad" "" "  ${UI_SUBTEXT1}Revise o plano abaixo. Use ${UI_YELLOW}${UI_BOLD}0-8${UI_RESET}${UI_SUBTEXT1} para ajustar qualquer grupo antes de iniciar.${UI_RESET}"
     _rv_hbar "$width"
     echo ""
@@ -1336,11 +1341,19 @@ review_selections() {
     }
 
     _rv_menu_cell() {
-      local num="$1" label="$2" cell_w="$3"
-      local cell_plain="${num} ${label}"
+      local num="$1" label="$2" cell_w="$3" badge="${4:-}"
+      local badge_str=""
+      if [[ -n "$badge" ]]; then
+        badge_str=" (${badge})"
+      fi
+      local cell_plain="${num} ${label}${badge_str}"
       local pad=$(( cell_w - $(_visible_len "$cell_plain") ))
       [[ $pad -lt 0 ]] && pad=0
-      printf "${UI_YELLOW}${UI_BOLD}%s${UI_RESET} ${UI_SUBTEXT1}%s${UI_RESET}%*s" "$num" "$label" "$pad" ""
+      if [[ -n "$badge" ]]; then
+        printf "${UI_YELLOW}${UI_BOLD}%s${UI_RESET} ${UI_SUBTEXT1}%s${UI_RESET} ${UI_SUBTEXT0}(%s)${UI_RESET}%*s" "$num" "$label" "$badge" "$pad" ""
+      else
+        printf "${UI_YELLOW}${UI_BOLD}%s${UI_RESET} ${UI_SUBTEXT1}%s${UI_RESET}%*s" "$num" "$label" "$pad" ""
+      fi
     }
 
     local env_label_w tools_label_w apps_label_w cfg_label_w
@@ -1352,18 +1365,22 @@ review_selections() {
     _rv_kv 15 "Pacotes" "${UI_PEACH}${UI_BOLD}${total_pkgs}${UI_RESET} ${UI_TEXT}selecionados${UI_RESET}"
     _rv_kv 15 "Configs" "${UI_BLUE}${UI_BOLD}${total_cfgs}${UI_RESET} ${UI_TEXT}para copiar${UI_RESET}"
     _rv_kv 15 "Sistema" "${so_color}${UI_BOLD}${so_icon} ${so_name}${UI_RESET}"
-    _rv_kv 15 "Ações extras" "${actions_plain}"
-    _rv_kv 15 "Backup" "${UI_DIM}${BACKUP_DIR}${UI_RESET}"
+    if [[ ${#actions_to_do[@]} -gt 0 ]]; then
+      _rv_kv 15 "Ações extras" "${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
+    fi
+    _rv_kv 15 "Backup" "${UI_SUBTEXT0}${BACKUP_DIR}${UI_RESET}"
     echo ""
 
-    _rv_div "$width" "🏠 AMBIENTE"
+    local env_count=$(( ${#selected_shells[@]} + ${#SELECTED_TERMINALS[@]} + ${#themes_selected[@]} + ${#SELECTED_NERD_FONTS[@]} ))
+    _rv_div "$width" "🏠 AMBIENTE" "$env_count"
     _rv_lv "$env_label_w" "Shells"    "(nenhum)"  "${selected_shells[@]}"
     _rv_lv "$env_label_w" "Terminais" "(nenhum)"  "${SELECTED_TERMINALS[@]}"
     _rv_lv "$env_label_w" "Temas"     "(nenhum)"  "${themes_selected[@]}"
     _rv_lv "$env_label_w" "Fontes"    "(nenhuma)" "${SELECTED_NERD_FONTS[@]}"
     echo ""
 
-    _rv_div "$width" "🔧 FERRAMENTAS"
+    local tools_count=$(( ${#SELECTED_CLI_TOOLS[@]} + ${#SELECTED_IA_TOOLS[@]} + ${#SELECTED_RUNTIMES[@]} ))
+    _rv_div "$width" "🔧 FERRAMENTAS" "$tools_count"
     _rv_lv "$tools_label_w" "CLI"      "(nenhuma)" "${SELECTED_CLI_TOOLS[@]}"
     _rv_lv "$tools_label_w" "IA"       "(nenhuma)" "${SELECTED_IA_TOOLS[@]}"
     _rv_lv "$tools_label_w" "Runtimes" "(nenhum)"  "${SELECTED_RUNTIMES[@]}"
@@ -1374,7 +1391,7 @@ review_selections() {
                  ${#SELECTED_DATABASES[@]} + ${#SELECTED_PRODUCTIVITY[@]} + \
                  ${#SELECTED_COMMUNICATION[@]} + ${#SELECTED_MEDIA[@]} + ${#SELECTED_UTILITIES[@]}))
     if [[ $gui_total -gt 0 ]]; then
-      _rv_div "$width" "🖥 APPS GUI"
+      _rv_div "$width" "🖥 APPS GUI" "$gui_total"
       [[ ${#SELECTED_IDES[@]} -gt 0 ]]          && _rv_lv "$apps_label_w" "IDEs"          "" "${SELECTED_IDES[@]}"
       [[ ${#SELECTED_BROWSERS[@]} -gt 0 ]]      && _rv_lv "$apps_label_w" "Navegadores"   "" "${SELECTED_BROWSERS[@]}"
       [[ ${#SELECTED_DEV_TOOLS[@]} -gt 0 ]]     && _rv_lv "$apps_label_w" "Dev Tools"     "" "${SELECTED_DEV_TOOLS[@]}"
@@ -1391,6 +1408,7 @@ review_selections() {
     [[ ${INSTALL_ZSH:-0} -eq 1 ]]     && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_ZSH_CONFIG:-0}"    "Zsh")")
     [[ ${INSTALL_FISH:-0} -eq 1 ]]    && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_FISH_CONFIG:-0}"   "Fish")")
     [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_NUSHELL_CONFIG:-0}" "Nushell")")
+    [[ ${INSTALL_STARSHIP:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_shells+=("$(_rv_cfg_item 1 "${COPY_STARSHIP_CONFIG:-0}" "Starship")")
 
     local cfg_terminals=()
     for term in "${SELECTED_TERMINALS[@]}"; do
@@ -1434,9 +1452,8 @@ review_selections() {
 
     local cfg_runtime=()
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_MISE_CONFIG:-0}"     "Mise")")
-    [[ ${INSTALL_STARSHIP:-0} -eq 1    ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_STARSHIP_CONFIG:-0}" "Starship")")
 
-    _rv_div "$width" "📋 COPIAR CONFIGURAÇÕES"
+    _rv_div "$width" "📋 COPIAR CONFIGURAÇÕES" "$total_cfgs"
     _rv_cfg_row "$cfg_label_w" "Shells"      "cfg_shells"
     _rv_cfg_row "$cfg_label_w" "Terminais"   "cfg_terminals"
     _rv_cfg_row "$cfg_label_w" "Editores"    "cfg_editors"
@@ -1448,7 +1465,7 @@ review_selections() {
        ${#cfg_tools[@]} -gt 0     || ${#cfg_terminals[@]} -gt 0 || \
        ${#cfg_runtime[@]} -gt 0 ]] && has_any_cfg=1
     if [[ $has_any_cfg -eq 0 ]]; then
-      printf "%*s  ${UI_DIM}(nenhuma configuração disponível)${UI_RESET}\n" "$left_pad" ""
+      printf "%*s  ${UI_SUBTEXT0}(nenhuma configuração disponível)${UI_RESET}\n" "$left_pad" ""
     fi
 
     echo ""
@@ -1458,18 +1475,22 @@ review_selections() {
 
     local menu_numbers=(0 1 2 3 4 5 6 7 8)
     local menu_labels=("Configs" "Shells" "Fontes" "Terminais" "CLI" "IA" "Apps GUI" "Runtimes" "Git")
+    local shells_count=${#selected_shells[@]}
+    local git_badge=""
+    [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && git_badge="✓"
+    local menu_badges=("$total_cfgs" "$shells_count" "${#SELECTED_NERD_FONTS[@]}" "${#SELECTED_TERMINALS[@]}" "${#SELECTED_CLI_TOOLS[@]}" "${#SELECTED_IA_TOOLS[@]}" "$gui_total" "${#SELECTED_RUNTIMES[@]}" "$git_badge")
     local menu_cols=3
     [[ $width -lt 64 ]] && menu_cols=2
     [[ $width -lt 48 ]] && menu_cols=1
     local menu_gap=3
     local menu_cell_w=$(( (width - (menu_gap * (menu_cols - 1)) - 2) / menu_cols ))
-    [[ $menu_cell_w -lt 14 ]] && menu_cell_w=14
+    [[ $menu_cell_w -lt 16 ]] && menu_cell_w=16
     local i
     for (( i=0; i<${#menu_numbers[@]}; i++ )); do
       if (( i % menu_cols == 0 )); then
         printf "%*s  " "$left_pad" ""
       fi
-      _rv_menu_cell "${menu_numbers[i]}" "${menu_labels[i]}" "$menu_cell_w"
+      _rv_menu_cell "${menu_numbers[i]}" "${menu_labels[i]}" "$menu_cell_w" "${menu_badges[i]}"
       if (( (i + 1) % menu_cols == 0 || i == ${#menu_numbers[@]} - 1 )); then
         echo ""
       else
@@ -1477,7 +1498,7 @@ review_selections() {
       fi
     done
     echo ""
-    printf "%*s  ${UI_GREEN}${UI_BOLD}Enter${UI_RESET} ${UI_SUBTEXT1}iniciar instalação${UI_RESET}   ${UI_RED}${UI_BOLD}S${UI_RESET} ${UI_SUBTEXT1}sair${UI_RESET}\n" "$left_pad" ""
+    printf "%*s  ${UI_GREEN}${UI_BOLD}⏎ Enter${UI_RESET} ${UI_TEXT}iniciar instalação${UI_RESET}    ${UI_SUBTEXT0}S sair${UI_RESET}\n" "$left_pad" ""
 
     _rv_hbar "$width"
     echo ""
