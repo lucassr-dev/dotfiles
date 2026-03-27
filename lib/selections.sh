@@ -283,6 +283,13 @@ ask_cli_tools() {
       tokei)      tools_with_desc+=("tokei      - Contador de linhas de código por linguagem") ;;
       hyperfine)  tools_with_desc+=("hyperfine  - Benchmarking CLI (medir tempo de comandos)") ;;
       mise)       tools_with_desc+=("mise       - Runtime version manager (node, python, ruby...)") ;;
+      bottom)     tools_with_desc+=("bottom     - Monitor de sistema TUI em Rust") ;;
+      duf)        tools_with_desc+=("duf        - Visualizador de uso de disco moderno") ;;
+      gping)      tools_with_desc+=("gping      - Ping com gráfico em tempo real") ;;
+      difftastic) tools_with_desc+=("difftastic - Diff estrutural que entende a linguagem") ;;
+      zellij)     tools_with_desc+=("zellij     - Multiplexador de terminal moderno") ;;
+      xh)         tools_with_desc+=("xh         - Cliente HTTP moderno (alternativa ao curl)") ;;
+      gitui)      tools_with_desc+=("gitui      - Interface Git TUI rápida em Rust") ;;
       *)          tools_with_desc+=("$tool") ;;
     esac
   done
@@ -325,6 +332,7 @@ ask_ia_tools() {
       aider)       tools_with_desc+=("aider       - AI pair programming (25K+ GitHub stars)") ;;
       continue)    tools_with_desc+=("continue    - Open-source AI assistant para IDEs") ;;
       goose)       tools_with_desc+=("goose       - AI agent framework (Block/Square)") ;;
+      ollama)      tools_with_desc+=("ollama      - Runtime LLM local (modelos open-source)") ;;
       *)           tools_with_desc+=("$tool") ;;
     esac
   done

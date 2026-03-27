@@ -22,6 +22,13 @@ CLI_TOOLS=(
   tokei         # Contador de linhas de código
   hyperfine     # Benchmarking CLI
   mise          # Runtime version manager (node, python, ruby...)
+  bottom        # Monitor de sistema TUI em Rust
+  duf           # Visualizador de uso de disco moderno
+  gping         # Ping com gráfico em tempo real
+  difftastic    # Diff estrutural que entende a linguagem
+  zellij        # Multiplexador de terminal moderno
+  xh            # Cliente HTTP moderno (alternativa ao curl)
+  gitui         # Interface Git TUI rápida em Rust
 )
 
 IA_TOOLS=(
@@ -32,6 +39,7 @@ IA_TOOLS=(
   goose        # AI agent framework (Block/Square)
   spec-kit     # Spec-driven development (GitHub Spec Kit)
   serena       # Assistente de código com IA (Language Server)
+  ollama       # Runtime LLM local (modelos open-source)
 )
 
 SHELLS=(

@@ -71,12 +71,6 @@ state_has() {
   [[ -n "${DOTFILES_STATE["$key"]:-}" ]]
 }
 
-state_remove() {
-  _state_ensure_map
-  local key="$1"
-  unset 'DOTFILES_STATE[$key]'
-}
-
 state_dump() {
   _state_ensure_map
   local key
@@ -106,36 +100,6 @@ _state_file_is_secure() {
   fi
 
   return 0
-}
-
-state_save() {
-  _state_ensure_map
-  local file="${1:-$HOME/.dotfiles-state}"
-  {
-    echo "# Dotfiles state — $(date '+%Y-%m-%d %H:%M:%S')"
-    local key
-    for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
-      printf 'state_set %q %q\n' "$key" "${DOTFILES_STATE[$key]}"
-    done
-  } > "$file"
-
-  chmod 600 "$file" 2>/dev/null || true
-}
-
-state_load() {
-  local file="${1:-$HOME/.dotfiles-state}"
-  [[ -f "$file" ]] || return 1
-  if ! _state_file_is_secure "$file"; then
-    echo "⚠️ State inseguro detectado em $file (owner/permissões inválidos)." >&2
-    return 1
-  fi
-  # shellcheck source=/dev/null
-  source "$file"
-}
-
-state_clear() {
-  _state_ensure_map
-  DOTFILES_STATE=()
 }
 
 # ═══════════════════════════════════════════════════════════

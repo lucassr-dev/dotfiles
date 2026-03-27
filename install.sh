@@ -18,8 +18,9 @@ CONFIG_WINDOWS="$SCRIPT_DIR/windows"
 CONFIG_UNIX_LEGACY="$SCRIPT_DIR/mac-linux"
 DATA_APPS="$SCRIPT_DIR/data/apps.sh"
 DATA_RUNTIMES="$SCRIPT_DIR/data/runtimes.sh"
-BACKUP_DIR="$HOME/.bkp-$(date +%Y%m%d-%H%M)"
+BACKUP_DIR="$(mktemp -d "$HOME/.bkp-$(date +%Y%m%d-%H%M%S)-XXXXXX" 2>/dev/null || echo "$HOME/.bkp-$(date +%Y%m%d-%H%M%S)-$$")"
 TARGET_OS=""
+ARCH=""
 LINUX_PKG_MANAGER=""
 LINUX_PKG_UPDATED=0
 MODE="install"
@@ -114,7 +115,7 @@ show_version() {
 show_usage() {
   local c="" b="" r=""
   if [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]]; then
-    c='\033[0;36m' b='\033[1m' r='\033[0m'
+    c="${UI_SKY:-\033[0;36m}" b="${UI_BOLD:-\033[1m}" r="${UI_RESET:-\033[0m}"
   fi
   echo -e "${b}dotfiles-installer${r} v${SCRIPT_VERSION}"
   echo ""
@@ -1494,6 +1495,7 @@ review_selections() {
         ;;
       1)
         ask_shells
+        ask_nerd_fonts
         ask_themes
         [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
         [[ $INSTALL_STARSHIP -eq 1 ]] && ask_starship_preset
@@ -1722,279 +1724,6 @@ _auto_enable_configs() {
   done
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SELEÇÃO DE CONFIGURAÇÕES A COPIAR (toggle manual via opção 0 do RESUMO FINAL)
-# ══════════════════════════════════════════════════════════════════════════════
-ask_configs_to_copy() {
-  local config_options=()
-  local config_keys=()
-
-  if [[ ${INSTALL_ZSH:-0} -eq 1 ]]; then
-    config_options+=("zsh-config      - Zsh (~/.zshrc, .p10k.zsh)")
-    config_keys+=("COPY_ZSH_CONFIG")
-  fi
-
-  if [[ ${INSTALL_FISH:-0} -eq 1 ]]; then
-    config_options+=("fish-config     - Fish (~/.config/fish/)")
-    config_keys+=("COPY_FISH_CONFIG")
-  fi
-
-  if [[ ${INSTALL_NUSHELL:-0} -eq 1 ]]; then
-    config_options+=("nushell-config  - Nushell (~/.config/nushell/)")
-    config_keys+=("COPY_NUSHELL_CONFIG")
-  fi
-
-  if [[ ${GIT_CONFIGURE:-0} -eq 1 ]]; then
-    config_options+=("git-config      - Git (~/.gitconfig)")
-    config_keys+=("COPY_GIT_CONFIG")
-  fi
-
-  if [[ -d "$CONFIG_SHARED/nvim" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/nvim" 2>/dev/null)" ]]; then
-    local has_neovim=0
-    for ide in "${SELECTED_IDES[@]}"; do
-      [[ "$ide" == "neovim" ]] && has_neovim=1 && break
-    done
-    if [[ $has_neovim -eq 1 ]]; then
-      config_options+=("nvim-config     - Neovim (~/.config/nvim/)")
-      config_keys+=("COPY_NVIM_CONFIG")
-    fi
-  fi
-
-  if [[ -d "$CONFIG_SHARED/tmux" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/tmux" 2>/dev/null)" ]]; then
-    local has_tmux=0
-    for tool in "${SELECTED_CLI_TOOLS[@]}"; do
-      [[ "$tool" == "tmux" ]] && has_tmux=1 && break
-    done
-    if [[ $has_tmux -eq 1 ]]; then
-      config_options+=("tmux-config     - Tmux (~/.tmux.conf)")
-      config_keys+=("COPY_TMUX_CONFIG")
-    fi
-  fi
-
-  if [[ ${#SELECTED_TERMINALS[@]} -gt 0 ]]; then
-    config_options+=("terminal-config - Terminal (ghostty, kitty, etc)")
-    config_keys+=("COPY_TERMINAL_CONFIG")
-  fi
-
-  if [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]]; then
-    config_options+=("mise-config     - Mise (~/.config/mise/)")
-    config_keys+=("COPY_MISE_CONFIG")
-  fi
-
-  if [[ -f "$CONFIG_SHARED/starship.toml" ]] && [[ ${INSTALL_STARSHIP:-0} -eq 1 ]]; then
-    config_options+=("starship-config - Starship (~/.config/starship.toml)")
-    config_keys+=("COPY_STARSHIP_CONFIG")
-  fi
-
-  # Helper inline para checar se item foi selecionado
-  local _has_vscode=0 _has_cursor=0 _has_zed=0 _has_helix=0
-  for _ide in "${SELECTED_IDES[@]}"; do
-    case "$_ide" in
-      vscode)  _has_vscode=1 ;;
-      cursor)  _has_cursor=1 ;;
-      zed)     _has_zed=1 ;;
-      helix)   _has_helix=1 ;;
-    esac
-  done
-
-  local _has_lazygit=0 _has_yazi=0 _has_btop=0 _has_bat=0 _has_ripgrep=0 _has_direnv=0 _has_aider=0
-  for _tool in "${SELECTED_CLI_TOOLS[@]}"; do
-    case "$_tool" in
-      lazygit)  _has_lazygit=1 ;;
-      yazi)     _has_yazi=1 ;;
-      btop)     _has_btop=1 ;;
-      bat)      _has_bat=1 ;;
-      ripgrep)  _has_ripgrep=1 ;;
-      direnv)   _has_direnv=1 ;;
-    esac
-  done
-  for _ia in "${SELECTED_IA_TOOLS[@]}"; do
-    [[ "$_ia" == "aider" ]] && _has_aider=1
-  done
-  local _has_kitty=0 _has_alacritty=0 _has_wezterm=0
-  for _term in "${SELECTED_TERMINALS[@]}"; do
-    case "$_term" in
-      kitty)     _has_kitty=1 ;;
-      alacritty) _has_alacritty=1 ;;
-      wezterm)   _has_wezterm=1 ;;
-    esac
-  done
-  local _has_node=0 _has_python=0 _has_rust=0
-  for _rt in "${SELECTED_RUNTIMES[@]}"; do
-    case "$_rt" in
-      node)   _has_node=1 ;;
-      python) _has_python=1 ;;
-      rust)   _has_rust=1 ;;
-    esac
-  done
-  local _has_docker=0
-  for _dt in "${SELECTED_DEV_TOOLS[@]}"; do
-    [[ "$_dt" == "docker" ]] && _has_docker=1
-  done
-
-  if (( _has_vscode || _has_cursor )) && { [[ -f "$CONFIG_SHARED/vscode/settings.json" ]] || [[ -f "$CONFIG_SHARED/vscode/extensions.txt" ]]; }; then
-    config_options+=("vscode-config   - VS Code (settings + extensões)")
-    config_keys+=("COPY_VSCODE_SETTINGS")
-  fi
-
-  if [[ $_has_lazygit -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
-    config_options+=("lazygit-config  - Lazygit (theme + keybindings)")
-    config_keys+=("COPY_LAZYGIT_CONFIG")
-  fi
-
-  if [[ $_has_yazi -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]] && [[ -n "$(ls -A "$CONFIG_SHARED/yazi" 2>/dev/null)" ]]; then
-    config_options+=("yazi-config     - Yazi (file manager)")
-    config_keys+=("COPY_YAZI_CONFIG")
-  fi
-
-  if [[ $_has_btop -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
-    config_options+=("btop-config     - Btop (resource monitor)")
-    config_keys+=("COPY_BTOP_CONFIG")
-  fi
-
-  if [[ $_has_bat -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]; then
-    config_options+=("bat-config      - bat (syntax highlighting + tema)")
-    config_keys+=("COPY_BAT_CONFIG")
-  fi
-
-  if [[ $_has_kitty -eq 1 ]] && [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
-    config_options+=("kitty-config    - Kitty (terminal)")
-    config_keys+=("COPY_KITTY_CONFIG")
-  fi
-
-  if [[ $_has_alacritty -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
-    config_options+=("alacritty-config - Alacritty (terminal)")
-    config_keys+=("COPY_ALACRITTY_CONFIG")
-  fi
-
-  if [[ $_has_wezterm -eq 1 ]] && [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
-    config_options+=("wezterm-config  - WezTerm (terminal)")
-    config_keys+=("COPY_WEZTERM_CONFIG")
-  fi
-
-  if [[ $_has_ripgrep -eq 1 ]] && [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
-    config_options+=("ripgrep-config  - Ripgrep (~/.ripgreprc)")
-    config_keys+=("COPY_RIPGREP_CONFIG")
-  fi
-
-  if [[ $_has_node -eq 1 ]] && [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
-    config_options+=("npm-config      - NPM (~/.npmrc)")
-    config_keys+=("COPY_NPM_CONFIG")
-  fi
-
-  if [[ $_has_node -eq 1 ]] && [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
-    config_options+=("pnpm-config     - PNPM (~/.config/pnpm/)")
-    config_keys+=("COPY_PNPM_CONFIG")
-  fi
-
-  if [[ $_has_node -eq 1 ]] && [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
-    config_options+=("yarn-config     - Yarn (~/.yarnrc)")
-    config_keys+=("COPY_YARN_CONFIG")
-  fi
-
-  if [[ $_has_python -eq 1 ]] && [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
-    config_options+=("pip-config      - Pip (~/.config/pip/)")
-    config_keys+=("COPY_PIP_CONFIG")
-  fi
-
-  if [[ $_has_rust -eq 1 ]] && [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
-    config_options+=("cargo-config    - Cargo (~/.cargo/)")
-    config_keys+=("COPY_CARGO_CONFIG")
-  fi
-
-  if [[ $_has_zed -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
-    config_options+=("zed-config      - Zed (editor)")
-    config_keys+=("COPY_ZED_CONFIG")
-  fi
-
-  if [[ $_has_helix -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
-    config_options+=("helix-config    - Helix (editor)")
-    config_keys+=("COPY_HELIX_CONFIG")
-  fi
-
-  if [[ $_has_aider -eq 1 ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
-    config_options+=("aider-config    - Aider (~/.aider.conf.yml)")
-    config_keys+=("COPY_AIDER_CONFIG")
-  fi
-
-  if [[ $_has_docker -eq 1 ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
-    config_options+=("docker-config   - Docker (~/.docker/)")
-    config_keys+=("COPY_DOCKER_CONFIG")
-  fi
-
-  if [[ $_has_direnv -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
-    config_options+=("direnv-config   - Direnv (~/.config/direnv/)")
-    config_keys+=("COPY_DIRENV_CONFIG")
-  fi
-
-  local ssh_source=""
-  if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
-    ssh_source="$PRIVATE_SHARED/.ssh"
-  elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
-    ssh_source="$CONFIG_SHARED/.ssh"
-  fi
-  if [[ -n "$ssh_source" ]]; then
-    config_options+=("ssh-keys        - SSH Keys (~/.ssh/) ⚠️ SENSÍVEL")
-    config_keys+=("COPY_SSH_KEYS")
-  fi
-
-  if [[ ${#config_options[@]} -eq 0 ]]; then
-    msg "  ℹ️  Nenhuma configuração disponível para copiar."
-    msg ""
-    return 0
-  fi
-
-  for key in "${config_keys[@]}"; do
-    eval "$key=0"
-  done
-
-  clear_screen
-  show_section_header "📋 CONFIGURAÇÕES A COPIAR"
-
-  msg "Selecione quais configurações do repositório serão copiadas."
-  msg "💾 Um backup será criado automaticamente antes de sobrescrever."
-  msg ""
-
-  local selected_configs=()
-  select_multiple_items "📋 Selecione as Configs a Copiar" selected_configs "${config_options[@]}"
-
-  for item in "${selected_configs[@]}"; do
-    local config_id
-    config_id="$(echo "$item" | awk '{print $1}')"
-    case "$config_id" in
-      "zsh-config")      COPY_ZSH_CONFIG=1 ;;
-      "fish-config")     COPY_FISH_CONFIG=1 ;;
-      "nushell-config")  COPY_NUSHELL_CONFIG=1 ;;
-      "git-config")      COPY_GIT_CONFIG=1 ;;
-      "nvim-config")     COPY_NVIM_CONFIG=1 ;;
-      "tmux-config")     COPY_TMUX_CONFIG=1 ;;
-      "terminal-config") COPY_TERMINAL_CONFIG=1 ;;
-      "mise-config")     COPY_MISE_CONFIG=1 ;;
-      "starship-config") COPY_STARSHIP_CONFIG=1 ;;
-      "vscode-config")   COPY_VSCODE_SETTINGS=1 ;;
-      "lazygit-config")  COPY_LAZYGIT_CONFIG=1 ;;
-      "yazi-config")     COPY_YAZI_CONFIG=1 ;;
-      "btop-config")     COPY_BTOP_CONFIG=1 ;;
-      "bat-config")      COPY_BAT_CONFIG=1 ;;
-      "kitty-config")    COPY_KITTY_CONFIG=1 ;;
-      "alacritty-config") COPY_ALACRITTY_CONFIG=1 ;;
-      "wezterm-config")  COPY_WEZTERM_CONFIG=1 ;;
-      "ripgrep-config")  COPY_RIPGREP_CONFIG=1 ;;
-      "npm-config")      COPY_NPM_CONFIG=1 ;;
-      "pnpm-config")     COPY_PNPM_CONFIG=1 ;;
-      "yarn-config")     COPY_YARN_CONFIG=1 ;;
-      "pip-config")      COPY_PIP_CONFIG=1 ;;
-      "cargo-config")    COPY_CARGO_CONFIG=1 ;;
-      "zed-config")      COPY_ZED_CONFIG=1 ;;
-      "helix-config")    COPY_HELIX_CONFIG=1 ;;
-      "aider-config")    COPY_AIDER_CONFIG=1 ;;
-      "docker-config")   COPY_DOCKER_CONFIG=1 ;;
-      "direnv-config")   COPY_DIRENV_CONFIG=1 ;;
-      "ssh-keys")        COPY_SSH_KEYS=1 ;;
-    esac
-  done
-}
-
 print_error_block() {
   local pad="$1" title="$2"
   shift 2
@@ -2064,22 +1793,21 @@ detect_os() {
     msys*|cygwin*|win32*) echo "windows" ;;
     *) echo "linux" ;;
   esac
+
+  # Detectar arquitetura
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    x86_64|amd64) ARCH="x86_64" ;;
+    aarch64|arm64) ARCH="aarch64" ;;
+    armv7l) ARCH="armv7" ;;
+    *) ARCH="$ARCH" ;;
+  esac
+  state_set "system.arch" "$ARCH"
 }
 
 is_wsl2() {
   [[ "$TARGET_OS" == "wsl2" ]]
 }
-
-get_distro_codename() {
-  local default_codename="${1:-stable}"
-  if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-    echo "${VERSION_CODENAME:-$default_codename}"
-  else
-    echo "$default_codename"
-  fi
-}
-
 
 install_via_flatpak_or_snap() {
   local cmd="$1"
@@ -2244,6 +1972,7 @@ _verify_remote_script_checksum() {
       record_failure "critical" "Checksum SHA256 obrigatório e ausente para $friendly"
       return 1
     fi
+    warn "Script remoto sem checksum SHA256: $friendly (use REMOTE_SCRIPT_REQUIRE_CHECKSUM=1 para bloquear)"
     return 0
   fi
 
@@ -3209,12 +2938,12 @@ main() {
     UI_MODE=""
     detect_ui_mode
     ask_shells
+    ask_nerd_fonts
     ask_themes
     [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && ask_oh_my_zsh_plugins
     [[ $INSTALL_STARSHIP -eq 1 ]] && ask_starship_preset
     [[ $INSTALL_OH_MY_POSH -eq 1 ]] && ask_oh_my_posh_theme
     [[ $INSTALL_FISH -eq 1 ]] && ask_fish_plugins
-    ask_nerd_fonts
 
     # ══════════════════════════════════════════════════════════════
     # ETAPA 2: Apps e Ferramentas

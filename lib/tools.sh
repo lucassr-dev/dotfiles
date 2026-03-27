@@ -308,6 +308,31 @@ install_selected_ia_tools() {
           warn "Goose requer uv ou pipx. Instale Python e uv primeiro."
         fi
         ;;
+      ollama)
+        msg "▶ Ollama (Runtime LLM Local)"
+        case "$TARGET_OS" in
+          linux|macos|wsl2)
+            msg "  📦 Instalando Ollama via script oficial..."
+            if download_and_run_script "https://ollama.com/install.sh" "Ollama" "sh"; then
+              INSTALLED_MISC+=("ollama: install.sh")
+            else
+              record_failure "optional" "Falha ao instalar Ollama via script"
+            fi
+            ;;
+          windows)
+            if has_cmd winget; then
+              msg "  📦 Instalando Ollama via winget..."
+              if winget install -e --id Ollama.Ollama --accept-package-agreements --accept-source-agreements; then
+                INSTALLED_MISC+=("ollama: winget")
+              else
+                record_failure "optional" "Falha ao instalar Ollama via winget"
+              fi
+            else
+              warn "Ollama: winget não disponível. Instale manualmente de https://ollama.com"
+            fi
+            ;;
+        esac
+        ;;
     esac
   done
 }

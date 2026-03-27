@@ -19,6 +19,25 @@ GIT_EDITOR="nvim"
 GIT_PAGER="delta"
 GIT_CONFIGURE=0
 
+# Sanitiza path de diretório para uso em gitdir includeIf
+# Remove caracteres perigosos que poderiam injetar diretivas git config
+_sanitize_gitdir() {
+  local dir="$1"
+  # Expandir ~ para $HOME
+  dir="${dir/#\~/$HOME}"
+  # Rejeitar paths com caracteres que quebram git config
+  if [[ "$dir" =~ [\"\'\`\$\;\\] ]]; then
+    warn "Diretório rejeitado (caracteres inválidos): $dir"
+    return 1
+  fi
+  # Rejeitar paths que não começam com /
+  if [[ "$dir" != /* ]]; then
+    warn "Diretório deve ser absoluto ou começar com ~: $dir"
+    return 1
+  fi
+  echo "$dir"
+}
+
 _find_ssh_keys() {
   local -n _out_keys="$1"
   _out_keys=()
@@ -119,7 +138,13 @@ ask_git_configuration() {
   if [[ -z "$personal_dirs_input" ]]; then
     GIT_PERSONAL_DIRS=("$HOME/personal" "$HOME/projects")
   else
-    read -r -a GIT_PERSONAL_DIRS <<< "$personal_dirs_input"
+    local -a _raw_dirs=()
+    read -r -a _raw_dirs <<< "$personal_dirs_input"
+    GIT_PERSONAL_DIRS=()
+    for _d in "${_raw_dirs[@]}"; do
+      _d="${_d/#\~/$HOME}"
+      GIT_PERSONAL_DIRS+=("$_d")
+    done
   fi
 
   msg ""
@@ -182,7 +207,13 @@ ask_git_configuration() {
   if [[ -z "$work_dirs_input" ]]; then
     GIT_WORK_DIRS=("$HOME/work" "$HOME/workspace")
   else
-    read -r -a GIT_WORK_DIRS <<< "$work_dirs_input"
+    local -a _raw_dirs=()
+    read -r -a _raw_dirs <<< "$work_dirs_input"
+    GIT_WORK_DIRS=()
+    for _d in "${_raw_dirs[@]}"; do
+      _d="${_d/#\~/$HOME}"
+      GIT_WORK_DIRS+=("$_d")
+    done
   fi
 
   msg ""
@@ -306,7 +337,7 @@ EOF
     cat >> "$gitconfig_personal" << EOF
 
 [core]
-    sshCommand = ssh -i $GIT_PERSONAL_SSH_KEY -o IdentitiesOnly=yes
+    sshCommand = ssh -i "${GIT_PERSONAL_SSH_KEY}" -o IdentitiesOnly=yes
 EOF
   fi
 
@@ -332,7 +363,7 @@ EOF
     cat >> "$gitconfig_work" << EOF
 
 [core]
-    sshCommand = ssh -i $GIT_WORK_SSH_KEY -o IdentitiesOnly=yes
+    sshCommand = ssh -i "${GIT_WORK_SSH_KEY}" -o IdentitiesOnly=yes
 EOF
   fi
 
@@ -354,16 +385,20 @@ EOF
 EOF
 
   for dir in "${GIT_PERSONAL_DIRS[@]}"; do
+    local safe_dir
+    safe_dir="$(_sanitize_gitdir "$dir")" || continue
     {
-      echo "[includeIf \"gitdir:$dir/\"]"
+      echo "[includeIf \"gitdir:${safe_dir}/\"]"
       echo "    path = ~/.gitconfig-personal"
       echo ""
     } >> "$gitconfig"
   done
 
   for dir in "${GIT_WORK_DIRS[@]}"; do
+    local safe_dir
+    safe_dir="$(_sanitize_gitdir "$dir")" || continue
     {
-      echo "[includeIf \"gitdir:$dir/\"]"
+      echo "[includeIf \"gitdir:${safe_dir}/\"]"
       echo "    path = ~/.gitconfig-work"
       echo ""
     } >> "$gitconfig"

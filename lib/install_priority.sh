@@ -50,14 +50,21 @@ init_app_catalog() {
   APP_SOURCES[tokei]="cargo:tokei,brew:tokei,winget:XAMPPRocky.tokei"
   APP_SOURCES[hyperfine]="cargo:hyperfine,brew:hyperfine,winget:sharkdp.hyperfine"
   APP_SOURCES[mise]="official:mise.run,brew:mise,cargo:mise"
-  APP_SOURCES[tmux]="apt:tmux,brew:tmux"
+  APP_SOURCES[tmux]="apt:tmux,brew:tmux,dnf:tmux,pacman:tmux,zypper:tmux"
   APP_SOURCES[neovim]="apt:neovim,brew:neovim,winget:Neovim.Neovim,flatpak:io.neovim.nvim"
   APP_SOURCES[helix]="apt:helix,brew:helix,winget:Helix.Helix"
   APP_SOURCES[jq]="apt:jq,brew:jq,winget:jqlang.jq"
   APP_SOURCES[direnv]="apt:direnv,brew:direnv,winget:direnv.direnv"
+  APP_SOURCES[bottom]="cargo:bottom,apt:bottom,brew:bottom,winget:Clement.bottom"
+  APP_SOURCES[duf]="apt:duf,brew:duf,winget:muesli.duf,cargo:duf"
+  APP_SOURCES[gping]="cargo:gping,brew:gping,winget:orf.gping"
+  APP_SOURCES[difftastic]="cargo:difftastic,brew:difftastic"
+  APP_SOURCES[zellij]="cargo:zellij,brew:zellij"
+  APP_SOURCES[xh]="cargo:xh,brew:xh,winget:ducaale.xh"
+  APP_SOURCES[gitui]="cargo:gitui,brew:gitui,winget:extrawurst.gitui"
   APP_SOURCES[rclone]="apt:rclone,brew:rclone,winget:Rclone.Rclone"
-  APP_SOURCES[fish]="apt:fish,brew:fish"
-  APP_SOURCES[zsh]="apt:zsh,brew:zsh"
+  APP_SOURCES[fish]="apt:fish,brew:fish,dnf:fish,pacman:fish,zypper:fish"
+  APP_SOURCES[zsh]="apt:zsh,brew:zsh,dnf:zsh,pacman:zsh,zypper:zsh"
   APP_SOURCES[nushell]="apt:nushell,brew:nushell,winget:Nushell.Nushell"
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -132,6 +139,7 @@ init_app_catalog() {
   APP_SOURCES[vivaldi]="apt:vivaldi-stable,brew:vivaldi,winget:VivaldiTechnologies.Vivaldi"
   APP_SOURCES[edge]="flatpak:com.microsoft.Edge,brew:microsoft-edge,winget:Microsoft.Edge"
   APP_SOURCES[opera]="flatpak:com.opera.Opera,brew:opera,winget:Opera.Opera"
+  APP_SOURCES[opera-gx]="winget:Opera.OperaGX"  # Opera GX: somente Windows via winget; Linux/macOS requer instalação manual
   APP_SOURCES[librewolf]="flatpak:io.gitlab.librewolf-community,brew:librewolf,winget:LibreWolf.LibreWolf"
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -159,7 +167,14 @@ init_app_catalog() {
   APP_SOURCES[mysql]="apt:mysql-server,brew:mysql,winget:Oracle.MySQL"
   APP_SOURCES[mariadb]="apt:mariadb-server,brew:mariadb,winget:MariaDB.Server"
   APP_SOURCES[sqlite]="apt:sqlite3,brew:sqlite,winget:SQLite.SQLite"
+  APP_SOURCES[mongodb]="apt:mongosh,brew:mongosh,winget:MongoDB.Shell"
+  APP_SOURCES[elasticsearch]="apt:elasticsearch,brew:elastic/tap/elasticsearch-full,winget:Elastic.Elasticsearch"
   APP_SOURCES[podman]="apt:podman,brew:podman,winget:RedHat.Podman"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # AI Tools
+  # ─────────────────────────────────────────────────────────────────────────────
+  APP_SOURCES[ollama]="official:ollama.com,brew:ollama,winget:Ollama.Ollama"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
