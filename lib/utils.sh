@@ -22,7 +22,7 @@ _visible_len() {
   else
     # Fallback: byte length + 1 extra per common wide emoji
     local emoji_count
-    emoji_count=$(printf '%s' "$clean" | grep -oE '[🔌🎨🖼✨🎭🐟🔤🛠🤖💻🐚📦🔐📋🖥🧰🌐📝🏠⚡💡📂🔧🐧👤📁🔄⏭✅❌⚠ℹ🍺🔑🗂📤⏱🎯🔢📊]' 2>/dev/null | wc -l) || emoji_count=0
+    emoji_count=$(printf '%s' "$clean" | grep -oE '[🔌🎨🖼✨🎭🐟🔤🛠🤖💻🐚📦🔐📋🖥🧰🌐📝🏠⚡💡📂🔧🐧👤📁🔄⏭✅❌⚠ℹ🍺🔑🗂📤⏱🎯🔢📊📌💾🔎📄🗺👻🐟💼🔒🌍🎵💬✏️⏹️🖥️]' 2>/dev/null | wc -l) || emoji_count=0
     echo $((${#clean} + emoji_count))
   fi
 }

@@ -1068,7 +1068,8 @@ install_oh_my_posh() {
       msg "  ✅ Tema encontrado: $theme_file"
 
       if [[ $INSTALL_ZSH -eq 1 ]] && [[ -f "$HOME/.zshrc" ]]; then
-        local init_line="eval \"\$(oh-my-posh init zsh --config '$theme_file')\""
+        local safe_theme_file="${theme_file//\'/\'\\\'\'}"
+        local init_line="eval \"\$(oh-my-posh init zsh --config '${safe_theme_file}')\""
         if ! grep -q "oh-my-posh init zsh" "$HOME/.zshrc"; then
           {
             echo ""

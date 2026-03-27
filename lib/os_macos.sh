@@ -15,7 +15,9 @@ ensure_homebrew() {
 
   if NONINTERACTIVE=1 download_and_run_script "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh" "Homebrew" "/bin/bash"; then
     # Adicionar brew ao PATH para esta sessão
-    if [[ -f "/opt/homebrew/bin/brew" ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      eval "$(brew shellenv)"
+    elif [[ -f "/opt/homebrew/bin/brew" ]]; then
       eval "$(/opt/homebrew/bin/brew shellenv)"
     elif [[ -f "/usr/local/bin/brew" ]]; then
       eval "$(/usr/local/bin/brew shellenv)"

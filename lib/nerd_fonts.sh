@@ -108,7 +108,7 @@ declare -a SELECTED_NERD_FONTS=()
 get_fonts_dir() {
   case "$TARGET_OS" in
     linux|wsl2)
-      echo "$HOME/.local/share/fonts"
+      echo "${XDG_DATA_HOME:-$HOME/.local/share}/fonts"
       ;;
     macos)
       echo "$HOME/Library/Fonts"

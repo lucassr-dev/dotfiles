@@ -32,10 +32,12 @@ formulahendry.auto-rename-tag
 formulahendry.code-runner
 fractalbrew.backticks
 gencer.html-slim-scss-css-class-completion
+github.copilot
 github.copilot-chat
 github.vscode-pull-request-github
 glenn2223.live-sass
 graphql.vscode-graphql-syntax
+humao.rest-client
 imgildev.vscode-nestjs-snippets-extension
 kisstkondoros.vscode-gutter-preview
 l-igh-t.vscode-theme-seti-folder
@@ -75,7 +77,6 @@ naumovs.color-highlight
 oderwat.indent-rainbow
 onecentlin.laravel-blade
 onecentlin.laravel5-snippets
-openai.chatgpt
 orta.vscode-jest
 pkief.material-icon-theme
 pmndrs.pmndrs

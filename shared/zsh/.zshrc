@@ -3,8 +3,9 @@
 # ═══════════════════════════════════════════════════════════
 
 if [[ -z "$SSH_AUTH_SOCK" ]] || [[ ! -S "$SSH_AUTH_SOCK" ]]; then
-  # Tentar sockets conhecidos (systemd, GNOME Keyring)
-  for _sock in "/run/user/$(id -u)/openssh_agent" \
+  # Tentar sockets conhecidos (1Password macOS, systemd, GNOME Keyring)
+  for _sock in "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" \
+               "/run/user/$(id -u)/openssh_agent" \
                "/run/user/$(id -u)/ssh-agent.socket" \
                "/run/user/$(id -u)/gcr/ssh"; do
     if [[ -S "$_sock" ]]; then

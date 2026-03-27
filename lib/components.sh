@@ -7,6 +7,9 @@
 # Requer: lib/colors.sh (design tokens)
 # Requer: lib/utils.sh (_strip_ansi, _visible_len)
 
+# Largura mínima global para componentes UI
+UI_MIN_WIDTH=42
+
 # ─── Box com título ───────────────────────────────────────
 # Uso: ui_box "Título" "Conteúdo linha 1\nLinha 2"
 ui_box() {
@@ -15,7 +18,7 @@ ui_box() {
   local term_w
   term_w=$(tput cols 2>/dev/null || echo 80)
   local width=$((term_w > 70 ? 70 : term_w - 4))
-  [[ $width -lt 42 ]] && width=42
+  [[ $width -lt ${UI_MIN_WIDTH} ]] && width=${UI_MIN_WIDTH}
   local inner=$((width - 2))
 
   local title_vis
@@ -111,21 +114,6 @@ ui_divider() {
   echo -e "${UI_SURFACE1}${line// /─}${UI_RESET}"
 }
 
-# ─── Mensagem de sucesso ──────────────────────────────────
-ui_success() {
-  echo -e "  ${UI_SUCCESS}✅ $1${UI_RESET}"
-}
-
-# ─── Mensagem de erro ─────────────────────────────────────
-ui_error() {
-  echo -e "  ${UI_ERROR}❌ $1${UI_RESET}"
-}
-
-# ─── Mensagem informativa ─────────────────────────────────
-ui_info() {
-  echo -e "  ${UI_INFO}ℹ️  $1${UI_RESET}"
-}
-
 # ─── Key-value pair (para reports) ────────────────────────
 # Uso: ui_kv "Ferramenta" "fzf v0.50.0" 20
 ui_kv() {
@@ -133,4 +121,19 @@ ui_kv() {
   local value="$2"
   local key_width="${3:-20}"
   printf "  ${UI_MUTED}%-${key_width}s${UI_RESET} %s\n" "$key" "$value"
+}
+
+# ─── Mensagem de aviso ──────────────────────────────────
+# Uso: ui_warning "Atenção: recurso experimental"
+ui_warning() {
+  echo -e "  ${UI_WARNING}⚠️  $1${UI_RESET}"
+}
+
+# ─── Lista com bullets ──────────────────────────────────
+# Uso: ui_list "item1" "item2" "item3"
+ui_list() {
+  local item
+  for item in "$@"; do
+    echo -e "  ${UI_MUTED}•${UI_RESET} ${item}"
+  done
 }
