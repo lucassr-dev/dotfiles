@@ -384,6 +384,21 @@ install_macos_selected_apps() {
   done
 }
 
+install_ruby_build_deps_macos() {
+  local deps=(
+    openssl@3
+    readline
+    libyaml
+    libffi
+    gmp
+    rust
+  )
+  local dep=""
+  for dep in "${deps[@]}"; do
+    brew_install_formula "$dep" optional
+  done
+}
+
 install_php_build_deps_macos() {
   local deps=(
     autoconf
