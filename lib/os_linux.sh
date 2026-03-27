@@ -463,6 +463,35 @@ install_wezterm_linux() {
 # Aplicação de configurações específicas do Linux
 # ═══════════════════════════════════════════════════════════
 
+install_ruby_build_deps_linux() {
+  detect_linux_pkg_manager
+  case "$LINUX_PKG_MANAGER" in
+    apt-get)
+      install_linux_packages optional \
+        autoconf bison build-essential pkg-config rustc \
+        libssl-dev libreadline-dev zlib1g-dev libyaml-dev \
+        libncurses-dev libffi-dev libgdbm-dev libgmp-dev libdb-dev
+      ;;
+    dnf)
+      install_linux_packages optional \
+        autoconf bison gcc gcc-c++ make pkg-config rust \
+        openssl-devel readline-devel zlib-devel libyaml-devel \
+        ncurses-devel libffi-devel gdbm-devel gmp-devel libdb-devel
+      ;;
+    pacman)
+      install_linux_packages optional \
+        autoconf bison base-devel pkg-config rust \
+        openssl readline zlib libyaml ncurses libffi gdbm gmp db
+      ;;
+    zypper)
+      install_linux_packages optional \
+        autoconf bison gcc gcc-c++ make pkg-config rust \
+        libopenssl-devel readline-devel zlib-devel libyaml-devel \
+        ncurses-devel libffi-devel gdbm-devel gmp-devel libdb-4_8-devel
+      ;;
+  esac
+}
+
 install_php_build_deps_linux() {
   detect_linux_pkg_manager
   case "$LINUX_PKG_MANAGER" in

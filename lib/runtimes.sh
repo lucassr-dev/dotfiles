@@ -121,6 +121,18 @@ install_selected_runtimes() {
           record_failure "optional" "Falha ao instalar Rust via mise"
         fi
         ;;
+      ruby)
+        msg "  📦 Ruby (latest) via mise..."
+        case "${TARGET_OS:-}" in
+          linux|wsl2) install_ruby_build_deps_linux ;;
+          macos) install_ruby_build_deps_macos ;;
+        esac
+        if mise use -g -y ruby@latest; then
+          INSTALLED_MISC+=("ruby: mise latest")
+        else
+          record_failure "optional" "Falha ao instalar Ruby (latest) via mise"
+        fi
+        ;;
       *)
         local matched=0
         for entry in "${RUNTIME_MAP[@]}"; do
