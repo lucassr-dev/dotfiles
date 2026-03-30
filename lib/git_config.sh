@@ -425,56 +425,64 @@ install_git_configuration() {
   fi
 
   local gitconfig_personal="$HOME/.gitconfig-personal"
-  cat > "$gitconfig_personal" << EOF
+  if [[ -z "$GIT_PERSONAL_NAME" ]] || [[ -z "$GIT_PERSONAL_EMAIL" ]]; then
+    warn "  ⚠️  Nome ou email pessoal vazio — preservando ~/.gitconfig-personal existente"
+  else
+    cat > "$gitconfig_personal" << EOF
 [user]
     name = $GIT_PERSONAL_NAME
     email = $GIT_PERSONAL_EMAIL
     useConfigOnly = true
 EOF
 
-  if [[ -n "$GIT_PERSONAL_USER" ]]; then
-    cat >> "$gitconfig_personal" << EOF
+    if [[ -n "$GIT_PERSONAL_USER" ]]; then
+      cat >> "$gitconfig_personal" << EOF
 
 [github]
     user = $GIT_PERSONAL_USER
 EOF
-  fi
+    fi
 
-  if [[ -n "$GIT_PERSONAL_SSH_KEY" ]]; then
-    cat >> "$gitconfig_personal" << EOF
+    if [[ -n "$GIT_PERSONAL_SSH_KEY" ]]; then
+      cat >> "$gitconfig_personal" << EOF
 
 [core]
     sshCommand = ssh -i "${GIT_PERSONAL_SSH_KEY}" -o IdentitiesOnly=yes
 EOF
+    fi
+
+    msg "  ✅ Criado: ~/.gitconfig-personal"
   fi
 
-  msg "  ✅ Criado: ~/.gitconfig-personal"
-
   local gitconfig_work="$HOME/.gitconfig-work"
-  cat > "$gitconfig_work" << EOF
+  if [[ -z "$GIT_WORK_NAME" ]] || [[ -z "$GIT_WORK_EMAIL" ]]; then
+    warn "  ⚠️  Nome ou email de trabalho vazio — preservando ~/.gitconfig-work existente"
+  else
+    cat > "$gitconfig_work" << EOF
 [user]
     name = $GIT_WORK_NAME
     email = $GIT_WORK_EMAIL
     useConfigOnly = true
 EOF
 
-  if [[ -n "$GIT_WORK_USER" ]]; then
-    cat >> "$gitconfig_work" << EOF
+    if [[ -n "$GIT_WORK_USER" ]]; then
+      cat >> "$gitconfig_work" << EOF
 
 [github]
     user = $GIT_WORK_USER
 EOF
-  fi
+    fi
 
-  if [[ -n "$GIT_WORK_SSH_KEY" ]]; then
-    cat >> "$gitconfig_work" << EOF
+    if [[ -n "$GIT_WORK_SSH_KEY" ]]; then
+      cat >> "$gitconfig_work" << EOF
 
 [core]
     sshCommand = ssh -i "${GIT_WORK_SSH_KEY}" -o IdentitiesOnly=yes
 EOF
-  fi
+    fi
 
-  msg "  ✅ Criado: ~/.gitconfig-work"
+    msg "  ✅ Criado: ~/.gitconfig-work"
+  fi
 
   local gitconfig="$HOME/.gitconfig"
   backup_if_exists "$gitconfig"
