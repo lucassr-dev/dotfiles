@@ -37,6 +37,43 @@ backup_if_exists() {
   fi
 }
 
+# Pergunta ao usuário antes de sobrescrever arquivo/diretório existente.
+# Ativo somente quando CONFIRM_OVERWRITE=1. Retorna 0=sobrescreve, 1=pula.
+# Destinos que não existem são aprovados automaticamente.
+_confirm_overwrite() {
+  local dest="$1"
+  local src="${2:-}"
+  [[ ! -e "$dest" ]] && return 0
+  [[ "${CONFIRM_OVERWRITE:-0}" != "1" ]] && return 0
+  [[ "${DRY_RUN:-0}" == "1" ]] && return 0
+  [[ ! -t 0 ]] && return 0  # stdin não é TTY, pula prompt
+
+  local answer=""
+  while true; do
+    printf "  ❓ %s já existe. Sobrescrever? [s/N/d=diff] " "$dest" >&2
+    read -r answer
+    case "${answer,,}" in
+      s|sim|y|yes)
+        return 0
+        ;;
+      ""|n|nao|não|no)
+        msg "  ⏭️  Pulado: $dest"
+        return 1
+        ;;
+      d|diff)
+        if [[ -n "$src" ]] && [[ -f "$src" ]] && [[ -f "$dest" ]]; then
+          _show_diff "$src" "$dest"
+        else
+          msg "  (diff indisponível para diretórios ou arquivos ausentes)"
+        fi
+        ;;
+      *)
+        msg "  (responda s=sim, n=não, d=diff)"
+        ;;
+    esac
+  done
+}
+
 copy_dir() {
   local src="$1"
   local dest="$2"
@@ -45,6 +82,7 @@ copy_dir() {
     msg "  🔎 (dry-run) 📁 $src -> $dest"
     return
   fi
+  _confirm_overwrite "$dest" || return 0
   msg "  📁 $src -> $dest"
   backup_if_exists "$dest" || return 1
   mkdir -p "$dest"
@@ -70,6 +108,7 @@ copy_file() {
     _show_diff "$src" "$dest"
     return
   fi
+  _confirm_overwrite "$dest" "$src" || return 0
   msg "  📄 $src -> $dest"
   backup_if_exists "$dest" || return 1
   mkdir -p "$(dirname "$dest")"

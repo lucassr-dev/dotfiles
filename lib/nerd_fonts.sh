@@ -155,11 +155,11 @@ download_and_install_font() {
 
   rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
 
-  if ! run_with_timeout 120 curl -fsSL --max-time 120 "$primary_url" -o "$temp_zip"; then
+  if ! run_with_timeout "$CURL_TIMEOUT_NORMAL" curl -fsSL --max-time "$CURL_TIMEOUT_NORMAL" "$primary_url" -o "$temp_zip"; then
     if [[ "$fallback_url" != "$primary_url" ]]; then
       msg "  ⚠️  URL de versão falhou, tentando latest..."
     fi
-    if ! run_with_timeout 120 curl -fsSL --max-time 120 "$fallback_url" -o "$temp_zip"; then
+    if ! run_with_timeout "$CURL_TIMEOUT_NORMAL" curl -fsSL --max-time "$CURL_TIMEOUT_NORMAL" "$fallback_url" -o "$temp_zip"; then
       warn "Falha ao baixar $font_name"
       rm -f "$temp_zip" 2>/dev/null
       return 1
@@ -206,10 +206,24 @@ refresh_font_cache() {
       fi
       ;;
     macos)
-      msg "  🔄 Cache de fontes será atualizado automaticamente pelo macOS"
+      # atsutil (Apple Type Services) regenera o banco de fontes do user
+      if has_cmd atsutil; then
+        msg "  🔄 Atualizando cache de fontes (atsutil)..."
+        atsutil databases -removeUser >/dev/null 2>&1 || true
+      else
+        msg "  ℹ️  atsutil indisponível; reinicie aplicativos para ver as novas fontes"
+      fi
       ;;
     windows)
-      msg "  ℹ️  Reinicie aplicativos para ver as novas fontes"
+      # PowerShell invoca AddFontResource via Win32 API para registrar sem restart
+      if has_cmd powershell.exe; then
+        msg "  🔄 Atualizando cache de fontes (PowerShell)..."
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
+          "Add-Type -AssemblyName PresentationCore; [System.Windows.Media.Fonts]::SystemFontFamilies | Out-Null" \
+          >/dev/null 2>&1 || true
+      else
+        msg "  ℹ️  Reinicie aplicativos para ver as novas fontes"
+      fi
       ;;
   esac
 }

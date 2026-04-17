@@ -29,17 +29,22 @@ CLI_TOOLS=(
   zellij        # Multiplexador de terminal moderno
   xh            # Cliente HTTP moderno (alternativa ao curl)
   gitui         # Interface Git TUI rápida em Rust
+  broot         # Navegador de árvore interativo
+  glow          # Renderizador de Markdown no terminal
+  navi          # Cheatsheets interativos (cargo/brew)
+  topgrade      # Atualiza tudo (pkgs/rust/mise/brew/...) de uma vez
 )
 
 IA_TOOLS=(
   claude-code  # CLI oficial do Claude (Anthropic)
   aider        # AI pair programming (25K+ GitHub stars)
-  codex        # Geração de código com OpenAI Codex
+  codex        # Codex CLI da OpenAI (assistente no terminal)
   continue     # Open-source AI assistant para IDEs
   goose        # AI agent framework (Block/Square)
   spec-kit     # Spec-driven development (GitHub Spec Kit)
   serena       # Assistente de código com IA (Language Server)
   ollama       # Runtime LLM local (modelos open-source)
+  promptfoo    # Framework de eval/testing para LLMs
 )
 
 SHELLS=(
@@ -61,6 +66,7 @@ TERMINALS=(
 IDES=(
   vscode               # Visual Studio Code (Microsoft)
   cursor               # Fork do VSCode com IA integrada
+  windsurf             # IDE AI-first da Codeium
   zed                  # Editor moderno e rápido (Rust)
   neovim               # Vim moderno e extensível
   helix                # Editor modal moderno (Rust, LSP built-in)

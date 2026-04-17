@@ -30,6 +30,30 @@ install_cursor() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Windsurf - IDE AI-first da Codeium (tem installers nativos)
+# ─────────────────────────────────────────────────────────────────────────────
+
+install_windsurf() {
+  case "$TARGET_OS" in
+    macos)
+      brew_install_cask windsurf optional
+      ;;
+    linux|wsl2)
+      if ! has_cmd windsurf; then
+        msg "  📥 Baixe Windsurf em: https://codeium.com/windsurf"
+      fi
+      ;;
+    windows)
+      if has_cmd winget; then
+        winget_install "Codeium.Windsurf" "Windsurf" optional
+      else
+        msg "  📥 Baixe Windsurf em: https://codeium.com/windsurf"
+      fi
+      ;;
+  esac
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Redis Insight - GUI para Redis (download manual no Linux)
 # ─────────────────────────────────────────────────────────────────────────────
 

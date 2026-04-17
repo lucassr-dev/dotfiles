@@ -208,6 +208,7 @@ install_macos_selected_apps() {
       ghostty) _install_macos_app ghostty ghostty "cask:ghostty" ;;
       kitty) _install_macos_app kitty kitty "cask:kitty" ;;
       alacritty) _install_macos_app alacritty alacritty "cask:alacritty" ;;
+      wezterm) _install_macos_app wezterm wezterm "cask:wezterm" ;;
       *)
         if [[ -n "${APP_SOURCES[$terminal]:-}" ]]; then
           _install_macos_app "$terminal" "$terminal"
@@ -221,6 +222,7 @@ install_macos_selected_apps() {
   for app in "${SELECTED_IDES[@]}"; do
     case "$app" in
       cursor) install_cursor ;;
+      windsurf) install_windsurf ;;
       xcode) msg "  ℹ️  Xcode deve ser instalado via App Store." ;;
       vscode) _install_macos_app vscode code "cask:visual-studio-code" ;;
       zed) _install_macos_app zed zed "cask:zed" ;;

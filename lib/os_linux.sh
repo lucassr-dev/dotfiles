@@ -368,6 +368,7 @@ install_linux_selected_apps() {
     _install_app_with_catalog "$app" "$ide_cmd" || {
       case "$app" in
         cursor) install_cursor ;;
+        windsurf) install_windsurf ;;
         *) record_failure "optional" "IDE sem instalador automático no Linux: $app" ;;
       esac
     }
