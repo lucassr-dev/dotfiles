@@ -23,17 +23,21 @@ CLAUDE.md
 CONTEXT.md
 **/CLAUDE.md
 
-# Configs geradas por ferramentas (runtime state)
-atuin/
-composer/
-eza/
-fish/
-gh/
-ghostty/
-mise/
-nextjs-nodejs/
-nvim/
-nvim.bak.*/
-starship.toml
-uv/
-znt/
+# Configs geradas por ferramentas (runtime state — ancorado ao root)
+/atuin/
+/composer/
+/eza/
+/fish/
+/gh/
+/ghostty/
+/mise/
+/nextjs-nodejs/
+/nvim/
+/nvim.bak.*/
+/starship.toml
+/uv/
+/znt/
+
+# Runtime state dentro de shared/ (não curado)
+shared/fish/fish_variables
+shared/nvim/lazy-lock.json
