@@ -145,7 +145,7 @@ download_preview_image() {
   local url
   for url in "${urls[@]}"; do
     [[ -z "$url" ]] && continue
-    if curl -fsSL --connect-timeout 5 --max-time 15 "$url" -o "$out" 2>/dev/null; then
+    if curl -fsSL --connect-timeout 5 --max-time "$CURL_TIMEOUT_FAST" "$url" -o "$out" 2>/dev/null; then
       [[ -s "$out" ]] && return 0
     fi
     rm -f "$out"
@@ -1148,7 +1148,7 @@ _install_fisher_secure() {
     return 1
   }
 
-  local -a curl_args=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 120)
+  local -a curl_args=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_TIMEOUT_NORMAL")
   if ! curl "${curl_args[@]}" "$fisher_url" -o "$temp_fisher"; then
     rm -f "$temp_fisher" 2>/dev/null || true
     warn "Falha ao baixar Fisher"

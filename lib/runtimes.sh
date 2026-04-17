@@ -126,6 +126,13 @@ install_selected_runtimes() {
         case "${TARGET_OS:-}" in
           linux|wsl2) install_ruby_build_deps_linux ;;
           macos) install_ruby_build_deps_macos ;;
+          windows)
+            # No Windows mise não compila Ruby de forma confiável;
+            # usar RubyInstaller nativo (já inclui DevKit/MSYS2)
+            if install_ruby_windows; then
+              continue
+            fi
+            ;;
         esac
         if mise use -g -y ruby@latest; then
           INSTALLED_MISC+=("ruby: mise latest")

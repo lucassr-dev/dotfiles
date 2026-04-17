@@ -308,6 +308,21 @@ install_selected_ia_tools() {
           warn "Goose requer uv ou pipx. Instale Python e uv primeiro."
         fi
         ;;
+      promptfoo)
+        msg "▶ Promptfoo (LLM eval framework)"
+        if has_cmd npm; then
+          msg "  📦 Instalando promptfoo via npm..."
+          if npm i -g promptfoo; then
+            INSTALLED_MISC+=("promptfoo: npm")
+          else
+            record_failure "optional" "Falha ao instalar promptfoo via npm"
+          fi
+        elif has_cmd brew; then
+          brew_install_formula promptfoo optional
+        else
+          warn "promptfoo requer npm (Node.js) ou Homebrew. Instale Node primeiro."
+        fi
+        ;;
       ollama)
         msg "▶ Ollama (Runtime LLM Local)"
         case "$TARGET_OS" in

@@ -121,6 +121,15 @@ install_nvim_config() {
           record_failure "optional" "Falha ao instalar Neovim"
         fi
         ;;
+      windows)
+        if has_cmd winget && winget install -e --id Neovim.Neovim --silent --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
+          INSTALLED_MISC+=("neovim: winget")
+        elif has_cmd choco && _choco_install_or_upgrade neovim; then
+          INSTALLED_MISC+=("neovim: choco")
+        else
+          record_failure "optional" "Falha ao instalar Neovim no Windows"
+        fi
+        ;;
     esac
   fi
 
@@ -129,13 +138,8 @@ install_nvim_config() {
     return 0
   fi
 
-  if [[ -d "$HOME/.config/nvim" ]]; then
-    msg "  📦 Backup da configuração existente..."
-    mv "$HOME/.config/nvim" "$HOME/.config/nvim.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
-  fi
-
   mkdir -p "$HOME/.config"
-  if cp -r "$CONFIG_SHARED/nvim" "$HOME/.config/nvim" 2>/dev/null; then
+  if copy_dir "$CONFIG_SHARED/nvim" "$HOME/.config/nvim"; then
     INSTALLED_MISC+=("Neovim (config)")
     msg "  ✅ Configuração do Neovim copiada"
   else
@@ -209,19 +213,16 @@ install_tmux_config() {
     return 0
   fi
 
-  [[ -f "$HOME/.tmux.conf" ]] && mv "$HOME/.tmux.conf" "$HOME/.tmux.conf.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
-
   local copied=0
 
   if [[ -f "$CONFIG_SHARED/tmux/.tmux.conf" ]]; then
-    cp "$CONFIG_SHARED/tmux/.tmux.conf" "$HOME/.tmux.conf" 2>/dev/null && copied=1
+    copy_file "$CONFIG_SHARED/tmux/.tmux.conf" "$HOME/.tmux.conf" && copied=1
   elif [[ -f "$CONFIG_SHARED/tmux/tmux.conf" ]]; then
-    cp "$CONFIG_SHARED/tmux/tmux.conf" "$HOME/.tmux.conf" 2>/dev/null && copied=1
+    copy_file "$CONFIG_SHARED/tmux/tmux.conf" "$HOME/.tmux.conf" && copied=1
   fi
 
   if [[ -d "$CONFIG_SHARED/tmux/.tmux" ]]; then
-    [[ -d "$HOME/.tmux" ]] && mv "$HOME/.tmux" "$HOME/.tmux.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
-    cp -r "$CONFIG_SHARED/tmux/.tmux" "$HOME/.tmux" 2>/dev/null && copied=1
+    copy_dir "$CONFIG_SHARED/tmux/.tmux" "$HOME/.tmux" && copied=1
   fi
 
   if [[ $copied -eq 1 ]]; then

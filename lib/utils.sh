@@ -61,3 +61,20 @@ _wrap_text() {
 
   [[ -n "$current" ]] && out_lines+=("$current")
 }
+
+# ═══════════════════════════════════════════════════════════
+# Constantes de timeout para curl (unificar em toda a codebase)
+# ═══════════════════════════════════════════════════════════
+CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-10}"
+CURL_TIMEOUT_FAST="${CURL_TIMEOUT_FAST:-15}"      # Imagens de preview, checks rápidos
+CURL_TIMEOUT_NORMAL="${CURL_TIMEOUT_NORMAL:-120}" # Fontes, plugins, tarballs pequenos
+CURL_TIMEOUT_LONG="${CURL_TIMEOUT_LONG:-180}"     # Scripts de instalação, arquivos grandes
+
+# Gera array de argumentos seguros para curl com timeout configurável.
+# Uso: local -a args; read -r -a args <<< "$(make_curl_args 120)"
+# Ou:  curl $(make_curl_args 180) -o file URL
+make_curl_args() {
+  local max_time="${1:-$CURL_TIMEOUT_LONG}"
+  local connect_timeout="${2:-$CURL_CONNECT_TIMEOUT}"
+  echo "-fsSL --proto =https --tlsv1.2 --retry 3 --retry-delay 1 --connect-timeout $connect_timeout --max-time $max_time"
+}

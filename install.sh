@@ -28,7 +28,7 @@ FAIL_FAST="${FAIL_FAST:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 SCRIPT_VERSION="1.0.0"
 VERBOSE="${VERBOSE:-0}"
-QUIET="${QUIET:-0}"
+CONFIRM_OVERWRITE="${CONFIRM_OVERWRITE:-0}"
 REMOTE_SCRIPT_STRICT="${REMOTE_SCRIPT_STRICT:-1}"
 REMOTE_SCRIPT_REQUIRE_CHECKSUM="${REMOTE_SCRIPT_REQUIRE_CHECKSUM:-0}"
 REMOTE_SCRIPT_ALLOWLIST="${REMOTE_SCRIPT_ALLOWLIST:-astral.sh,mise.run,sh.rustup.rs,raw.githubusercontent.com,starship.rs,setup.atuin.sh,get.docker.com,ohmyposh.dev,claude.ai}"
@@ -130,14 +130,15 @@ show_usage() {
   echo -e "  ${c}-h${r}, ${c}--help${r}          Mostrar esta ajuda"
   echo -e "  ${c}-v${r}, ${c}--version${r}       Mostrar versao"
   echo -e "  ${c}-n${r}, ${c}--dry-run${r}       Simular sem alterar o sistema"
-  echo -e "  ${c}-q${r}, ${c}--quiet${r}         Saida reduzida"
   echo -e "  ${c}--verbose${r}           Saida detalhada"
+  echo -e "  ${c}--confirm-overwrite${r} Perguntar antes de sobrescrever configs"
   echo -e "  ${c}--no-color${r}          Desativar cores (equivale a NO_COLOR=1)"
   echo ""
   echo -e "${b}Variaveis de ambiente:${r}"
-  echo -e "  DRY_RUN=1           Mesmo que --dry-run"
-  echo -e "  NO_COLOR=1          Mesmo que --no-color"
-  echo -e "  FORCE_UI_MODE=bash  Forcar modo de UI (fzf/gum/bash)"
+  echo -e "  DRY_RUN=1                    Mesmo que --dry-run"
+  echo -e "  CONFIRM_OVERWRITE=1          Mesmo que --confirm-overwrite"
+  echo -e "  NO_COLOR=1                   Mesmo que --no-color"
+  echo -e "  FORCE_UI_MODE=bash           Forcar modo de UI (fzf/gum/bash)"
   echo -e "  REMOTE_SCRIPT_STRICT=0       Permitir hosts fora da allowlist"
   echo -e "  REMOTE_SCRIPT_REQUIRE_CHECKSUM=1  Exigir SHA256 para scripts remotos"
   echo -e "  REMOTE_SCRIPT_ALLOWLIST=...  Lista CSV de hosts confiaveis"
@@ -155,7 +156,7 @@ for arg in "$@"; do
     -h|--help) show_usage; exit 0 ;;
     -v|--version) show_version; exit 0 ;;
     -n|--dry-run) DRY_RUN=1 ;;
-    -q|--quiet) QUIET=1 ;;
+    --confirm-overwrite) CONFIRM_OVERWRITE=1 ;;
     --verbose) VERBOSE=1 ;;
     --no-color) export NO_COLOR=1 ;;
     *)
@@ -2055,7 +2056,7 @@ download_and_run_script() {
     return 1
   }
 
-  local -a curl_args=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 180)
+  local -a curl_args=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_TIMEOUT_LONG")
   if [[ -n "$curl_extra" ]]; then
     local -a extra_args=()
     read -r -a extra_args <<< "$curl_extra"

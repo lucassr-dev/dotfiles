@@ -272,7 +272,7 @@ ask_cli_tools() {
       gh)         tools_with_desc+=("gh         - CLI oficial do GitHub (PRs, issues, repos)") ;;
       jq)         tools_with_desc+=("jq         - Processador JSON para linha de comando") ;;
       direnv)     tools_with_desc+=("direnv     - Carrega variáveis de ambiente por diretório") ;;
-      btop)       tools_with_desc+=("btop       - Monitor de recursos (CPU, RAM, disco, rede)") ;;
+      btop)       tools_with_desc+=("btop       - Monitor de recursos (CPU, RAM, disco, rede, GPU) ⭐") ;;
       tmux)       tools_with_desc+=("tmux       - Multiplexador de terminal (sessões, janelas, painéis)") ;;
       atuin)      tools_with_desc+=("atuin      - Histórico de shell sincronizado e com busca avançada") ;;
       tealdeer)   tools_with_desc+=("tealdeer   - tldr em Rust - man pages simplificadas e práticas") ;;
@@ -283,13 +283,17 @@ ask_cli_tools() {
       tokei)      tools_with_desc+=("tokei      - Contador de linhas de código por linguagem") ;;
       hyperfine)  tools_with_desc+=("hyperfine  - Benchmarking CLI (medir tempo de comandos)") ;;
       mise)       tools_with_desc+=("mise       - Runtime version manager (node, python, ruby...)") ;;
-      bottom)     tools_with_desc+=("bottom     - Monitor de sistema TUI em Rust") ;;
+      bottom)     tools_with_desc+=("bottom     - Monitor de sistema TUI em Rust (alternativa a btop)") ;;
       duf)        tools_with_desc+=("duf        - Visualizador de uso de disco moderno") ;;
       gping)      tools_with_desc+=("gping      - Ping com gráfico em tempo real") ;;
       difftastic) tools_with_desc+=("difftastic - Diff estrutural que entende a linguagem") ;;
       zellij)     tools_with_desc+=("zellij     - Multiplexador de terminal moderno") ;;
       xh)         tools_with_desc+=("xh         - Cliente HTTP moderno (alternativa ao curl)") ;;
       gitui)      tools_with_desc+=("gitui      - Interface Git TUI rápida em Rust") ;;
+      broot)      tools_with_desc+=("broot      - Navegador de árvore interativo (alternativa a tree)") ;;
+      glow)       tools_with_desc+=("glow       - Renderizador de Markdown no terminal") ;;
+      navi)       tools_with_desc+=("navi       - Cheatsheets interativos para CLI") ;;
+      topgrade)   tools_with_desc+=("topgrade   - Atualiza tudo (pkgs/rust/mise/brew...) de uma vez") ;;
       *)          tools_with_desc+=("$tool") ;;
     esac
   done
@@ -327,12 +331,13 @@ ask_ia_tools() {
     case "$tool" in
       spec-kit)    tools_with_desc+=("spec-kit    - Spec-driven development com IA") ;;
       serena)      tools_with_desc+=("serena      - Assistente de código baseado em IA") ;;
-      codex)       tools_with_desc+=("codex       - Geração de código com OpenAI Codex") ;;
+      codex)       tools_with_desc+=("codex       - Codex CLI da OpenAI (assistente de código no terminal)") ;;
       claude-code) tools_with_desc+=("claude-code - CLI oficial do Claude AI (Anthropic)") ;;
       aider)       tools_with_desc+=("aider       - AI pair programming (25K+ GitHub stars)") ;;
       continue)    tools_with_desc+=("continue    - Open-source AI assistant para IDEs") ;;
       goose)       tools_with_desc+=("goose       - AI agent framework (Block/Square)") ;;
       ollama)      tools_with_desc+=("ollama      - Runtime LLM local (modelos open-source)") ;;
+      promptfoo)   tools_with_desc+=("promptfoo   - Framework de eval/testing para LLMs") ;;
       *)           tools_with_desc+=("$tool") ;;
     esac
   done
@@ -392,7 +397,8 @@ ask_terminals() {
         [[ "$TARGET_OS" != "windows" ]] && available_terminals+=("Ghostty    - $ghostty_desc")
         ;;
       kitty)
-        available_terminals+=("Kitty      - $kitty_desc")
+        # Kitty não tem build oficial Windows — omitir do menu
+        [[ "$TARGET_OS" != "windows" ]] && available_terminals+=("Kitty      - $kitty_desc")
         ;;
       alacritty)
         available_terminals+=("Alacritty  - $alacritty_desc")

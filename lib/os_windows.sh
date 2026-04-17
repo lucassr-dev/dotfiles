@@ -146,6 +146,37 @@ install_windows_base_dependencies() {
   return 0
 }
 
+install_ruby_windows() {
+  if has_cmd ruby; then
+    msg "  ✅ Ruby já disponível no sistema"
+    return 0
+  fi
+
+  local installed=0
+  # RubyInstaller já inclui DevKit com MSYS2 (libffi, openssl, etc)
+  if has_cmd winget; then
+    winget_install RubyInstallerTeam.RubyWithDevKit "Ruby+DevKit" optional
+    has_cmd ruby && installed=1
+  fi
+
+  if [[ $installed -eq 0 ]] && has_cmd choco; then
+    _choco_install_or_upgrade ruby
+    has_cmd ruby && installed=1
+  fi
+
+  if [[ $installed -eq 0 ]] && has_cmd scoop; then
+    scoop install ruby 2>/dev/null && has_cmd ruby && installed=1
+  fi
+
+  if [[ $installed -eq 1 ]]; then
+    msg "  ✅ Ruby (latest) instalado no Windows (winget/choco/scoop)"
+    return 0
+  fi
+
+  record_failure "optional" "Ruby não instalado no Windows: winget/choco/scoop indisponíveis ou falharam"
+  return 1
+}
+
 install_php_windows() {
   if has_cmd php; then
     msg "  ✅ PHP já disponível no sistema"
@@ -283,6 +314,7 @@ install_windows_selected_apps() {
       vscode) _install_windows_app vscode code "Microsoft.VisualStudioCode" "VS Code" ;;
       zed) _install_windows_app zed zed "Zed.Zed" "Zed" ;;
       cursor) msg "  ℹ️  Cursor deve ser instalado manualmente: https://cursor.sh" ;;
+      windsurf) install_windsurf ;;
       neovim) _install_windows_app neovim nvim "Neovim.Neovim" "Neovim" ;;
       sublime-text) _install_windows_app sublime-text subl "SublimeHQ.SublimeText.4" "Sublime Text" ;;
       android-studio) _install_windows_app android-studio studio "Google.AndroidStudio" "Android Studio" ;;
@@ -310,7 +342,6 @@ install_windows_selected_apps() {
       windows-terminal) ;;
       wezterm) _install_windows_app wezterm wezterm "wez.wezterm" "WezTerm" ;;
       alacritty) _install_windows_app alacritty alacritty "Alacritty.Alacritty" "Alacritty" ;;
-      kitty) msg "  ℹ️  Kitty no Windows: visite https://sw.kovidgoyal.net/kitty/" ;;
       *)
         if [[ -n "${APP_SOURCES[$terminal]:-}" ]]; then
           _install_windows_app "$terminal" "$terminal"
