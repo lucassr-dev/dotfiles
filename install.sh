@@ -2424,90 +2424,72 @@ install_selected_gui_apps() {
   esac
 }
 
-copy_tool_configs() {
-  msg "▶ Copiando configurações de ferramentas CLI"
+# ════════════════════════════════════════════════════════════════
+# Tabela declarativa de operações de cópia de config
+# ════════════════════════════════════════════════════════════════
+# Formato por linha: "FLAG|type|src_rel|dest_abs|src_exists_check"
+#
+# - FLAG: nome da variável COPY_X_CONFIG (verificada contra 1)
+# - type: "file" (copy_file) ou "dir" (copy_dir)
+# - src_rel: caminho relativo a $CONFIG_SHARED
+# - dest_abs: caminho absoluto de destino (pode usar $HOME)
+# - src_exists_check: arquivo/dir que deve existir no source (guard);
+#                     vazio = apenas confere se COPY flag está ativa
+#
+# Casos especiais (fish, zsh, nushell, git, ssh) ficam em funções
+# dedicadas no apply_shared_configs() porque têm pré/pós-processamento.
+_build_shared_copy_ops() {
+  SHARED_COPY_OPS=(
+    # Tool configs (herdadas de copy_tool_configs)
+    "COPY_LAZYGIT_CONFIG|dir|lazygit|$HOME/.config/lazygit|lazygit/config.yml"
+    "COPY_YAZI_CONFIG|dir|yazi|$HOME/.config/yazi|yazi"
+    "COPY_BTOP_CONFIG|dir|btop|$HOME/.config/btop|btop/btop.conf"
+    "COPY_BAT_CONFIG|dir|bat|$HOME/.config/bat|bat/config"
+    "COPY_KITTY_CONFIG|dir|kitty|$HOME/.config/kitty|kitty/kitty.conf"
+    "COPY_ALACRITTY_CONFIG|dir|alacritty|$HOME/.config/alacritty|alacritty/alacritty.toml"
+    "COPY_WEZTERM_CONFIG|dir|wezterm|$HOME/.config/wezterm|wezterm/wezterm.lua"
+    "COPY_RIPGREP_CONFIG|file|.ripgreprc|$HOME/.ripgreprc|.ripgreprc"
+    "COPY_NPM_CONFIG|file|npm/.npmrc|$HOME/.npmrc|npm/.npmrc"
+    "COPY_PNPM_CONFIG|file|pnpm/.pnpmrc|$HOME/.config/pnpm/.pnpmrc|pnpm/.pnpmrc"
+    "COPY_YARN_CONFIG|file|yarn/.yarnrc|$HOME/.yarnrc|yarn/.yarnrc"
+    "COPY_PIP_CONFIG|file|pip/pip.conf|$HOME/.config/pip/pip.conf|pip/pip.conf"
+    "COPY_CARGO_CONFIG|file|cargo/config.toml|$HOME/.cargo/config.toml|cargo/config.toml"
+    "COPY_ZED_CONFIG|file|zed/settings.json|$HOME/.config/zed/settings.json|zed/settings.json"
+    "COPY_HELIX_CONFIG|file|helix/config.toml|$HOME/.config/helix/config.toml|helix/config.toml"
+    "COPY_AIDER_CONFIG|file|aider/.aider.conf.yml|$HOME/.aider.conf.yml|aider/.aider.conf.yml"
+    "COPY_DOCKER_CONFIG|file|docker/config.json|$HOME/.docker/config.json|docker/config.json"
+    "COPY_DIRENV_CONFIG|file|direnv/.direnvrc|$HOME/.config/direnv/direnvrc|direnv/.direnvrc"
+    # Configs simples de topo (gated por cmd e não por fish/zsh/git/ssh que são especiais)
+    "COPY_MISE_CONFIG|dir|mise|$HOME/.config/mise|mise"
+    "COPY_STARSHIP_CONFIG|file|starship.toml|$HOME/.config/starship.toml|starship.toml"
+    "COPY_NVIM_CONFIG|dir|nvim|$HOME/.config/nvim|nvim"
+    "COPY_TMUX_CONFIG|file|tmux/.tmux.conf|$HOME/.tmux.conf|tmux/.tmux.conf"
+  )
+}
 
-  if [[ ${COPY_LAZYGIT_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/lazygit/config.yml" ]]; then
-    copy_dir "$CONFIG_SHARED/lazygit" "$HOME/.config/lazygit"
+# Executa uma entrada da tabela SHARED_COPY_OPS.
+# Retorna cedo se a flag não está ativa ou o source não existe.
+_run_copy_op() {
+  local flag="$1" type="$2" src_rel="$3" dest="$4" src_check="$5"
+  local flag_value="${!flag:-0}"
+
+  if [[ "$flag_value" -ne 1 ]]; then
+    return 0
   fi
 
-  if [[ ${COPY_YAZI_CONFIG:-0} -eq 1 ]] && [[ -d "$CONFIG_SHARED/yazi" ]]; then
-    copy_dir "$CONFIG_SHARED/yazi" "$HOME/.config/yazi"
-  fi
-
-  if [[ ${COPY_BTOP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/btop/btop.conf" ]]; then
-    copy_dir "$CONFIG_SHARED/btop" "$HOME/.config/btop"
-  fi
-
-  if [[ ${COPY_BAT_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]; then
-    copy_dir "$CONFIG_SHARED/bat" "$HOME/.config/bat"
-  fi
-
-  if [[ ${COPY_KITTY_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/kitty/kitty.conf" ]]; then
-    copy_dir "$CONFIG_SHARED/kitty" "$HOME/.config/kitty"
-  fi
-
-  if [[ ${COPY_ALACRITTY_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/alacritty/alacritty.toml" ]]; then
-    copy_dir "$CONFIG_SHARED/alacritty" "$HOME/.config/alacritty"
-    if [[ "${TARGET_OS:-linux}" == "macos" ]]; then
-      sed -i'' 's/command = "xdg-open"/command = "open"/' "$HOME/.config/alacritty/alacritty.toml" 2>/dev/null
+  local src_full="$CONFIG_SHARED/$src_rel"
+  if [[ -n "$src_check" ]]; then
+    local check_path="$CONFIG_SHARED/$src_check"
+    if [[ ! -e "$check_path" ]]; then
+      return 0
     fi
   fi
 
-  if [[ ${COPY_WEZTERM_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/wezterm/wezterm.lua" ]]; then
-    copy_dir "$CONFIG_SHARED/wezterm" "$HOME/.config/wezterm"
-  fi
-
-  if [[ ${COPY_RIPGREP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/.ripgreprc" ]]; then
-    copy_file "$CONFIG_SHARED/.ripgreprc" "$HOME/.ripgreprc"
-  fi
-
-  if [[ ${COPY_NPM_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/npm/.npmrc" ]]; then
-    copy_file "$CONFIG_SHARED/npm/.npmrc" "$HOME/.npmrc"
-  fi
-
-  if [[ ${COPY_PNPM_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pnpm/.pnpmrc" ]]; then
-    mkdir -p "$HOME/.config/pnpm"
-    copy_file "$CONFIG_SHARED/pnpm/.pnpmrc" "$HOME/.config/pnpm/.pnpmrc"
-  fi
-
-  if [[ ${COPY_YARN_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/yarn/.yarnrc" ]]; then
-    copy_file "$CONFIG_SHARED/yarn/.yarnrc" "$HOME/.yarnrc"
-  fi
-
-  if [[ ${COPY_PIP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/pip/pip.conf" ]]; then
-    mkdir -p "$HOME/.config/pip"
-    copy_file "$CONFIG_SHARED/pip/pip.conf" "$HOME/.config/pip/pip.conf"
-  fi
-
-  if [[ ${COPY_CARGO_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/cargo/config.toml" ]]; then
-    mkdir -p "$HOME/.cargo"
-    copy_file "$CONFIG_SHARED/cargo/config.toml" "$HOME/.cargo/config.toml"
-  fi
-
-  if [[ ${COPY_ZED_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/zed/settings.json" ]]; then
-    mkdir -p "$HOME/.config/zed"
-    copy_file "$CONFIG_SHARED/zed/settings.json" "$HOME/.config/zed/settings.json"
-  fi
-
-  if [[ ${COPY_HELIX_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/helix/config.toml" ]]; then
-    mkdir -p "$HOME/.config/helix"
-    copy_file "$CONFIG_SHARED/helix/config.toml" "$HOME/.config/helix/config.toml"
-  fi
-
-  if [[ ${COPY_AIDER_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]]; then
-    copy_file "$CONFIG_SHARED/aider/.aider.conf.yml" "$HOME/.aider.conf.yml"
-  fi
-
-  if [[ ${COPY_DOCKER_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/docker/config.json" ]]; then
-    mkdir -p "$HOME/.docker"
-    copy_file "$CONFIG_SHARED/docker/config.json" "$HOME/.docker/config.json"
-  fi
-
-  if [[ ${COPY_DIRENV_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]; then
-    mkdir -p "$HOME/.config/direnv"
-    copy_file "$CONFIG_SHARED/direnv/.direnvrc" "$HOME/.config/direnv/direnvrc"
-  fi
+  mkdir -p "$(dirname "$dest")"
+  case "$type" in
+    file) copy_file "$src_full" "$dest" ;;
+    dir)  copy_dir "$src_full" "$dest" ;;
+  esac
 }
 
 install_bat_catppuccin_theme() {
@@ -2565,146 +2547,179 @@ install_bat_catppuccin_theme() {
   fi
 }
 
+# ──────────────────────────────────────────────────────────────
+# Casos especiais: tratam preserve-PATH, P10k, Nushell scripts/,
+# Git multi-conta + PRIVATE_SHARED override, SSH keys
+# ──────────────────────────────────────────────────────────────
+
+_apply_fish_config() {
+  if ! is_truthy "$INSTALL_FISH"; then
+    return 0
+  fi
+  if [[ ${COPY_FISH_CONFIG:-0} -ne 1 ]]; then
+    msg "  ⏭️  Fish config: usuário optou por não copiar"
+    return 0
+  fi
+  if ! has_cmd fish; then
+    msg "  ⚠️ Fish não encontrado, pulando config."
+    return 0
+  fi
+
+  local preserved=""
+  preserved="$(extract_user_path_config_fish)"
+
+  copy_dir "$CONFIG_SHARED/fish" "$HOME/.config/fish"
+  normalize_crlf_to_lf "$HOME/.config/fish/config.fish"
+
+  if [[ -n "$preserved" ]]; then
+    msg "  🔄 Verificando configurações de PATH para preservar..."
+    append_preserved_config "$HOME/.config/fish/config.fish" "$preserved"
+  fi
+}
+
+_apply_zsh_config() {
+  if ! is_truthy "$INSTALL_ZSH"; then
+    return 0
+  fi
+  if [[ ${COPY_ZSH_CONFIG:-0} -ne 1 ]]; then
+    msg "  ⏭️  Zsh config: usuário optou por não copiar"
+    return 0
+  fi
+  if ! has_cmd zsh; then
+    msg "  ⚠️ Zsh não encontrado, pulando .zshrc."
+    return 0
+  fi
+
+  local preserved=""
+  preserved="$(extract_user_path_config_zsh)"
+
+  copy_file "$CONFIG_SHARED/zsh/.zshrc" "$HOME/.zshrc"
+  normalize_crlf_to_lf "$HOME/.zshrc"
+
+  if [[ -n "$preserved" ]]; then
+    msg "  🔄 Verificando configurações de PATH para preservar..."
+    append_preserved_config "$HOME/.zshrc" "$preserved"
+  fi
+
+  if [[ -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" || -d "$HOME/.oh-my-zsh/themes/powerlevel10k" ]]; then
+    copy_file "$CONFIG_SHARED/zsh/.p10k.zsh" "$HOME/.p10k.zsh"
+  else
+    msg "  ⚠️ Powerlevel10k não encontrado em ~/.oh-my-zsh, pulando .p10k.zsh."
+  fi
+}
+
+_apply_nushell_config() {
+  if ! is_truthy "$INSTALL_NUSHELL"; then
+    return 0
+  fi
+  if [[ ${COPY_NUSHELL_CONFIG:-0} -ne 1 ]]; then
+    msg "  ⏭️  Nushell config: usuário optou por não copiar"
+    return 0
+  fi
+  if ! has_cmd nu; then
+    msg "  ⚠️ Nushell não encontrado após instalação, pulando config."
+    return 0
+  fi
+
+  mkdir -p "$HOME/.config/nushell"
+  copy_file "$CONFIG_SHARED/nushell/config.nu" "$HOME/.config/nushell/config.nu"
+  copy_file "$CONFIG_SHARED/nushell/env.nu" "$HOME/.config/nushell/env.nu"
+  mkdir -p "$HOME/.config/nushell/scripts"
+}
+
+_apply_git_config() {
+  if [[ ${COPY_GIT_CONFIG:-0} -ne 1 ]]; then
+    msg "  ⏭️  Git config: usuário optou por não copiar"
+    return 0
+  fi
+  if ! has_cmd git; then
+    msg "  ⚠️ Git não encontrado, pulando .gitconfig."
+    return 0
+  fi
+
+  # Se GIT_CONFIGURE=1, a geração dinâmica (install_git_configuration) vai
+  # sobrescrever esses arquivos. Pula cópia estática para preservar o
+  # backup correto do original do usuário.
+  if [[ ${GIT_CONFIGURE:-0} -eq 1 ]]; then
+    msg "  ℹ️  Git config: será gerado interativamente (pulando cópia estática)"
+    return 0
+  fi
+
+  local git_base="$CONFIG_SHARED/git/.gitconfig"
+  local git_personal="$CONFIG_SHARED/git/.gitconfig-personal"
+  local git_work="$CONFIG_SHARED/git/.gitconfig-work"
+
+  if [[ -n "$PRIVATE_SHARED" ]]; then
+    [[ -f "$PRIVATE_SHARED/git/.gitconfig" ]] && git_base="$PRIVATE_SHARED/git/.gitconfig"
+    [[ -f "$PRIVATE_SHARED/git/.gitconfig-personal" ]] && git_personal="$PRIVATE_SHARED/git/.gitconfig-personal"
+    [[ -f "$PRIVATE_SHARED/git/.gitconfig-work" ]] && git_work="$PRIVATE_SHARED/git/.gitconfig-work"
+  fi
+
+  copy_file "$git_base" "$HOME/.gitconfig"
+  [[ -f "$git_personal" ]] && copy_file "$git_personal" "$HOME/.gitconfig-personal"
+  [[ -f "$git_work" ]] && copy_file "$git_work" "$HOME/.gitconfig-work"
+}
+
+_apply_ssh_keys() {
+  if [[ ${COPY_SSH_KEYS:-0} -ne 1 ]]; then
+    msg "  ⏭️  SSH Keys: usuário optou por não copiar (padrão por segurança)"
+    return 0
+  fi
+
+  local ssh_source=""
+  if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
+    ssh_source="$PRIVATE_SHARED/.ssh"
+  elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
+    ssh_source="$CONFIG_SHARED/.ssh"
+  fi
+
+  if [[ -n "$ssh_source" ]]; then
+    msg "▶ Gerenciando Chaves SSH"
+    if manage_ssh_keys "$ssh_source"; then
+      set_ssh_permissions
+      msg "  ✓ Chaves SSH configuradas com permissões corretas (700/600)"
+    fi
+  fi
+}
+
+# Pós-processamento: alacritty usa `open` no macOS (xdg-open é Linux)
+_postprocess_alacritty_for_macos() {
+  [[ ${COPY_ALACRITTY_CONFIG:-0} -ne 1 ]] && return 0
+  [[ "${TARGET_OS:-linux}" != "macos" ]] && return 0
+  local conf="$HOME/.config/alacritty/alacritty.toml"
+  [[ -f "$conf" ]] || return 0
+  sed -i'' 's/command = "xdg-open"/command = "open"/' "$conf" 2>/dev/null || true
+}
+
 apply_shared_configs() {
   msg "▶ Copiando configs compartilhadas"
 
-  if is_truthy "$INSTALL_FISH" && has_cmd fish && [[ ${COPY_FISH_CONFIG:-0} -eq 1 ]]; then
-    local preserved_fish_config=""
-    preserved_fish_config="$(extract_user_path_config_fish)"
+  # Casos especiais (preserve-PATH, P10k, multi-conta, SSH prompts)
+  _apply_fish_config
+  _apply_zsh_config
+  _apply_nushell_config
+  _apply_git_config
 
-    copy_dir "$CONFIG_SHARED/fish" "$HOME/.config/fish"
-    normalize_crlf_to_lf "$HOME/.config/fish/config.fish"
+  # Configs simples via tabela declarativa
+  declare -a SHARED_COPY_OPS=()
+  _build_shared_copy_ops
+  local op
+  for op in "${SHARED_COPY_OPS[@]}"; do
+    IFS='|' read -r flag type src_rel dest src_check <<< "$op"
+    _run_copy_op "$flag" "$type" "$src_rel" "$dest" "$src_check"
+  done
+  _postprocess_alacritty_for_macos
 
-    if [[ -n "$preserved_fish_config" ]]; then
-      msg "  🔄 Verificando configurações de PATH para preservar..."
-      append_preserved_config "$HOME/.config/fish/config.fish" "$preserved_fish_config"
-    fi
-  elif is_truthy "$INSTALL_FISH" && [[ ${COPY_FISH_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Fish config: usuário optou por não copiar"
-  elif is_truthy "$INSTALL_FISH" && ! has_cmd fish; then
-    msg "  ⚠️ Fish não encontrado, pulando config."
-  fi
-
-  if is_truthy "$INSTALL_ZSH" && has_cmd zsh && [[ ${COPY_ZSH_CONFIG:-0} -eq 1 ]]; then
-    local preserved_zsh_config=""
-    preserved_zsh_config="$(extract_user_path_config_zsh)"
-
-    copy_file "$CONFIG_SHARED/zsh/.zshrc" "$HOME/.zshrc"
-    normalize_crlf_to_lf "$HOME/.zshrc"
-
-    if [[ -n "$preserved_zsh_config" ]]; then
-      msg "  🔄 Verificando configurações de PATH para preservar..."
-      append_preserved_config "$HOME/.zshrc" "$preserved_zsh_config"
-    fi
-
-    if [[ -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" || -d "$HOME/.oh-my-zsh/themes/powerlevel10k" ]]; then
-      copy_file "$CONFIG_SHARED/zsh/.p10k.zsh" "$HOME/.p10k.zsh"
-    else
-      msg "  ⚠️ Powerlevel10k não encontrado em ~/.oh-my-zsh, pulando .p10k.zsh."
-    fi
-  elif is_truthy "$INSTALL_ZSH" && [[ ${COPY_ZSH_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Zsh config: usuário optou por não copiar"
-  elif is_truthy "$INSTALL_ZSH" && ! has_cmd zsh; then
-    msg "  ⚠️ Zsh não encontrado, pulando .zshrc."
-  fi
-
-  if is_truthy "$INSTALL_NUSHELL" && has_cmd nu && [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]]; then
-    mkdir -p "$HOME/.config/nushell"
-    copy_file "$CONFIG_SHARED/nushell/config.nu" "$HOME/.config/nushell/config.nu"
-    copy_file "$CONFIG_SHARED/nushell/env.nu" "$HOME/.config/nushell/env.nu"
-    mkdir -p "$HOME/.config/nushell/scripts"
-  elif is_truthy "$INSTALL_NUSHELL" && [[ ${COPY_NUSHELL_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Nushell config: usuário optou por não copiar"
-  elif is_truthy "$INSTALL_NUSHELL" && ! has_cmd nu; then
-    msg "  ⚠️ Nushell não encontrado após instalação, pulando config."
-  fi
-
-  if has_cmd git && [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]]; then
-    # Se GIT_CONFIGURE=1, a geração dinâmica (install_git_configuration) vai
-    # sobrescrever esses arquivos. Copiar apenas quando NÃO há config interativo,
-    # para preservar o backup correto do original do usuário.
-    if [[ ${GIT_CONFIGURE:-0} -eq 1 ]]; then
-      msg "  ℹ️  Git config: será gerado interativamente (pulando cópia estática)"
-    else
-      local git_base="$CONFIG_SHARED/git/.gitconfig"
-      local git_personal="$CONFIG_SHARED/git/.gitconfig-personal"
-      local git_work="$CONFIG_SHARED/git/.gitconfig-work"
-
-      if [[ -n "$PRIVATE_SHARED" ]]; then
-        [[ -f "$PRIVATE_SHARED/git/.gitconfig" ]] && git_base="$PRIVATE_SHARED/git/.gitconfig"
-        [[ -f "$PRIVATE_SHARED/git/.gitconfig-personal" ]] && git_personal="$PRIVATE_SHARED/git/.gitconfig-personal"
-        [[ -f "$PRIVATE_SHARED/git/.gitconfig-work" ]] && git_work="$PRIVATE_SHARED/git/.gitconfig-work"
-      fi
-
-      copy_file "$git_base" "$HOME/.gitconfig"
-      [[ -f "$git_personal" ]] && copy_file "$git_personal" "$HOME/.gitconfig-personal"
-      [[ -f "$git_work" ]] && copy_file "$git_work" "$HOME/.gitconfig-work"
-    fi
-  elif [[ ${COPY_GIT_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Git config: usuário optou por não copiar"
-  elif ! has_cmd git; then
-    msg "  ⚠️ Git não encontrado, pulando .gitconfig."
-  fi
-
-  if has_cmd mise && [[ ${COPY_MISE_CONFIG:-0} -eq 1 ]]; then
-    copy_dir "$CONFIG_SHARED/mise" "$HOME/.config/mise"
-  elif [[ ${COPY_MISE_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Mise config: usuário optou por não copiar"
-  elif ! has_cmd mise; then
-    msg "  ⚠️ Mise não encontrado, pulando config."
-  fi
-
-  if has_cmd starship && [[ ${COPY_STARSHIP_CONFIG:-0} -eq 1 ]] && [[ -f "$CONFIG_SHARED/starship.toml" ]]; then
-    mkdir -p "$HOME/.config"
-    copy_file "$CONFIG_SHARED/starship.toml" "$HOME/.config/starship.toml"
-  elif [[ ${COPY_STARSHIP_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Starship config: usuário optou por não copiar"
-  elif ! has_cmd starship; then
-    msg "  ⚠️ Starship não encontrado, pulando config."
-  fi
-
-  if has_cmd nvim && [[ ${COPY_NVIM_CONFIG:-0} -eq 1 ]]; then
-    copy_dir "$CONFIG_SHARED/nvim" "$HOME/.config/nvim"
-  elif [[ ${COPY_NVIM_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Neovim config: usuário optou por não copiar"
-  elif ! has_cmd nvim; then
-    msg "  ⚠️ Neovim não encontrado, pulando config."
-  fi
-
-  if has_cmd tmux && [[ ${COPY_TMUX_CONFIG:-0} -eq 1 ]]; then
-    copy_file "$CONFIG_SHARED/tmux/.tmux.conf" "$HOME/.tmux.conf"
-  elif [[ ${COPY_TMUX_CONFIG:-0} -eq 0 ]]; then
-    msg "  ⏭️  Tmux config: usuário optou por não copiar"
-  elif ! has_cmd tmux; then
-    msg "  ⚠️ tmux não encontrado, pulando .tmux.conf."
-  fi
-
+  # VS Code: função dedicada (resolve path por OS)
   if [[ ${COPY_VSCODE_SETTINGS:-0} -eq 1 ]]; then
     copy_vscode_settings
   else
     msg "  ⏭️  VS Code settings: usuário optou por não copiar"
   fi
 
-  copy_tool_configs
   install_bat_catppuccin_theme
 
-  if [[ ${COPY_SSH_KEYS:-0} -eq 1 ]]; then
-    local ssh_source=""
-    if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
-      ssh_source="$PRIVATE_SHARED/.ssh"
-    elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
-      ssh_source="$CONFIG_SHARED/.ssh"
-    fi
-    if [[ -n "$ssh_source" ]]; then
-      msg "▶ Gerenciando Chaves SSH"
-      if manage_ssh_keys "$ssh_source"; then
-        set_ssh_permissions
-        msg "  ✓ Chaves SSH configuradas com permissões corretas (700/600)"
-      fi
-    fi
-  else
-    msg "  ⏭️  SSH Keys: usuário optou por não copiar (padrão por segurança)"
-  fi
+  _apply_ssh_keys
 }
 
 # ════════════════════════════════════════════════════════════════
