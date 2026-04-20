@@ -79,6 +79,44 @@ state_dump() {
   done
 }
 
+state_clear() {
+  _state_ensure_map
+  DOTFILES_STATE=()
+}
+
+# Persistir estado para um arquivo (key=value por linha, shell-escape
+# via printf %q para suportar espaços/caracteres especiais).
+# Força perm 600 porque state pode conter dados sensíveis (paths SSH, etc).
+state_save() {
+  _state_ensure_map
+  local file="$1"
+  [[ -z "$file" ]] && return 1
+  local key
+  {
+    for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
+      printf '%s=%q\n' "$key" "${DOTFILES_STATE[$key]}"
+    done
+  } > "$file"
+  chmod 600 "$file" 2>/dev/null || true
+}
+
+# Carregar estado de arquivo salvo por state_save.
+# Usa `source` (dentro de subshell-safe) — valores já vêm escapados via %q.
+state_load() {
+  _state_ensure_map
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  local line key value
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    # Eval é seguro aqui porque %q garante escape correto
+    eval "value=$value"
+    DOTFILES_STATE["$key"]="$value"
+  done < "$file"
+}
+
 _state_file_is_secure() {
   local file="$1"
   [[ -f "$file" ]] || return 1
