@@ -5,6 +5,19 @@ CHECKPOINT_FILE="$HOME/.dotfiles-checkpoint"
 CHECKPOINT_STAGE=""
 RESUME_MODE=0
 
+# SHA do commit do repo no momento do save/load -- mais confiavel que
+# SCRIPT_VERSION (que fica travado em "1.0.0", nunca foi bumpado). Usado pra
+# avisar quando um checkpoint antigo pode nao conhecer perguntas/COPY_* novos
+# que um `git pull` trouxe entre uma tentativa de instalacao e outra.
+_current_repo_sha() {
+  local dir="${SCRIPT_DIR:-.}"
+  if command -v git >/dev/null 2>&1 && git -C "$dir" rev-parse HEAD >/dev/null 2>&1; then
+    git -C "$dir" rev-parse HEAD
+  else
+    echo "no-git:${SCRIPT_VERSION:-unknown}"
+  fi
+}
+
 _checkpoint_file_is_secure() {
   local file="$1"
   [[ -f "$file" ]] || return 1
@@ -40,6 +53,7 @@ checkpoint_save() {
   {
     echo "# Dotfiles Checkpoint - $(date)"
     echo "CHECKPOINT_STAGE=\"$stage\""
+    printf 'CHECKPOINT_REPO_SHA=%q\n' "$(_current_repo_sha)"
 
     # Salvar state centralizado
     if declare -F state_dump >/dev/null 2>&1; then
@@ -125,6 +139,19 @@ checkpoint_load() {
 
     # shellcheck source=/dev/null
     source "$CHECKPOINT_FILE"
+
+    # Aviso de checkpoint potencialmente obsoleto -- nao bloqueia (pode ser so
+    # um commit de doc/typo entre uma tentativa e outra), so avisa. Achado de
+    # auditoria: resume pulava a ETAPA 1 (perguntas) incondicionalmente, entao
+    # `git pull` trazendo `ask_*`/`COPY_*` novos era aplicado silenciosamente
+    # com o estado antigo, sem o usuario nunca ver as opcoes novas.
+    local _current_sha=""
+    _current_sha="$(_current_repo_sha)"
+    if [[ -n "${CHECKPOINT_REPO_SHA:-}" ]] && [[ -n "$_current_sha" ]] && [[ "$CHECKPOINT_REPO_SHA" != "$_current_sha" ]]; then
+      echo "⚠️  Checkpoint foi salvo numa versão diferente do dotfiles (${CHECKPOINT_REPO_SHA:0:12} → ${_current_sha:0:12})." >&2
+      echo "   Pode faltar perguntas/opções novas trazidas por 'git pull'. Se quiser recomeçar do zero:" >&2
+      echo "   rm \"$CHECKPOINT_FILE\"" >&2
+    fi
 
     # Sincronizar state carregado para globals
     if declare -F _sync_state_to_globals >/dev/null 2>&1; then
