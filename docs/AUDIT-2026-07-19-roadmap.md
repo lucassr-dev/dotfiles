@@ -42,12 +42,11 @@ exclusão (`gh repo delete lucassr-dev/claude-code-template --yes`) é a única 
 
 Ordem sugerida (mais barato/isolado → mais arriscado/amplo). Marcar aqui conforme for concluindo.
 
-- [ ] **1. SSH keys: feature morta (`COPY_SSH_KEYS` nunca vira 1)** — ~180 linhas bem construídas
-  (`manage_ssh_keys`/`_ssh_resolve_conflict`/preview de fingerprint) nunca são alcançadas porque
-  nada no fluxo de seleção/auto-enable/toggle jamais seta a flag. Decisão tomada: **wire up** (não
-  remover — código já é bom, só falta expor). Adicionar detecção em `_auto_enable_configs()` +
-  entrada em `_toggle_configs()`, provavelmente com confirmação explícita (`ui_confirm`) dado que
-  mexe com chaves privadas.
+- [x] **1. SSH keys wired up** (commit `d24b873`) — `ask_ssh_keys()` novo (ETAPA 1, só pergunta se
+  detectar fonte + terminal interativo), `_resolve_ssh_source()` extraído, wiring em toggle/contagem/
+  resumo. Bônus: corrigido bug de segurança lateral (`set_ssh_permissions` não rodava se
+  `manage_ssh_keys` "falhasse" no último item do loop — chaves anteriores ficavam 644
+  permanentemente) + `chmod 600` imediato por-chave. Testado: dry-run completo, exit 0.
 - [ ] **2. Checkpoint/resume não é resume real** — `checkpoint_save`/`checkpoint_load`
   (`lib/checkpoint.sh`) não gravam `SCRIPT_VERSION` nem progresso por-step; resume pula a ETAPA 1
   (perguntas) mas reroda os 13 steps do zero, sem avisar se o checkpoint é de uma versão antiga do
