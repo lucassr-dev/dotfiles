@@ -51,10 +51,10 @@ Ordem sugerida (mais barato/isolado → mais arriscado/amplo). Marcar aqui confo
   não serve, travado em "1.0.0"), avisa no load se divergir do SHA atual (não bloqueia, só avisa +
   instrui como recomeçar). Step-level progress tracking (pular só steps já concluídos) ficou de fora
   — redesign maior, não fix pontual; considerar depois se o usuário sentir falta.
-- [ ] **3. MongoDB no catálogo** — `APP_SOURCES[mongodb]` aponta pra `mongosh` (client) em vez do
-  servidor real, sombreando o installer dedicado `install_mongodb_linux()`. Faltam:
-  `brew tap mongodb/brew` (macOS) e adicionar o repo oficial `repo.mongodb.org` antes de
-  `apt-get install` (Linux moderno removeu `mongodb-org` dos repos padrão pós-SSPL).
+- [x] **3. MongoDB corrigido** (commit `21058e9`) — removida entrada de catálogo que sombreava os
+  installers reais; `brew tap mongodb/brew` adicionado (macOS); tentativa best-effort de repo apt
+  oficial (Linux, ubuntu/debian via `/etc/os-release`, fallback pra mensagem com link da doc se
+  codename não suportado ainda). Testado: dry-run de regressão, exit 0.
 - [ ] **4. Cobertura de testes ~15%** — módulos críticos sem nenhum teste BATS: `checkpoint.sh`,
   `fileops.sh`, `selections.sh`, `ui.sh`, `git_config.sh`, `themes.sh`, `install.sh` inteiro (só
   exercitado end-to-end pelo dry-run do CI, fora do BATS). Não dá pra resolver 100% num commit —
