@@ -50,16 +50,3 @@ setup() {
   ! state_has "a"
   ! state_has "b"
 }
-
-@test "state_save and state_load roundtrip" {
-  local tmpfile
-  tmpfile=$(mktemp)
-  state_clear
-  state_set "saved.key" "saved_value"
-  state_save "$tmpfile"
-  state_clear
-  state_load "$tmpfile"
-  result=$(state_get "saved.key")
-  [ "$result" = "saved_value" ]
-  rm -f "$tmpfile"
-}

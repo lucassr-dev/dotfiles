@@ -84,62 +84,6 @@ state_clear() {
   DOTFILES_STATE=()
 }
 
-# Persistir estado para um arquivo (key=value por linha, shell-escape
-# via printf %q para suportar espaços/caracteres especiais).
-# Força perm 600 porque state pode conter dados sensíveis (paths SSH, etc).
-state_save() {
-  _state_ensure_map
-  local file="$1"
-  [[ -z "$file" ]] && return 1
-  local key
-  {
-    for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
-      printf '%s=%q\n' "$key" "${DOTFILES_STATE[$key]}"
-    done
-  } > "$file"
-  chmod 600 "$file" 2>/dev/null || true
-}
-
-# Carregar estado de arquivo salvo por state_save.
-# Usa `source` (dentro de subshell-safe) — valores já vêm escapados via %q.
-state_load() {
-  _state_ensure_map
-  local file="$1"
-  [[ -f "$file" ]] || return 1
-  local line key value
-  while IFS= read -r line; do
-    [[ -z "$line" || "$line" == \#* ]] && continue
-    key="${line%%=*}"
-    value="${line#*=}"
-    # Eval é seguro aqui porque %q garante escape correto
-    eval "value=$value"
-    DOTFILES_STATE["$key"]="$value"
-  done < "$file"
-}
-
-_state_file_is_secure() {
-  local file="$1"
-  [[ -f "$file" ]] || return 1
-  [[ -O "$file" ]] || return 1
-
-  local perm=""
-  if command -v stat >/dev/null 2>&1; then
-    perm="$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null || true)"
-  fi
-
-  if [[ -n "$perm" ]] && [[ "$perm" =~ ^[0-7]{3,4}$ ]]; then
-    local mode="$perm"
-    [[ ${#mode} -eq 4 ]] && mode="${mode:1}"
-    local group_digit="${mode:1:1}"
-    local other_digit="${mode:2:1}"
-    if (( 10#$group_digit != 0 || 10#$other_digit != 0 )); then
-      return 1
-    fi
-  fi
-
-  return 0
-}
-
 # ═══════════════════════════════════════════════════════════
 # Compatibilidade — Ponte entre globals legadas e state
 # ═══════════════════════════════════════════════════════════
