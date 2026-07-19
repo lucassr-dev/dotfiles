@@ -245,18 +245,85 @@ install_selected_ia_tools() {
             fi
             ;;
           windows)
-            if has_cmd powershell; then
-              msg "  📦 Instalando Claude Code via PowerShell..."
-              if powershell -NoProfile -Command "irm https://claude.ai/install.ps1 | iex"; then
-                INSTALLED_MISC+=("claude-code: install.ps1")
-              else
-                record_failure "optional" "Falha ao instalar Claude Code via PowerShell"
-              fi
-            else
+            # NAO usar "irm ... | iex" direto -- isso bypassa REMOTE_SCRIPT_ALLOWLIST/
+            # REMOTE_SCRIPT_STRICT/checksum e ignora DRY_RUN (achado de auditoria de
+            # segurança: único de 14 install remotos do repo que fazia isso).
+            if ! has_cmd powershell; then
               warn "PowerShell não encontrado. Instale Claude Code manualmente."
+            elif ! has_cmd curl; then
+              record_failure "optional" "curl não encontrado para baixar instalador do Claude Code"
+            else
+              local _url="https://claude.ai/install.ps1"
+              local _host=""
+              _host="$(_extract_url_host "$_url")"
+              if [[ -z "$_host" ]] || ! _is_trusted_remote_host "$_host"; then
+                local _trust_msg="Host remoto não permitido para Claude Code: ${_host:-$_url} (ajuste REMOTE_SCRIPT_ALLOWLIST)"
+                if is_truthy "$REMOTE_SCRIPT_STRICT"; then
+                  record_failure "critical" "$_trust_msg"
+                else
+                  warn "$_trust_msg"
+                fi
+              fi
+              if is_truthy "$DRY_RUN"; then
+                msg "  🔎 (dry-run) script remoto: Claude Code ($_url)"
+              else
+                msg "  📦 Instalando Claude Code via PowerShell..."
+                local _ps1_script=""
+                _ps1_script="$(mktemp --suffix=.ps1 2>/dev/null || mktemp).ps1"
+                if curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 "$_url" -o "$_ps1_script" \
+                   && _verify_remote_script_checksum "$_ps1_script" "Claude Code" "" \
+                   && powershell -NoProfile -ExecutionPolicy Bypass -File "$_ps1_script"; then
+                  INSTALLED_MISC+=("claude-code: install.ps1")
+                else
+                  record_failure "optional" "Falha ao instalar Claude Code via PowerShell"
+                fi
+                rm -f "$_ps1_script"
+              fi
             fi
             ;;
         esac
+
+        # Ferramentas complementares do ecossistema Claude Code (nao vem do
+        # instalador oficial acima): graphify (knowledge graph), notebooklm-py
+        # (video/fontes), obsidian-skills (skills globais via npx). Mesmo
+        # esquema multi-OS que uv/npx ja usam no resto do repo -- ver
+        # shared/claude/README.md e o repo irmao claude-code-template pro
+        # historico completo dessa integracao.
+        if is_truthy "$DRY_RUN"; then
+          msg "  🔎 (dry-run) instalaria graphify + notebooklm-py (via uv) e obsidian-skills (via npx)"
+        else
+          ensure_uv
+          if has_cmd uv; then
+            msg "  📦 Instalando graphify..."
+            if uv tool install graphifyy >/dev/null 2>&1; then
+              INSTALLED_MISC+=("graphify: uv tool")
+              ("$HOME/.local/bin/graphify" install >/dev/null 2>&1 || graphify install >/dev/null 2>&1) || warn "graphify instalado, mas 'graphify install' falhou -- rode manualmente (pode precisar reabrir o terminal pro PATH atualizar)"
+            else
+              record_failure "optional" "Falha ao instalar graphify via uv"
+            fi
+
+            msg "  📦 Instalando notebooklm-py..."
+            if uv tool install "notebooklm-py[browser]" >/dev/null 2>&1; then
+              INSTALLED_MISC+=("notebooklm-py: uv tool")
+              msg "  ℹ️  Rode 'notebooklm login' depois -- OAuth Google é manual por máquina"
+            else
+              record_failure "optional" "Falha ao instalar notebooklm-py via uv"
+            fi
+          else
+            warn "uv não disponível -- pulando graphify/notebooklm-py"
+          fi
+
+          if has_cmd npx; then
+            msg "  📦 Instalando obsidian-skills (global)..."
+            if npx skills add kepano/obsidian-skills -g -y >/dev/null 2>&1; then
+              INSTALLED_MISC+=("obsidian-skills: npx skills add")
+            else
+              record_failure "optional" "Falha ao instalar obsidian-skills via npx"
+            fi
+          else
+            warn "npx não encontrado -- pulando obsidian-skills (precisa de Node.js)"
+          fi
+        fi
         ;;
       aider)
         msg "▶ Aider (AI Pair Programming)"

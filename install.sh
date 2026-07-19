@@ -516,15 +516,19 @@ _ssh_resolve_conflict() {
       fi
       ;;
     r|renomear)
-      local new_name=""
-      while true; do
-        read -r -p "  Novo nome (ex: id_ed25519_work): " new_name
-        [[ -z "$new_name" ]] && { echo -e "  ${UI_WARNING}Nome não pode ser vazio.${UI_RESET}"; continue; }
-        [[ -f "$ssh_dest/$new_name" ]] && { echo -e "  ${UI_WARNING}${new_name} já existe.${UI_RESET}"; continue; }
-        break
-      done
-      if _ssh_copy_entry "$src_path" "$ssh_dest/$new_name"; then
-        echo -e "  ${UI_GREEN}✓ Copiado como: ${new_name}${UI_RESET}"
+      if [[ ! -t 0 ]]; then
+        echo -e "  ${UI_MUTED}⏭ Entrada não interativa detectada. Mantido: ${key_name} (original preservado)${UI_RESET}"
+      else
+        local new_name=""
+        while true; do
+          read -r -p "  Novo nome (ex: id_ed25519_work): " new_name
+          [[ -z "$new_name" ]] && { echo -e "  ${UI_WARNING}Nome não pode ser vazio.${UI_RESET}"; continue; }
+          [[ -f "$ssh_dest/$new_name" ]] && { echo -e "  ${UI_WARNING}${new_name} já existe.${UI_RESET}"; continue; }
+          break
+        done
+        if _ssh_copy_entry "$src_path" "$ssh_dest/$new_name"; then
+          echo -e "  ${UI_GREEN}✓ Copiado como: ${new_name}${UI_RESET}"
+        fi
       fi
       ;;
     d|deletar)
@@ -2383,6 +2387,16 @@ install_prerequisites() {
     msg "  🔄 Dependências base não encontradas, reinstalando..."
   fi
 
+  # macOS/Windows chamam brew/winget direto (sem passar por run_with_sudo), então
+  # DRY_RUN precisa ser checado aqui -- senão "dry run" roda brew update/winget
+  # install de verdade (achado real: era a causa mais provável do Dry Run macOS
+  # do CI travar 30min+/6h+, não um loop de menu).
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) instalaria dependências base via $TARGET_OS (brew/winget/apt/dnf/pacman/zypper)"
+    BASE_DEPS_INSTALLED=1
+    return 0
+  fi
+
   local install_success=0
   case "$TARGET_OS" in
     linux|wsl2)
@@ -2714,6 +2728,7 @@ _apply_claude_config() {
     local skill_dir
     for skill_dir in "$CONFIG_SHARED/claude/skills"/*/; do
       [[ -d "$skill_dir" ]] || continue
+      [[ -f "${skill_dir}SKILL.md" ]] || continue
       copy_dir "$skill_dir" "$HOME/.claude/skills/$(basename "$skill_dir")"
     done
   fi
@@ -2920,7 +2935,15 @@ export_configs() {
     mkdir -p "$CONFIG_SHARED/claude"
     export_file "$HOME/.claude/CLAUDE.md" "$CONFIG_SHARED/claude/CLAUDE.md"
     [[ -f "$HOME/.claude/RTK.md" ]] && export_file "$HOME/.claude/RTK.md" "$CONFIG_SHARED/claude/RTK.md"
-    [[ -d "$HOME/.claude/skills/impeccable" ]] && export_dir "$HOME/.claude/skills/impeccable" "$CONFIG_SHARED/claude/skills/impeccable"
+    if [[ -d "$CONFIG_SHARED/claude/skills" ]]; then
+      local _export_skill_dir
+      for _export_skill_dir in "$CONFIG_SHARED/claude/skills"/*/; do
+        [[ -d "$_export_skill_dir" ]] || continue
+        local _skill_name
+        _skill_name="$(basename "$_export_skill_dir")"
+        [[ -d "$HOME/.claude/skills/$_skill_name" ]] && export_dir "$HOME/.claude/skills/$_skill_name" "$_export_skill_dir"
+      done
+    fi
     msg "  ℹ️  settings.json do Claude Code não é exportado (secrets/estado por-máquina) — edite settings.fragment.json a mão se mudar plugins/hooks globais."
   fi
 

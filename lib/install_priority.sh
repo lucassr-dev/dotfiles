@@ -121,7 +121,7 @@ init_app_catalog() {
   APP_SOURCES[insomnia]="flatpak:rest.insomnia.Insomnia,brew:insomnia,winget:Insomnia.Insomnia"
   APP_SOURCES[gitkraken]="flatpak:com.axosoft.GitKraken,brew:gitkraken,winget:Axosoft.GitKraken"
   APP_SOURCES[mongodb-compass]="flatpak:com.mongodb.Compass,brew:mongodb-compass,winget:MongoDB.Compass.Full"
-  APP_SOURCES[redis-insight]="brew:redis-insight,winget:RedisLabs.RedisInsight"
+  APP_SOURCES[redis-insight]="brew:redis-insight,winget:RedisInsight.RedisInsight"
   APP_SOURCES[httpie]="apt:httpie,brew:httpie,winget:HTTPie.HTTPie"
   APP_SOURCES[mkcert]="apt:mkcert,brew:mkcert,winget:FiloSottile.mkcert"
   APP_SOURCES[sourcetree]="brew:sourcetree,winget:Atlassian.Sourcetree"
@@ -243,7 +243,13 @@ _install_via_official() {
       _install_brave_official "$level"
       ;;
     wezfurlong.org)
-      install_wezterm_linux
+      # install_wezterm_linux so serve pra Linux -- sem esse guard, "official"
+      # "sucede" silenciosamente em macOS/Windows (a funcao nao tem `return 1`
+      # final) e nunca cai pro brew/winget reais (achado de auditoria).
+      case "$TARGET_OS" in
+        linux|wsl2) install_wezterm_linux ;;
+        *) return 1 ;;
+      esac
       ;;
     *)
       return 1
