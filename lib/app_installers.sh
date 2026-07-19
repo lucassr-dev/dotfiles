@@ -66,7 +66,7 @@ install_redis_insight() {
       msg "  📥 Baixe RedisInsight em: https://redis.io/insight/"
       ;;
     windows)
-      winget_install "RedisLabs.RedisInsight" "Redis Insight" optional
+      winget_install "RedisInsight.RedisInsight" "Redis Insight" optional
       ;;
   esac
 }
