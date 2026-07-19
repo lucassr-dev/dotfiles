@@ -171,7 +171,13 @@ init_app_catalog() {
   APP_SOURCES[mysql]="apt:mysql-server,brew:mysql,winget:Oracle.MySQL"
   APP_SOURCES[mariadb]="apt:mariadb-server,brew:mariadb,winget:MariaDB.Server"
   APP_SOURCES[sqlite]="apt:sqlite3,brew:sqlite,winget:SQLite.SQLite"
-  APP_SOURCES[mongodb]="apt:mongosh,brew:mongosh,winget:MongoDB.Shell"
+  # SEM entrada de catalogo de proposito: "mongosh" e so o shell/client, nao o
+  # servidor. Com APP_SOURCES[mongodb] apontando pra mongosh, o app-id
+  # "mongodb" (usado por SELECTED_DATABASES, DATABASE_APPS em data/apps.sh)
+  # instalava silenciosamente so o client e nunca chegava a chamar
+  # install_mongodb_linux()/o brew formula mongodb-community reais (achado de
+  # auditoria: sombreamento). Se quiser so o mongosh, adicione um app-id
+  # separado no catalogo (ex: "mongosh") em vez de reusar "mongodb".
   APP_SOURCES[elasticsearch]="apt:elasticsearch,brew:elastic/tap/elasticsearch-full,winget:Elastic.Elasticsearch"
   APP_SOURCES[podman]="apt:podman,brew:podman,winget:RedHat.Podman"
 

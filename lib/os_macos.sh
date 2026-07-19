@@ -295,7 +295,19 @@ install_macos_selected_apps() {
       mysql) _install_macos_app mysql mysql mysql ;;
       redis) _install_macos_app redis redis-cli redis ;;
       mariadb) _install_macos_app mariadb mariadb mariadb ;;
-      mongodb) _install_macos_app mongodb mongod mongodb-community ;;
+      mongodb)
+        # mongodb-community NAO esta no homebrew-core -- precisa do tap
+        # oficial primeiro, senao "brew install mongodb-community" falha
+        # com "no formula" (achado de auditoria). brew tap e idempotente.
+        if ! has_cmd mongod; then
+          if is_truthy "$DRY_RUN"; then
+            msg "  🔎 (dry-run) brew tap mongodb/brew"
+          else
+            brew tap mongodb/brew >/dev/null 2>&1 || warn "Falha ao adicionar tap mongodb/brew (MongoDB pode falhar ao instalar)"
+          fi
+        fi
+        _install_macos_app mongodb mongod mongodb-community
+        ;;
       *)
         if [[ -n "${APP_SOURCES[$app]:-}" ]]; then
           _install_macos_app "$app" "$app"
