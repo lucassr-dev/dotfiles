@@ -38,9 +38,12 @@ Repo `claude-code-template` (GitHub, privado): tornou-se redundante após o item
 pra excluir o remoto — se este arquivo estiver sendo lido e o repo ainda existir, completar essa
 exclusão (`gh repo delete lucassr-dev/claude-code-template --yes`) é a única pendência desse tópico.
 
-## Pendente — 6 itens da auditoria que o usuário pediu pra atacar (2026-07-19, mensagem mais recente)
+## Concluído — 6 itens da auditoria que o usuário pediu pra atacar (2026-07-19)
 
-Ordem sugerida (mais barato/isolado → mais arriscado/amplo). Marcar aqui conforme for concluindo.
+Todos os 6 itens abaixo foram fechados, testados e confirmados verdes no CI real (não só
+localmente). Nenhuma pendência de código restante desta rodada — só a exclusão do repo
+`claude-code-template` (ver nota acima) segue bloqueada por permissão externa (fora do controle
+do Claude Code).
 
 - [x] **1. SSH keys wired up** (commit `d24b873`) — `ask_ssh_keys()` novo (ETAPA 1, só pergunta se
   detectar fonte + terminal interativo), `_resolve_ssh_source()` extraído, wiring em toggle/contagem/
@@ -55,11 +58,18 @@ Ordem sugerida (mais barato/isolado → mais arriscado/amplo). Marcar aqui confo
   installers reais; `brew tap mongodb/brew` adicionado (macOS); tentativa best-effort de repo apt
   oficial (Linux, ubuntu/debian via `/etc/os-release`, fallback pra mensagem com link da doc se
   codename não suportado ainda). Testado: dry-run de regressão, exit 0.
-- [ ] **4. Cobertura de testes ~15%** — módulos críticos sem nenhum teste BATS: `checkpoint.sh`,
-  `fileops.sh`, `selections.sh`, `ui.sh`, `git_config.sh`, `themes.sh`, `install.sh` inteiro (só
-  exercitado end-to-end pelo dry-run do CI, fora do BATS). Não dá pra resolver 100% num commit —
-  focar pelo menos em `checkpoint.sh` (a lógica de versão do item 2 acima) e `fileops.sh`
-  (copy_file/copy_dir, comportamento de backup).
+- [x] **4. Cobertura de testes ~15%** (commits `adb01f4`, `ad07ef3`) — `tests/test_checkpoint.bats`
+  (7 testes: `_current_repo_sha`, grava SHA no save, load sem aviso com SHA igual, load avisa com
+  SHA divergente, roundtrip de state via checkpoint, `checkpoint_exists`, `checkpoint_clear`) +
+  `tests/test_fileops.bats` (9 testes: copy_file novo/idêntico/DRY_RUN/backup, copy_dir
+  recursivo/aditivo/DRY_RUN, backup_if_exists só em modo install). CI real (`gh run view --log`)
+  pegou 1 falha genuína: teste assumia que `copy_file` retorna 0 com origem ausente, mas
+  `[[ -f "$src" ]] || return` interno propaga exit 1 — BATS roda com semântica `set -e`, abortava
+  antes da assertion rodar. Corrigido com `|| true` na chamada + comentário explicando. CI
+  re-confirmado verde (run `29706670795`, 45s) após o fix. `selections.sh`/`ui.sh`/`git_config.sh`/
+  `themes.sh`/`install.sh` fim-a-fim seguem sem BATS dedicado — só exercitados pelo dry-run do CI;
+  não fazia parte do escopo mínimo pedido (checkpoint+fileops), considerar depois se cobertura
+  mais ampla for necessária.
 - [x] **5. Dead code (parcial, decisão refinada)** (commit `3959dd5`) — removidas `state_save`/
   `state_load`/`_state_file_is_secure` de `lib/state.sh` (duplicavam `checkpoint.sh`, zero callers
   reais) + teste correspondente + `docs/ARCHITECTURE.md` corrigido. **`state_clear` NÃO removida**:
