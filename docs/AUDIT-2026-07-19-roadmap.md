@@ -71,10 +71,11 @@ Ordem sugerida (mais barato/isolado → mais arriscado/amplo). Marcar aqui confo
   latente confirmado em `ui_box` (`%s` em vez de `%b` pro conteúdo, quebraria ANSI se algum dia for
   usado) — inofensivo hoje porque a função é código morto; se algum dia for adotada, corrigir o
   `%s`→`%b` junto.
-- [ ] **6. Emoji conta largura errada** (`_visible_len` em `lib/utils.sh`, via `wc -L`) — subconta
-  1 coluna por emoji largo, afetando padding de ~17 chamadas de `show_section_header` (banner.sh)
-  que usam emoji no título. Cosmético, baixa prioridade. Fix: detectar emoji via regex/range de
-  codepoint e compensar a contagem em vez de confiar cegamente em `wc -L`.
+- [x] **6. Emoji: largura corrigida** (commit `3cd70dc`) — testei os 69 emoji/símbolos realmente
+  usados no repo individualmente contra `wc -L` (não assumido): só 39 vêm subcontados, os outros 29
+  já contam certo — uma compensação "todo emoji +1" teria piorado quase metade dos casos. Também
+  achei e corrigi um bug separado: bracket class `[...]` conta bytes individuais de UTF-8
+  multi-byte em vez do caractere inteiro nesse grep — trocado por alternation `(a|b|c)`.
 
 ## Como retomar se o contexto for perdido
 
