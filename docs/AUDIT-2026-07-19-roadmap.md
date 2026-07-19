@@ -47,11 +47,10 @@ Ordem sugerida (mais barato/isolado → mais arriscado/amplo). Marcar aqui confo
   resumo. Bônus: corrigido bug de segurança lateral (`set_ssh_permissions` não rodava se
   `manage_ssh_keys` "falhasse" no último item do loop — chaves anteriores ficavam 644
   permanentemente) + `chmod 600` imediato por-chave. Testado: dry-run completo, exit 0.
-- [ ] **2. Checkpoint/resume não é resume real** — `checkpoint_save`/`checkpoint_load`
-  (`lib/checkpoint.sh`) não gravam `SCRIPT_VERSION` nem progresso por-step; resume pula a ETAPA 1
-  (perguntas) mas reroda os 13 steps do zero, sem avisar se o checkpoint é de uma versão antiga do
-  script. Fix: gravar versão no checkpoint, comparar no load e avisar/invalidar se divergir; avaliar
-  se dá pra trackear step-level progress de forma simples sem reescrever tudo.
+- [x] **2. Checkpoint versionado** (commit `c66f0f5`) — grava SHA do commit no save (`SCRIPT_VERSION`
+  não serve, travado em "1.0.0"), avisa no load se divergir do SHA atual (não bloqueia, só avisa +
+  instrui como recomeçar). Step-level progress tracking (pular só steps já concluídos) ficou de fora
+  — redesign maior, não fix pontual; considerar depois se o usuário sentir falta.
 - [ ] **3. MongoDB no catálogo** — `APP_SOURCES[mongodb]` aponta pra `mongosh` (client) em vez do
   servidor real, sombreando o installer dedicado `install_mongodb_linux()`. Faltam:
   `brew tap mongodb/brew` (macOS) e adicionar o repo oficial `repo.mongodb.org` antes de
