@@ -483,7 +483,12 @@ ui_select_single_bash() {
     done
 
     echo ""
-    read -r -p "  Escolha (1-$total): " _bash_selection
+    if ! read -r -p "  Escolha (1-$total): " _bash_selection; then
+      # stdin fechado (não-interativo) -- sem isso, EOF vira loop infinito (não
+      # bloqueante, `read`/`/dev/null` retorna na hora): usa a 1a opção como default.
+      warn "Entrada não interativa detectada. Usando opção 1 como padrão."
+      _bash_selection=1
+    fi
 
     if [[ "$_bash_selection" =~ ^[0-9]+$ ]] && (( _bash_selection >= 1 )) && (( _bash_selection <= total )); then
       local _bash_selected_item="${options[_bash_selection-1]}"

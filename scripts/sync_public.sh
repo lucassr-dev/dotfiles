@@ -21,14 +21,22 @@ if ! command -v rsync >/dev/null 2>&1; then
   exit 1
 fi
 
+# A lista de --exclude era mantida a mao, separada do .gitignore real do repo
+# publico -- ja divergiu 2x no historico (CLAUDE.md/CONTEXT.md foram commitados
+# publicamente antes de entrarem pro .gitignore, tiveram que ser removidos depois).
+# Agora deriva do proprio .gitignore: o que esta protegido la tambem nunca chega
+# a ser copiado, nao so "seria ignorado pelo git se alguem tentasse commitar".
+if [[ ! -f "$PUBLIC_DIR/.gitignore" ]]; then
+  echo "Public repo .gitignore not found: $PUBLIC_DIR/.gitignore (nao dá pra derivar exclusoes com seguranca)" >&2
+  exit 1
+fi
+
 rsync -a --delete \
   --exclude '.git' \
   --exclude '.gitignore' \
   --exclude 'README.md' \
   --exclude 'scripts/sync_public.sh' \
-  --exclude 'shared/.ssh' \
-  --exclude 'shared/git/.gitconfig-personal' \
-  --exclude 'shared/git/.gitconfig-work' \
+  --exclude-from="$PUBLIC_DIR/.gitignore" \
   "$PRIVATE_DIR/" "$PUBLIC_DIR/"
 
 # Ensure public .gitignore blocks sensitive files
