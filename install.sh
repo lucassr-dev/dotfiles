@@ -1902,6 +1902,13 @@ install_mongodb_linux() {
   detect_linux_pkg_manager
   case "${LINUX_PKG_MANAGER:-}" in
     apt-get)
+      # Desde a licença SSPL (2018), Debian/Ubuntu removeram mongodb-org dos
+      # repos padrão -- "apt-get install mongodb" falha com "pacote não
+      # encontrado" em distros atuais (achado de auditoria). Tenta adicionar
+      # o repo oficial primeiro; best-effort (codename pode nao ser suportado
+      # ainda pelo MongoDB) -- se falhar, cai no aviso final com link da doc.
+      _add_mongodb_apt_repo_linux
+      install_linux_packages optional mongodb-org || \
       install_linux_packages optional mongodb || true
       ;;
     dnf)
@@ -1921,7 +1928,38 @@ install_mongodb_linux() {
     return 0
   fi
 
-  record_failure "optional" "MongoDB Server não instalado automaticamente no Linux" "Instale o MongoDB Community Server manualmente para sua distro"
+  record_failure "optional" "MongoDB Server não instalado automaticamente no Linux" "Repo oficial pode não suportar sua distro/versão ainda -- veja https://www.mongodb.com/docs/manual/administration/install-on-linux/"
+  return 1
+}
+
+# Adiciona o repo apt oficial do MongoDB (best-effort). So roda se
+# mongodb-org ainda não estiver disponível via repo já configurado.
+_add_mongodb_apt_repo_linux() {
+  is_truthy "$DRY_RUN" && { msg "  🔎 (dry-run) adicionaria repo apt oficial do MongoDB"; return 0; }
+  [[ -f /etc/apt/sources.list.d/mongodb-org.list ]] && return 0
+  ! has_cmd curl && return 1
+
+  local distro_id="" codename=""
+  if [[ -f /etc/os-release ]]; then
+    distro_id="$(. /etc/os-release && echo "$ID")"
+    codename="$(. /etc/os-release && echo "${VERSION_CODENAME:-}")"
+  fi
+  [[ -z "$distro_id" || -z "$codename" ]] && return 1
+
+  local repo_os=""
+  case "$distro_id" in
+    ubuntu) repo_os="ubuntu" ;;
+    debian) repo_os="debian" ;;
+    *) return 1 ;; # derivadas (Mint, Pop!_OS, etc.) tem codename proprio que nao bate com o repo do Mongo
+  esac
+
+  local keyring="/usr/share/keyrings/mongodb-server-7.0.gpg"
+  if curl -fsSL "https://pgp.mongodb.com/server-7.0.asc" | run_with_sudo gpg -o "$keyring" --dearmor 2>/dev/null; then
+    echo "deb [ arch=amd64,arm64 signed-by=$keyring ] https://repo.mongodb.org/apt/$repo_os $codename/mongodb-org/7.0 multiverse" \
+      | run_with_sudo tee /etc/apt/sources.list.d/mongodb-org.list > /dev/null
+    LINUX_PKG_UPDATED=0
+    return 0
+  fi
   return 1
 }
 
