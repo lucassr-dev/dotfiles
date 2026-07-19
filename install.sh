@@ -488,6 +488,11 @@ _ssh_copy_entry() {
   fi
 
   if _ssh_is_identity_file "$src_path"; then
+    # chmod imediato (nao esperar o set_ssh_permissions do final do loop) --
+    # fecha a janela onde uma chave privada recem-copiada fica com permissao
+    # de umask (tipicamente 644) ate a proxima chave ser processada ou ate
+    # um prompt de conflito bloquear esperando input do usuario.
+    chmod 600 "$dest_path" 2>/dev/null || true
     _ssh_sync_public_key "$src_path" "$dest_path"
   fi
 
@@ -1090,6 +1095,7 @@ _count_configs_to_copy() {
   [[ ${COPY_NUSHELL_CONFIG:-0} -eq 1 ]] && [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && ((total++))
 
   [[ ${COPY_GIT_CONFIG:-0} -eq 1 ]] && [[ ${GIT_CONFIGURE:-0} -eq 1 ]] && ((total++))
+  [[ ${COPY_SSH_KEYS:-0} -eq 1 ]] && ((total++))
 
   local has_neovim=0 has_vscode=0 has_zed=0 has_helix=0
   for ide in "${SELECTED_IDES[@]}"; do
@@ -1455,6 +1461,7 @@ review_selections() {
     [[ $has_bat -eq 1     ]] && [[ -f "$CONFIG_SHARED/bat/config" ]]           && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_BAT_CONFIG:-0}"     "bat")")
     [[ $has_direnv -eq 1  ]] && [[ -f "$CONFIG_SHARED/direnv/.direnvrc" ]]     && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_DIRENV_CONFIG:-0}"  "direnv")")
     [[ ${GIT_CONFIGURE:-0} -eq 1 ]]                                            && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_GIT_CONFIG:-0}"     "Git")")
+    [[ -n "$(_resolve_ssh_source)" ]]                                          && cfg_tools+=("$(_rv_cfg_item 1 "${COPY_SSH_KEYS:-0}"      "SSH Keys")")
 
     local cfg_runtime=()
     [[ ${#SELECTED_RUNTIMES[@]} -gt 0 ]] && cfg_runtime+=("$(_rv_cfg_item 1 "${COPY_MISE_CONFIG:-0}"     "Mise")")
@@ -1586,6 +1593,7 @@ _toggle_configs() {
   [[ ${INSTALL_FISH:-0} -eq 1 ]]     && cfg_names+=("Fish")     && cfg_keys+=("COPY_FISH_CONFIG")
   [[ ${INSTALL_NUSHELL:-0} -eq 1 ]]  && cfg_names+=("Nushell")  && cfg_keys+=("COPY_NUSHELL_CONFIG")
   [[ ${GIT_CONFIGURE:-0} -eq 1 ]]    && cfg_names+=("Git")      && cfg_keys+=("COPY_GIT_CONFIG")
+  [[ -n "$(_resolve_ssh_source)" ]]  && cfg_names+=("SSH Keys")  && cfg_keys+=("COPY_SSH_KEYS")
 
   local _ide
   for _ide in "${SELECTED_IDES[@]}"; do
@@ -2680,6 +2688,41 @@ _apply_git_config() {
   [[ -f "$git_work" ]] && copy_file "$git_work" "$HOME/.gitconfig-work"
 }
 
+_resolve_ssh_source() {
+  if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
+    echo "$PRIVATE_SHARED/.ssh"
+  elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
+    echo "$CONFIG_SHARED/.ssh"
+  fi
+}
+
+# Pergunta interativa (ETAPA 1) -- e a peça que faltava pra `manage_ssh_keys`/
+# `_ssh_resolve_conflict` (já existentes, bem construídos) serem alcançáveis:
+# sem isso, COPY_SSH_KEYS nunca saía de 0 (achado de auditoria: ~180 linhas de
+# feature morta). Default seguro: não pergunta se não há fonte, e sob stdin
+# não-interativo assume "não copiar" (mesmo espírito de _confirm_overwrite).
+ask_ssh_keys() {
+  COPY_SSH_KEYS=0
+  local ssh_source=""
+  ssh_source="$(_resolve_ssh_source)"
+  [[ -z "$ssh_source" ]] && return 0
+  [[ ! -t 0 ]] && return 0
+
+  msg ""
+  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  msg "  🔐 CHAVES SSH"
+  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  msg "  Encontradas em: $ssh_source"
+  msg "  Copiar pra ~/.ssh/ com permissões corretas (700/600)?"
+
+  if confirm_action "copiar as chaves SSH detectadas"; then
+    COPY_SSH_KEYS=1
+  else
+    msg ""
+    msg "  ⏭️  Pulando cópia de chaves SSH"
+  fi
+}
+
 _apply_ssh_keys() {
   if [[ ${COPY_SSH_KEYS:-0} -ne 1 ]]; then
     msg "  ⏭️  SSH Keys: usuário optou por não copiar (padrão por segurança)"
@@ -2687,18 +2730,17 @@ _apply_ssh_keys() {
   fi
 
   local ssh_source=""
-  if [[ -n "$PRIVATE_SHARED" ]] && [[ -d "$PRIVATE_SHARED/.ssh" ]]; then
-    ssh_source="$PRIVATE_SHARED/.ssh"
-  elif [[ -d "$CONFIG_SHARED/.ssh" ]]; then
-    ssh_source="$CONFIG_SHARED/.ssh"
-  fi
+  ssh_source="$(_resolve_ssh_source)"
 
   if [[ -n "$ssh_source" ]]; then
     msg "▶ Gerenciando Chaves SSH"
-    if manage_ssh_keys "$ssh_source"; then
-      set_ssh_permissions
-      msg "  ✓ Chaves SSH configuradas com permissões corretas (700/600)"
-    fi
+    # set_ssh_permissions roda SEMPRE, independente do exit code de
+    # manage_ssh_keys -- o retorno dela e so o do ultimo comando do loop, entao
+    # uma falha na ULTIMA chave pulava a correcao de permissao das chaves
+    # anteriores que copiaram com sucesso (achado de auditoria de seguranca).
+    manage_ssh_keys "$ssh_source"
+    set_ssh_permissions
+    msg "  ✓ Chaves SSH configuradas com permissões corretas (700/600)"
   fi
 }
 
@@ -3066,6 +3108,7 @@ main() {
     ask_gui_apps
     ask_runtimes
     ask_git_configuration
+    ask_ssh_keys
 
     _auto_enable_configs
 
