@@ -1,0 +1,69 @@
+{
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": false,
+    "playwright@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "supabase@claude-plugins-official": false,
+    "vercel@claude-plugins-official": true,
+    "sentry@claude-plugins-official": true,
+    "prisma@claude-plugins-official": true,
+    "context7@claude-plugins-official": false,
+    "resend@claude-plugins-official": true,
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "mercadopago@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true,
+    "coderabbit@claude-plugins-official": true,
+    "redis-development@claude-plugins-official": true,
+    "watch@claude-video": true,
+    "ponytail@ponytail": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-video": {
+      "source": {
+        "source": "github",
+        "repo": "bradautomates/claude-video"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rtk hook claude"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/skills/impeccable/scripts/hook.mjs\"",
+            "timeout": 5,
+            "statusMessage": "Checking UI changes"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "opusplan",
+  "language": "Portuguese",
+  "effortLevel": "xhigh",
+  "autoUpdatesChannel": "latest",
+  "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
+  "autoCompactEnabled": false,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
+}

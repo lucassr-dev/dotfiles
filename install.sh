@@ -65,6 +65,7 @@ COPY_CARGO_CONFIG=0
 COPY_ZED_CONFIG=0
 COPY_HELIX_CONFIG=0
 COPY_AIDER_CONFIG=0
+COPY_CLAUDE_CONFIG=0
 COPY_DOCKER_CONFIG=0
 COPY_DIRENV_CONFIG=0
 
@@ -1608,6 +1609,7 @@ _toggle_configs() {
   local _ia
   for _ia in "${SELECTED_IA_TOOLS[@]}"; do
     [[ "$_ia" == "aider" ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]] && cfg_names+=("aider") && cfg_keys+=("COPY_AIDER_CONFIG")
+    [[ "$_ia" == "claude-code" ]] && [[ -f "$CONFIG_SHARED/claude/CLAUDE.md" ]] && cfg_names+=("Claude Code") && cfg_keys+=("COPY_CLAUDE_CONFIG")
   done
 
   local _term
@@ -1721,6 +1723,7 @@ _auto_enable_configs() {
 
   for _ia in "${SELECTED_IA_TOOLS[@]}"; do
     [[ "$_ia" == "aider" ]] && [[ -f "$CONFIG_SHARED/aider/.aider.conf.yml" ]] && COPY_AIDER_CONFIG=1
+    [[ "$_ia" == "claude-code" ]] && [[ -f "$CONFIG_SHARED/claude/CLAUDE.md" ]] && COPY_CLAUDE_CONFIG=1
   done
 
   for _term in "${SELECTED_TERMINALS[@]}"; do
@@ -2436,8 +2439,11 @@ install_selected_gui_apps() {
 # - src_exists_check: arquivo/dir que deve existir no source (guard);
 #                     vazio = apenas confere se COPY flag está ativa
 #
-# Casos especiais (fish, zsh, nushell, git, ssh) ficam em funções
+# Casos especiais (fish, zsh, nushell, git, ssh, claude) ficam em funções
 # dedicadas no apply_shared_configs() porque têm pré/pós-processamento.
+# Claude Code especificamente: settings.json não pode ser copiado por cima
+# (perderia secrets/hooks/permissions específicos da máquina) — precisa de
+# merge via lib/../claude/merge-settings.mjs em vez de copy_file/copy_dir.
 _build_shared_copy_ops() {
   SHARED_COPY_OPS=(
     # Tool configs (herdadas de copy_tool_configs)
@@ -2691,6 +2697,42 @@ _postprocess_alacritty_for_macos() {
   sed -i'' 's/command = "xdg-open"/command = "open"/' "$conf" 2>/dev/null || true
 }
 
+# Claude Code: CLAUDE.md/RTK.md/skills copiam direto (cp -R aditivo, nao mexe
+# em ~/.claude/projects|sessions|credentials.json|plugins que ja existirem).
+# settings.json NAO e copiado por cima (perderia secrets/estado por-maquina) --
+# um merge script Node funde so enabledPlugins/extraKnownMarketplaces/hooks/
+# preferencias, preservando o resto.
+_apply_claude_config() {
+  [[ ${COPY_CLAUDE_CONFIG:-0} -eq 1 ]] || return 0
+  [[ -d "$CONFIG_SHARED/claude" ]] || return 0
+
+  msg "▶ Claude Code (CLAUDE.md, RTK.md, skills, settings.json)"
+
+  copy_file "$CONFIG_SHARED/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+  copy_file "$CONFIG_SHARED/claude/RTK.md" "$HOME/.claude/RTK.md"
+  if [[ -d "$CONFIG_SHARED/claude/skills" ]]; then
+    local skill_dir
+    for skill_dir in "$CONFIG_SHARED/claude/skills"/*/; do
+      [[ -d "$skill_dir" ]] || continue
+      copy_dir "$skill_dir" "$HOME/.claude/skills/$(basename "$skill_dir")"
+    done
+  fi
+
+  if ! has_cmd node; then
+    warn "node não encontrado — pulando merge de settings.json do Claude Code (rode depois: node \"$CONFIG_SHARED/claude/merge-settings.mjs\")"
+    return 0
+  fi
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) node merge-settings.mjs (funde plugins/hooks/preferencias em ~/.claude/settings.json, sem tocar em env/permissions.allow)"
+    return 0
+  fi
+  if node "$CONFIG_SHARED/claude/merge-settings.mjs"; then
+    INSTALLED_MISC+=("claude-code: settings.json mesclado")
+  else
+    record_failure "optional" "Falha ao mesclar settings.json do Claude Code"
+  fi
+}
+
 apply_shared_configs() {
   msg "▶ Copiando configs compartilhadas"
 
@@ -2699,6 +2741,7 @@ apply_shared_configs() {
   _apply_zsh_config
   _apply_nushell_config
   _apply_git_config
+  _apply_claude_config
 
   # Configs simples via tabela declarativa
   declare -a SHARED_COPY_OPS=()
@@ -2871,6 +2914,14 @@ export_configs() {
   if [[ -f "$HOME/.aider.conf.yml" ]]; then
     mkdir -p "$CONFIG_SHARED/aider"
     export_file "$HOME/.aider.conf.yml" "$CONFIG_SHARED/aider/.aider.conf.yml"
+  fi
+
+  if [[ -f "$HOME/.claude/CLAUDE.md" ]]; then
+    mkdir -p "$CONFIG_SHARED/claude"
+    export_file "$HOME/.claude/CLAUDE.md" "$CONFIG_SHARED/claude/CLAUDE.md"
+    [[ -f "$HOME/.claude/RTK.md" ]] && export_file "$HOME/.claude/RTK.md" "$CONFIG_SHARED/claude/RTK.md"
+    [[ -d "$HOME/.claude/skills/impeccable" ]] && export_dir "$HOME/.claude/skills/impeccable" "$CONFIG_SHARED/claude/skills/impeccable"
+    msg "  ℹ️  settings.json do Claude Code não é exportado (secrets/estado por-máquina) — edite settings.fragment.json a mão se mudar plugins/hooks globais."
   fi
 
   if [[ -f "$HOME/.docker/config.json" ]]; then
