@@ -41,7 +41,10 @@ teardown() {
 }
 
 @test "copy_file is a no-op when source does not exist" {
-  copy_file "$SRC_DIR/nao-existe.txt" "$DEST_DIR/arquivo.txt"
+  # copy_file retorna 1 quando a origem nao existe (repassa o exit code do
+  # `[[ -f "$src" ]] || return` interno) -- esperado, nao e erro de teste.
+  # bats roda com set -e, entao precisa de `|| true` pra nao abortar aqui.
+  copy_file "$SRC_DIR/nao-existe.txt" "$DEST_DIR/arquivo.txt" || true
   [ ! -f "$DEST_DIR/arquivo.txt" ]
 }
 
