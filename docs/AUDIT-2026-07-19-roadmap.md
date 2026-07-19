@@ -60,16 +60,17 @@ Ordem sugerida (mais barato/isolado → mais arriscado/amplo). Marcar aqui confo
   exercitado end-to-end pelo dry-run do CI, fora do BATS). Não dá pra resolver 100% num commit —
   focar pelo menos em `checkpoint.sh` (a lógica de versão do item 2 acima) e `fileops.sh`
   (copy_file/copy_dir, comportamento de backup).
-- [ ] **5. Dead code** — `lib/state.sh`: `state_save`/`state_load`/`state_clear`/
-  `_state_file_is_secure` nunca chamados em produção (só em `tests/test_state.bats`), duplicam o
-  que `checkpoint.sh` já faz (com proteção de arquivo melhor). Decisão a confirmar ao executar:
-  remover essas 4 funções + os testes correspondentes + corrigir `docs/ARCHITECTURE.md` (cita
-  `state_save`/`state_load` como API oficial, o que não é mais verdade). `lib/ui.sh`: 8 de 9
-  componentes (`ui_box`, `ui_badge`, `ui_status`, `ui_progress`, `ui_divider`, `ui_kv`,
-  `ui_warning`, `ui_list`) sem nenhum chamador real — mas `docs/ARCHITECTURE.md` cita `ui_box`/
-  `ui_progress` como exemplos do módulo. Tratar como possível "biblioteca de componentes para uso
-  futuro" em vez de lixo — avaliar item a item antes de remover (risco de destruir infra reusável
-  documentada).
+- [x] **5. Dead code (parcial, decisão refinada)** (commit `3959dd5`) — removidas `state_save`/
+  `state_load`/`_state_file_is_secure` de `lib/state.sh` (duplicavam `checkpoint.sh`, zero callers
+  reais) + teste correspondente + `docs/ARCHITECTURE.md` corrigido. **`state_clear` NÃO removida**:
+  diferente das outras 3, é usada como infra de isolamento por 2 outros testes ainda válidos
+  (`state_append`, `state_get_array_into`) — remover exigiria reescrevê-los sem ganho real.
+  **`lib/ui.sh`: os 8 componentes não utilizados (`ui_box`, `ui_badge`, etc.) foram deixados como
+  estão** — decisão consciente, não esquecimento: `docs/ARCHITECTURE.md` os cita como exemplos
+  documentados do módulo (biblioteca de componentes pra uso futuro, não lixo de fato). Existe um bug
+  latente confirmado em `ui_box` (`%s` em vez de `%b` pro conteúdo, quebraria ANSI se algum dia for
+  usado) — inofensivo hoje porque a função é código morto; se algum dia for adotada, corrigir o
+  `%s`→`%b` junto.
 - [ ] **6. Emoji conta largura errada** (`_visible_len` em `lib/utils.sh`, via `wc -L`) — subconta
   1 coluna por emoji largo, afetando padding de ~17 chamadas de `show_section_header` (banner.sh)
   que usam emoji no título. Cosmético, baixa prioridade. Fix: detectar emoji via regex/range de
