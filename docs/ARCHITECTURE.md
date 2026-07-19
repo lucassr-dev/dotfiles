@@ -36,6 +36,8 @@ config/
 │   ├── fish/                  config.fish, conf.d/, functions/
 │   ├── nushell/               config.nu, env.nu
 │   ├── git/                   .gitconfig-personal, .gitconfig-work
+│   ├── claude/                 CLAUDE.md, RTK.md, skills/impeccable/, settings.fragment.json
+│   │                            + merge-settings.mjs (funde no settings.json sem sobrescrever secrets)
 │   ├── nvim/                  Configuracao Neovim
 │   ├── tmux/                  .tmux.conf
 │   ├── vscode/                settings.json, extensions.txt
