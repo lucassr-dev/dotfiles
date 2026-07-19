@@ -134,9 +134,13 @@ state_set "system.os" "linux"         # Definir
 state_get "system.os"                 # Ler (com default opcional)
 state_append "selections.tools" "fzf" # Adicionar a lista CSV
 state_has "system.os"                 # Verificar existencia
-state_save "$file"                    # Persistir para checkpoint
-state_load "$file"                    # Restaurar de checkpoint
 ```
+
+Persistência real (checkpoint) NÃO usa `state_save`/`state_load` — `lib/checkpoint.sh` lê/escreve
+o array `DOTFILES_STATE` diretamente (via `state_dump`/`_sync_globals_to_state`/`_sync_state_to_globals`)
+com sua própria checagem de segurança de arquivo (`_checkpoint_file_is_secure`). `state_save`/
+`state_load`/`_state_file_is_secure` existiam como uma segunda implementação paralela nunca
+adotada em produção — removidos em 2026-07-19 (auditoria) por serem código morto duplicado.
 
 Globals legadas sincronizadas via `_sync_globals_to_state()` / `_sync_state_to_globals()`.
 
