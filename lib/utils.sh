@@ -11,19 +11,36 @@ _strip_ansi() {
   sed -E 's/\x1b\[[0-9;]*m//g; s/\\(033|e)\[[0-9;]*m//g'
 }
 
+# Emoji/simbolos usados no codebase onde `wc -L` REALMENTE subconta 1 coluna
+# (verificado individualmente, um por um, contra `wc -L` -- nao assumido).
+# Achado real: nem todo emoji e subcontado -- de 69 usados no repo, so 39
+# vieram errado (ex: 🔧/▶/🤖 ja contam certo aqui; ←/📁/⭐ nao). Uma lista
+# "todo emoji soma +1" chutada teria SOBRE-compensado quase a metade dos
+# casos -- pior que o bug original. Revalidar se `wc -L` mudar de versao/OS.
+#
+# Alternation (a|b|c), NAO bracket class [abc]: bracket class quebra pra
+# caracteres multi-byte neste grep (cada BYTE do UTF-8 vira um match
+# separado -- um unico 🔧 contava como 4). Alternation trata cada emoji como
+# unidade atomica, testado ao vivo. `-E` (nao `-P`) de proposito: grep do
+# macOS (BSD) nao tem suporte a -P.
+_WIDE_CHARS_REGEX='(←|↑|→|↓|↔|⚙|✅|✏|✓|✗|❌|❓|⭐|🌍|🌐|🍎|🎭|🐚|🐟|📁|📂|📄|📊|📋|📌|📍|📖|📚|📝|🔄|🔌|🔎|🔐|🔑|🔒|🔗|🗂|🗄|🗑)'
+
 _visible_len() {
   local text="$1"
   local clean
   clean=$(printf '%s' "$text" | _strip_ansi)
+
+  local wide_count=0
+  wide_count=$(printf '%s' "$clean" | grep -oE "$_WIDE_CHARS_REGEX" 2>/dev/null | wc -l) || wide_count=0
+
   local display_w
   if display_w=$(printf '%s' "$clean" | wc -L 2>/dev/null); then
-    # wc -L counts display columns (handles wide chars/emoji on most platforms)
-    echo "$display_w"
+    # wc -L conta a maioria dos wide chars certo, mas subconta emoji comuns em
+    # 1 coluna cada -- compensa com a lista acima (achado de auditoria).
+    echo $((display_w + wide_count))
   else
-    # Fallback: byte length + 1 extra per common wide emoji
-    local emoji_count
-    emoji_count=$(printf '%s' "$clean" | grep -oE '[🔌🎨🖼✨🎭🐟🔤🛠🤖💻🐚📦🔐📋🖥🧰🌐📝🏠⚡💡📂🔧🐧👤📁🔄⏭✅❌⚠ℹ🍺🔑🗂📤⏱🎯🔢📊📌💾🔎📄🗺👻🐟💼🔒🌍🎵💬✏️⏹️🖥️]' 2>/dev/null | wc -l) || emoji_count=0
-    echo $((${#clean} + emoji_count))
+    # Fallback se wc -L nao existir/falhar: comprimento em bytes + compensacao.
+    echo $((${#clean} + wide_count))
   fi
 }
 
