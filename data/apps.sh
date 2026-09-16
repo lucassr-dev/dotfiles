@@ -66,7 +66,7 @@ TERMINALS=(
 IDES=(
   vscode               # Visual Studio Code (Microsoft)
   cursor               # Fork do VSCode com IA integrada
-  windsurf             # IDE AI-first da Codeium
+  devin-desktop        # IDE AI-first da Cognition (ex-Windsurf)
   zed                  # Editor moderno e rápido (Rust)
   neovim               # Vim moderno e extensível
   helix                # Editor modal moderno (Rust, LSP built-in)
@@ -132,10 +132,6 @@ PRODUCTIVITY_APPS=(
   logseq               # Knowledge base com graphs
   anki                 # Flashcards e memorização espaçada
   joplin               # Notes open-source com sync
-  todoist              # Gerenciador de tarefas
-  trello               # Boards e kanban
-  clickup              # Produtividade e gestão de projetos
-  linear               # Issue tracking moderno para devs
 )
 
 COMMUNICATION_APPS=(

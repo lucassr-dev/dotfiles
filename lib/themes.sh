@@ -1,782 +1,28 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034,SC2329,SC1091
-
-# ═══════════════════════════════════════════════════════════
-# Variáveis globais para temas
-# ═══════════════════════════════════════════════════════════
-
-INSTALL_OH_MY_ZSH=0
-INSTALL_POWERLEVEL10K=0
-INSTALL_OH_MY_POSH=0
-INSTALL_STARSHIP=0
-
-declare -a SELECTED_OMZ_PLUGINS=()
-declare -a SELECTED_OMZ_EXTERNAL_PLUGINS=()
-declare -a SELECTED_FISH_PLUGINS=()
-SELECTED_STARSHIP_PRESET=""
-SELECTED_OMP_THEME=""
-
-# ═══════════════════════════════════════════════════════════
-# Prévia de temas
-# ═══════════════════════════════════════════════════════════
-
-THEME_PREVIEW_MAX_WIDTH=800
-THEME_PREVIEW_MAX_HEIGHT=400
-
-theme_preview_cache_dir() {
-  local base="${XDG_CACHE_HOME:-$HOME/.cache}"
-  echo "$base/dotfiles/theme-previews"
-}
-
-# ═══════════════════════════════════════════════════════════
-# Detecção de suporte a imagens em terminais
-# ═══════════════════════════════════════════════════════════
-
-_terminal_no_inline_support() {
-  [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]] && return 0
-  [[ "${TERM:-}" == "linux" ]] && return 0
-  [[ "${TERM:-}" == "dumb" ]] && return 0
-  return 1
-}
-
-theme_preview_renderer() {
-  _terminal_no_inline_support && return 1
-
-  if has_cmd chafa; then
-    echo "chafa"
-    return 0
-  fi
-
-  if has_cmd kitty; then
-    local kitty_term=0
-    [[ -n "${KITTY_WINDOW_ID:-}" ]] && kitty_term=1
-    [[ "${TERM:-}" == "xterm-kitty" ]] && kitty_term=1
-    [[ "${TERM_PROGRAM:-}" == "ghostty" ]] && kitty_term=1
-    [[ "${TERM:-}" == "xterm-ghostty" ]] && kitty_term=1
-    [[ -n "${GHOSTTY_RESOURCES_DIR:-}" ]] && kitty_term=1
-    [[ "${TERM_PROGRAM:-}" == "WezTerm" ]] && kitty_term=1
-    [[ $kitty_term -eq 1 ]] && { echo "kitty"; return 0; }
-  fi
-
-  if has_cmd img2sixel; then
-    local sixel_term=0
-    [[ "${TERM:-}" == *"sixel"* ]] && sixel_term=1
-    [[ "${TERM_PROGRAM:-}" == "foot" ]] && sixel_term=1
-    [[ "${TERM_PROGRAM:-}" == "mlterm" ]] && sixel_term=1
-    [[ "${TERM_PROGRAM:-}" == "contour" ]] && sixel_term=1
-    [[ -n "${WT_SESSION:-}" ]] && sixel_term=1  # Windows Terminal
-    [[ $sixel_term -eq 1 ]] && { echo "sixel"; return 0; }
-  fi
-
-  has_cmd catimg && { echo "catimg"; return 0; }
-  has_cmd timg && { echo "timg"; return 0; }
-
-  return 1
-}
-
-check_preview_support() {
-  if _terminal_no_inline_support; then
-    return 1
-  fi
-
-  if has_cmd chafa; then
-    return 0
-  fi
-
-  if has_cmd kitty || has_cmd img2sixel || has_cmd catimg || has_cmd timg; then
-    return 0
-  fi
-
-  warn "Nenhuma ferramenta de preview de imagens encontrada"
-  msg "  💡 Para habilitar previews de temas, instale o chafa:"
-  case "${TARGET_OS:-linux}" in
-    linux|wsl2)
-      msg "     sudo apt install chafa           # Debian/Ubuntu"
-      msg "     sudo dnf install chafa           # Fedora"
-      msg "     sudo pacman -S chafa             # Arch"
-      ;;
-    macos)
-      msg "     brew install chafa"
-      ;;
-  esac
-  msg ""
-  msg "  O chafa suporta automaticamente: Ghostty, Kitty, iTerm2, WezTerm,"
-  msg "  foot, Windows Terminal e muitos outros terminais modernos."
-  msg ""
-  return 1
-}
-
-theme_preview_resize_image() {
-  local src="$1"
-  local dest="$2"
-  local width="$THEME_PREVIEW_MAX_WIDTH"
-  local height="$THEME_PREVIEW_MAX_HEIGHT"
-
-  [[ -f "$dest" ]] && [[ "$dest" -nt "$src" ]] && return 0
-
-  if has_cmd magick; then
-    magick "$src" -strip -trim +repage -resize "${width}x${height}>" "$dest" 2>/dev/null && return 0
-  fi
-
-  if has_cmd convert; then
-    convert "$src" -strip -trim +repage -resize "${width}x${height}>" "$dest" 2>/dev/null && return 0
-  fi
-
-  if has_cmd sips && [[ "$OSTYPE" == darwin* ]]; then
-    sips --resampleHeightWidthMax "$height" "$src" --out "$dest" 2>/dev/null && return 0
-  fi
-
-  if has_cmd ffmpeg; then
-    ffmpeg -i "$src" -vf "scale='min($width,iw)':'min($height,ih)':force_original_aspect_ratio=decrease" "$dest" -y 2>/dev/null && return 0
-  fi
-
-  cp "$src" "$dest" 2>/dev/null
-  return 0
-}
-
-download_preview_image() {
-  local out="$1"
-  shift
-  local urls=("$@")
-
-  [[ -s "$out" ]] && return 0
-
-  mkdir -p "$(dirname "$out")"
-  local url
-  for url in "${urls[@]}"; do
-    [[ -z "$url" ]] && continue
-    if curl -fsSL --connect-timeout 5 --max-time "$CURL_TIMEOUT_FAST" "$url" -o "$out" 2>/dev/null; then
-      [[ -s "$out" ]] && return 0
-    fi
-    rm -f "$out"
-  done
-  return 1
-}
-
-show_theme_preview() {
-  local title="$1"
-  local desc="$2"
-  local link="$3"
-  local image_path="$4"
-
-  msg ""
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg "  🖼️  Prévia: $title"
-  msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  msg ""
-  [[ -n "$desc" ]] && msg "  $desc"
-  [[ -n "$link" ]] && msg "  🔗 $link"
-  msg ""
-
-  if [[ ! -f "$image_path" ]]; then
-    msg "  ℹ️  Prévia indisponível (imagem não encontrada)."
-    msg ""
-    return
-  fi
-
-  local renderer
-  renderer="$(theme_preview_renderer || true)"
-
-  if [[ -z "$renderer" ]]; then
-    msg "  ℹ️  Prévia inline não disponível (instale chafa para habilitar)."
-    [[ -n "$link" ]] && msg "  💡 Acesse o link acima para ver a prévia."
-    msg ""
-    return
-  fi
-
-  local render_path="$image_path"
-  local resized_path="${image_path%.*}-preview.${image_path##*.}"
-
-  if theme_preview_resize_image "$image_path" "$resized_path"; then
-    render_path="$resized_path"
-  fi
-
-  local term_cols
-  term_cols=$(tput cols 2>/dev/null || echo 80)
-  local chafa_width=$((term_cols - 4))
-  [[ $chafa_width -gt 80 ]] && chafa_width=80
-  local chafa_height=$((chafa_width / 5))
-  [[ $chafa_height -lt 10 ]] && chafa_height=10
-  [[ $chafa_height -gt 20 ]] && chafa_height=20
-
-  case "$renderer" in
-    chafa)
-      chafa --animate=off --size="${chafa_width}x${chafa_height}" "$render_path" 2>/dev/null || \
-        msg "  ⚠️  Falha ao renderizar com chafa"
-      ;;
-    kitty)
-      kitty +kitten icat --transfer-mode=stream --align=left "$render_path" 2>/dev/null || \
-        msg "  ⚠️  Falha ao renderizar com kitty icat"
-      ;;
-    sixel)
-      img2sixel -w "$((chafa_width * 10))" "$render_path" 2>/dev/null || \
-        msg "  ⚠️  Falha ao renderizar com sixel"
-      ;;
-    catimg)
-      catimg -w "$chafa_width" "$render_path" 2>/dev/null || \
-        msg "  ⚠️  Falha ao renderizar com catimg"
-      ;;
-    timg)
-      timg -g "${chafa_width}x${chafa_height}" "$render_path" 2>/dev/null || \
-        msg "  ⚠️  Falha ao renderizar com timg"
-      ;;
-  esac
-
-  msg ""
-}
-
-preview_powerlevel10k() {
-  local cache_dir
-  cache_dir="$(theme_preview_cache_dir)"
-  local img="$cache_dir/powerlevel10k.png"
-  local url="https://raw.githubusercontent.com/romkatv/powerlevel10k-media/master/prompt-styles.png"
-  download_preview_image "$img" "$url" || img=""
-  show_theme_preview "Oh My Zsh + Powerlevel10k" \
-    "Tema ultra-rápido com estilos de prompt configuráveis." \
-    "https://github.com/romkatv/powerlevel10k" \
-    "$img"
-}
-
-preview_starship_preset() {
-  local preset="$1"
-  local cache_dir
-  cache_dir="$(theme_preview_cache_dir)"
-  local img="$cache_dir/starship-${preset}.png"
-  local url=""
-
-  case "$preset" in
-    catppuccin-powerline)
-      url="https://starship.rs/presets/img/catppuccin-powerline.png"
-      ;;
-    tokyo-night)
-      url="https://starship.rs/presets/img/tokyo-night.png"
-      ;;
-    gruvbox-rainbow)
-      url="https://starship.rs/presets/img/gruvbox-rainbow.png"
-      ;;
-    pastel-powerline)
-      url="https://starship.rs/presets/img/pastel-powerline.png"
-      ;;
-    nerd-font-symbols)
-      url="https://starship.rs/presets/img/nerd-font-symbols.png"
-      ;;
-    plain-text-symbols)
-      url="https://starship.rs/presets/img/plain-text-symbols.png"
-      ;;
-  esac
-
-  if [[ -n "$url" ]]; then
-    download_preview_image "$img" "$url" || img=""
-  else
-    img=""
-  fi
-
-  show_theme_preview "Starship ($preset)" \
-    "Preset do Starship. Veja mais opções no site oficial." \
-    "https://starship.rs/presets/" \
-    "$img"
-}
-
-resolve_oh_my_posh_preview_url() {
-  local theme="$1"
-  local html url
-
-  html="$(curl -fsSL https://ohmyposh.dev/docs/themes 2>/dev/null | tr '\n' ' ')"
-  [[ -z "$html" ]] && return 1
-
-  url="$(printf '%s' "$html" | awk -v theme="$theme" '{
-    split($0, parts, "id=\"" theme "\"");
-    if (length(parts) < 2) exit;
-    if (match(parts[2], /src="[^"]+"/)) {
-      print substr(parts[2], RSTART + 5, RLENGTH - 6);
-      exit;
-    }
-  }')"
-
-  [[ -z "$url" ]] && return 1
-  if [[ "$url" == /* ]]; then
-    url="https://ohmyposh.dev${url}"
-  fi
-  printf '%s' "$url"
-}
-
-preview_oh_my_posh() {
-  local theme="$1"
-  local cache_dir
-  cache_dir="$(theme_preview_cache_dir)"
-  local img="$cache_dir/ohmyposh-${theme}.png"
-  local url1="https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/website/static/themes/${theme}.png"
-  local url2="https://ohmyposh.dev/assets/themes/${theme}.png"
-  local url3="https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/website/static/themes/${theme}.webp"
-  local url4="https://ohmyposh.dev/assets/themes/${theme}.webp"
-
-  if ! download_preview_image "$img" "$url1" "$url2" "$url3" "$url4"; then
-    local resolved_url=""
-    resolved_url="$(resolve_oh_my_posh_preview_url "$theme" || true)"
-    if [[ -n "$resolved_url" ]]; then
-      download_preview_image "$img" "$resolved_url" || img=""
-    else
-      img=""
-    fi
-  fi
-
-  show_theme_preview "Oh My Posh ($theme)" \
-    "Tema do Oh My Posh com preset pronto." \
-    "https://ohmyposh.dev/docs/themes" \
-    "$img"
-}
-
-# ═══════════════════════════════════════════════════════════
-# Tela de seleção de temas
-# ═══════════════════════════════════════════════════════════
-
-ask_themes() {
-  local has_zsh=${INSTALL_ZSH:-0}
-  local has_fish=${INSTALL_FISH:-0}
-  local has_nushell=${INSTALL_NUSHELL:-0}
-
-  if [[ $has_zsh -eq 0 ]] && [[ $has_fish -eq 0 ]] && [[ $has_nushell -eq 0 ]]; then
-    show_section_header "🎨 TEMAS - Personalize seu Shell"
-    msg "  ℹ️  Nenhum shell foi selecionado. Pulando seleção de temas."
-    msg ""
-    return 0
-  fi
-
-  local theme_options_with_desc=()
-
-  if [[ $has_zsh -eq 1 ]]; then
-    theme_options_with_desc+=("OhMyZsh-P10k  - [zsh] Oh My Zsh + Powerlevel10k (framework completo)")
-  fi
-
-  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]] || [[ $has_nushell -eq 1 ]]; then
-    local compat=""
-    [[ $has_zsh -eq 1 ]] && compat="zsh"
-    [[ $has_fish -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"; }
-    [[ $has_nushell -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/nu" || compat="nu"; }
-    theme_options_with_desc+=("Starship      - [$compat] Prompt minimalista com presets prontos")
-  fi
-
-  if [[ $has_zsh -eq 1 ]] || [[ $has_fish -eq 1 ]] || [[ $has_nushell -eq 1 ]]; then
-    local compat=""
-    [[ $has_zsh -eq 1 ]] && compat="zsh"
-    [[ $has_fish -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/fish" || compat="fish"; }
-    [[ $has_nushell -eq 1 ]] && { [[ -n "$compat" ]] && compat="$compat/nu" || compat="nu"; }
-    theme_options_with_desc+=("OhMyPosh      - [$compat] Prompt configurável com centenas de temas")
-  fi
-
-  while true; do
-    INSTALL_OH_MY_ZSH=0
-    INSTALL_POWERLEVEL10K=0
-    INSTALL_OH_MY_POSH=0
-    INSTALL_STARSHIP=0
-    clear_screen
-    show_section_header "🎨 TEMAS - Personalize seu Shell"
-
-    msg "Temas deixam seu terminal bonito e informativo com ícones, cores e informações úteis."
-    msg ""
-    msg "⚠️  IMPORTANTE:"
-    msg "  • Você pode instalar múltiplos temas e alterná-los depois"
-    msg "  • Todos os temas requerem Nerd Fonts instaladas"
-    msg ""
-
-    check_preview_support || true
-
-    local selected_desc=()
-    select_multiple_items "🎨 Selecione os temas para instalar" selected_desc "${theme_options_with_desc[@]}"
-
-    for item in "${selected_desc[@]}"; do
-      local theme_id
-      theme_id=$(echo "$item" | awk '{print $1}')
-      case "$theme_id" in
-        "OhMyZsh-P10k")
-          INSTALL_OH_MY_ZSH=1
-          INSTALL_POWERLEVEL10K=1
-          ;;
-        "Starship") INSTALL_STARSHIP=1 ;;
-        "OhMyPosh") INSTALL_OH_MY_POSH=1 ;;
-      esac
-    done
-
-    local selected_themes=()
-    [[ $INSTALL_OH_MY_ZSH -eq 1 ]] && selected_themes+=("Oh My Zsh + Powerlevel10k")
-    [[ $INSTALL_STARSHIP -eq 1 ]] && selected_themes+=("Starship")
-    [[ $INSTALL_OH_MY_POSH -eq 1 ]] && selected_themes+=("Oh My Posh")
-
-    if [[ ${#selected_themes[@]} -eq 0 ]]; then
-      selected_themes=("(nenhum)")
-    fi
-
-    if confirm_selection "🎨 Temas" "${selected_themes[@]}"; then
-      if [[ $INSTALL_STARSHIP -eq 1 || $INSTALL_OH_MY_POSH -eq 1 ]]; then
-        msg "  ℹ️  As prévias de Starship e Oh My Posh aparecem nas próximas etapas."
-        msg ""
-      fi
-
-      if [[ $INSTALL_OH_MY_ZSH -eq 1 ]]; then
-        clear_screen
-        show_section_header "🖼️  PRÉVIA DO TEMA"
-        print_selection_summary "🎨 Temas" "${selected_themes[@]}"
-        msg ""
-        preview_powerlevel10k
-        msg ""
-        pause_before_next_section "Pressione Enter para continuar..."
-      fi
-      break
-    fi
-  done
-}
-
-# ═══════════════════════════════════════════════════════════
-# Seleção de plugins do Oh My Zsh
-# ═══════════════════════════════════════════════════════════
-
-ask_oh_my_zsh_plugins() {
-  [[ $INSTALL_OH_MY_ZSH -eq 0 ]] && return 0
-
-  while true; do
-    SELECTED_OMZ_PLUGINS=()
-    SELECTED_OMZ_EXTERNAL_PLUGINS=()
-    clear_screen
-    show_section_header "🔌 PLUGINS - Oh My Zsh"
-    msg "Selecione os plugins built-in do Oh My Zsh."
-    msg ""
-
-    local omz_plugins_desc=(
-      "git - ⭐ Aliases para Git (gst, gco, gp, glog, etc)"
-      "sudo - ⭐ ESC 2x adiciona sudo ao comando anterior"
-      "extract - ⭐ Comando 'x' extrai qualquer arquivo compactado"
-      "z - ⭐ Jump rápido para diretórios frequentes"
-      "history - Aliases para busca no histórico (h, hs, hsi)"
-      "aliases - Comando 'acs' lista todos os aliases"
-      "copypath - Copia o path atual para clipboard"
-      "copyfile - Copia conteúdo de arquivo para clipboard"
-      "colored-man-pages - Man pages com cores"
-      "safe-paste - Previne execução acidental ao colar"
-      "jsontools - Ferramentas JSON (pp_json, is_json)"
-      "encode64 - Encode/decode base64 (e64, d64)"
-      "web-search - Buscar no Google/Bing do terminal"
-      "docker - Autocomplete e aliases para Docker"
-      "docker-compose - Autocomplete para docker-compose"
-      "kubectl - Autocomplete para Kubernetes"
-      "terraform - Autocomplete para Terraform"
-      "aws - Autocomplete para AWS CLI"
-      "gh - Autocomplete para GitHub CLI"
-      "node - Autocomplete para Node.js"
-      "npm - Autocomplete para npm"
-      "yarn - Autocomplete para yarn"
-      "python - Aliases para Python (pyfind, pygrep, pyclean)"
-      "pip - Autocomplete para pip"
-      "golang - Aliases para Go"
-      "rust - Autocomplete para Rust/Cargo"
-      "composer - Autocomplete para PHP Composer"
-      "laravel - Aliases para Laravel Artisan"
-      "fzf - Integração com fuzzy finder"
-      "tmux - Aliases para tmux (ta, ts, tl, etc)"
-      "systemd - Autocomplete para systemctl (Linux)"
-      "brew - Autocomplete para Homebrew (macOS)"
-      "command-not-found - Sugere pacotes para comandos não encontrados"
-    )
-
-    local selected_omz_desc=()
-    select_multiple_items "📦 Plugins built-in" selected_omz_desc "${omz_plugins_desc[@]}"
-    for item in "${selected_omz_desc[@]}"; do
-      local plugin_name
-      plugin_name="$(echo "$item" | awk '{print $1}')"
-      SELECTED_OMZ_PLUGINS+=("$plugin_name")
-    done
-
-    clear_screen
-    show_section_header "🔌 PLUGINS EXTERNOS - Oh My Zsh"
-    msg "Selecione os plugins externos do Oh My Zsh."
-    msg ""
-
-    local external_plugins_desc=(
-      "zsh-autosuggestions - ⭐ Sugestões baseadas no histórico (ESSENCIAL)"
-      "zsh-syntax-highlighting - ⭐ Colorir comandos válidos/inválidos (ESSENCIAL)"
-      "fast-syntax-highlighting - Alternativa mais rápida ao syntax-highlighting"
-      "zsh-completions - Completions extras para vários comandos"
-      "you-should-use - ⭐ Lembra dos aliases disponíveis"
-      "fzf-tab - Usa fzf para completar com Tab"
-      "zsh-autocomplete - Autocomplete avançado com menu interativo"
-    )
-
-    local selected_external_desc=()
-    select_multiple_items "📦 Plugins externos" selected_external_desc "${external_plugins_desc[@]}"
-    for item in "${selected_external_desc[@]}"; do
-      local plugin_name
-      plugin_name="$(echo "$item" | awk '{print $1}')"
-      SELECTED_OMZ_EXTERNAL_PLUGINS+=("$plugin_name")
-    done
-
-    local all_plugins=()
-    if [[ ${#SELECTED_OMZ_PLUGINS[@]} -gt 0 ]]; then
-      local builtin_list
-      builtin_list=$(printf "%s, " "${SELECTED_OMZ_PLUGINS[@]}")
-      all_plugins+=("Built-in: ${builtin_list%, }")
-    fi
-    if [[ ${#SELECTED_OMZ_EXTERNAL_PLUGINS[@]} -gt 0 ]]; then
-      local external_list
-      external_list=$(printf "%s, " "${SELECTED_OMZ_EXTERNAL_PLUGINS[@]}")
-      all_plugins+=("Externos: ${external_list%, }")
-    fi
-    [[ ${#all_plugins[@]} -eq 0 ]] && all_plugins=("(nenhum)")
-
-    if confirm_selection "🔌 Plugins Oh My Zsh" "${all_plugins[@]}"; then
-      break
-    fi
-    clear_screen
-  done
-}
-
-# ═══════════════════════════════════════════════════════════
-# Seleção de preset do Starship
-# ═══════════════════════════════════════════════════════════
-
-ask_starship_preset() {
-  [[ $INSTALL_STARSHIP -eq 0 ]] && return 0
-
-  SELECTED_STARSHIP_PRESET=""
-  SELECTED_CATPPUCCIN_FLAVOR=""
-
-  while true; do
-    clear_screen
-    show_section_header "✨ PRESETS - Starship"
-
-    msg "Starship oferece presets prontos para usar."
-    msg ""
-    msg "💡 Você pode mudar depois editando ~/.config/starship.toml"
-    msg "   Mais presets em: https://starship.rs/presets/"
-    msg ""
-
-    local choice=""
-    local clear_preview_before_render=0
-    menu_select_single "Selecione o preset do Starship" "Digite sua escolha" choice \
-      "Catppuccin Powerline - Cores pastel + powerline + 4 sabores" \
-      "Tokyo Night - Esquema escuro elegante" \
-      "Gruvbox Rainbow - Cores quentes e rainbow" \
-      "Pastel Powerline - Cores pastel suaves" \
-      "Nerd Font Symbols - Minimalista com ícones Nerd Fonts" \
-      "Plain Text Symbols - Minimalista sem ícones Nerd Fonts"
-
-    case "$choice" in
-      1)
-        SELECTED_STARSHIP_PRESET="catppuccin-powerline"
-        msg "  ✅ Selecionado: Catppuccin Powerline"
-        msg ""
-
-        msg "🎨 Escolha o sabor (flavor) do Catppuccin:"
-        msg ""
-
-        local flavor_choice=""
-        menu_select_single "Selecione o sabor Catppuccin" "Digite sua escolha" flavor_choice \
-          "Mocha - Escuro, tons quentes (recomendado)" \
-          "Latte - Claro, tons suaves" \
-          "Frappe - Escuro, tons frios" \
-          "Macchiato - Meio-escuro, balanceado"
-
-        case "$flavor_choice" in
-          1) SELECTED_CATPPUCCIN_FLAVOR="catppuccin_mocha" ;;
-          2) SELECTED_CATPPUCCIN_FLAVOR="catppuccin_latte" ;;
-          3) SELECTED_CATPPUCCIN_FLAVOR="catppuccin_frappe" ;;
-          4) SELECTED_CATPPUCCIN_FLAVOR="catppuccin_macchiato" ;;
-        esac
-
-        msg "  ✅ Selecionado: ${SELECTED_STARSHIP_PRESET} (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
-        clear_preview_before_render=1
-        ;;
-      2)
-        SELECTED_STARSHIP_PRESET="tokyo-night"
-        msg "  ✅ Selecionado: Tokyo Night"
-        ;;
-      3)
-        SELECTED_STARSHIP_PRESET="gruvbox-rainbow"
-        msg "  ✅ Selecionado: Gruvbox Rainbow"
-        ;;
-      4)
-        SELECTED_STARSHIP_PRESET="pastel-powerline"
-        msg "  ✅ Selecionado: Pastel Powerline"
-        ;;
-      5)
-        SELECTED_STARSHIP_PRESET="nerd-font-symbols"
-        msg "  ✅ Selecionado: Nerd Font Symbols"
-        ;;
-      6)
-        SELECTED_STARSHIP_PRESET="plain-text-symbols"
-        msg "  ✅ Selecionado: Plain Text Symbols"
-        ;;
-    esac
-
-    if [[ $clear_preview_before_render -eq 1 ]]; then
-      if declare -F clear_screen >/dev/null; then
-        clear_screen
-      else
-        clear
-      fi
-    fi
-    preview_starship_preset "$SELECTED_STARSHIP_PRESET"
-    if [[ "$SELECTED_STARSHIP_PRESET" == "catppuccin-powerline" ]]; then
-      msg "  🗺️  Legenda da imagem (2x2):"
-      msg "  • Topo-esquerda: Latte"
-      msg "  • Topo-direita: Frappe"
-      msg "  • Baixo-esquerda: Macchiato"
-      msg "  • Baixo-direita: Mocha"
-      if [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]]; then
-        local flavor_pos=""
-        case "$SELECTED_CATPPUCCIN_FLAVOR" in
-          catppuccin_latte) flavor_pos="topo-esquerda" ;;
-          catppuccin_frappe) flavor_pos="topo-direita" ;;
-          catppuccin_macchiato) flavor_pos="baixo-esquerda" ;;
-          catppuccin_mocha) flavor_pos="baixo-direita" ;;
-        esac
-        msg "  ✅ Selecionado: ${SELECTED_STARSHIP_PRESET} (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_}, ${flavor_pos})"
-      fi
-      msg ""
-    fi
-
-    local preset_display="$SELECTED_STARSHIP_PRESET"
-    [[ -n "$SELECTED_CATPPUCCIN_FLAVOR" ]] && preset_display+=" (${SELECTED_CATPPUCCIN_FLAVOR#catppuccin_})"
-    if confirm_selection "✨ Starship Preset" "$preset_display"; then
-      break
-    fi
-  done
-}
-
-# ═══════════════════════════════════════════════════════════
-# Seleção de tema do Oh My Posh
-# ═══════════════════════════════════════════════════════════
-
-ask_oh_my_posh_theme() {
-  [[ $INSTALL_OH_MY_POSH -eq 0 ]] && return 0
-
-  SELECTED_OMP_THEME=""
-
-  while true; do
-    clear_screen
-    show_section_header "🎭 TEMAS - Oh My Posh"
-
-    msg "Oh My Posh tem centenas de temas prontos."
-    msg ""
-    msg "💡 Veja todos os temas em: https://ohmyposh.dev/docs/themes"
-    msg "   Comando: oh-my-posh config export --format json"
-    msg ""
-
-    local choice=""
-    menu_select_single "Selecione um tema do Oh My Posh" "Digite sua escolha" choice \
-      "Catppuccin - Cores pastel suaves" \
-      "Tokyo Night - Esquema escuro elegante" \
-      "Dracula - Cores vibrantes" \
-      "Nord - Paleta fria" \
-      "Paradox - Clássico e limpo" \
-      "Pure - Minimalista" \
-      "Atomic - Moderno e informativo" \
-      "Default - Tema padrão do Oh My Posh"
-
-    case "$choice" in
-      1)
-        SELECTED_OMP_THEME="catppuccin"
-        msg "  ✅ Selecionado: Catppuccin"
-        ;;
-      2)
-        SELECTED_OMP_THEME="tokyo"
-        msg "  ✅ Selecionado: Tokyo Night"
-        ;;
-      3)
-        SELECTED_OMP_THEME="dracula"
-        msg "  ✅ Selecionado: Dracula"
-        ;;
-      4)
-        SELECTED_OMP_THEME="nord"
-        msg "  ✅ Selecionado: Nord"
-        ;;
-      5)
-        SELECTED_OMP_THEME="paradox"
-        msg "  ✅ Selecionado: Paradox"
-        ;;
-      6)
-        SELECTED_OMP_THEME="pure"
-        msg "  ✅ Selecionado: Pure"
-        ;;
-      7)
-        SELECTED_OMP_THEME="atomic"
-        msg "  ✅ Selecionado: Atomic"
-        ;;
-      8)
-        SELECTED_OMP_THEME="default"
-        msg "  ✅ Selecionado: Default"
-        ;;
-    esac
-
-    preview_oh_my_posh "$SELECTED_OMP_THEME"
-
-    if confirm_selection "🎭 Tema Oh My Posh" "$SELECTED_OMP_THEME"; then
-      break
-    fi
-  done
-}
-
-# ═══════════════════════════════════════════════════════════
-# Seleção de plugins do Fish
-# ═══════════════════════════════════════════════════════════
-
-ask_fish_plugins() {
-  [[ $INSTALL_FISH -eq 0 ]] && return 0
-  while true; do
-    SELECTED_FISH_PLUGINS=()
-    clear_screen
-    show_section_header "🐟 PLUGINS - Fish Shell"
-
-    msg "Fish tem funcionalidades nativas (autosuggestions, syntax highlighting)"
-    msg "e plugins via Fisher (gerenciador de plugins moderno)."
-    msg ""
-
-    local has_zoxide=0
-    local has_fzf=0
-    for tool in "${SELECTED_CLI_TOOLS[@]}"; do
-      [[ "$tool" == "zoxide" ]] && has_zoxide=1
-      [[ "$tool" == "fzf" ]] && has_fzf=1
-    done
-
-    if [[ $has_zoxide -eq 1 ]] || [[ $has_fzf -eq 1 ]]; then
-      msg "⚠️  AVISO: Você já selecionou ferramentas similares em Ferramentas CLI:"
-      [[ $has_zoxide -eq 1 ]] && msg "  • zoxide já foi selecionado (similar ao plugin 'z')"
-      [[ $has_fzf -eq 1 ]] && msg "  • fzf já foi selecionado (integração via plugin 'fzf.fish')"
-      msg ""
-      msg "  Os plugins Fish funcionarão com essas ferramentas se instalados."
-      msg ""
-    fi
-
-    local fish_plugins_desc=(
-      "z - Jump para diretórios frequentes"
-      "fzf.fish - Integração com fzf (busca fuzzy)"
-      "done - Notificações quando comandos longos terminam"
-      "autopair.fish - Fechar parênteses/aspas automaticamente"
-    )
-
-    if [[ ${INSTALL_STARSHIP:-0} -eq 0 ]] && [[ ${INSTALL_OH_MY_POSH:-0} -eq 0 ]]; then
-      fish_plugins_desc+=("tide - Prompt customizável para Fish (tema completo)")
-    fi
-
-    local selected_fish_desc=()
-    select_multiple_items "🐟 Selecione os plugins do Fish" selected_fish_desc "${fish_plugins_desc[@]}"
-    for item in "${selected_fish_desc[@]}"; do
-      local plugin_name
-      plugin_name="$(echo "$item" | awk '{print $1}')"
-      SELECTED_FISH_PLUGINS+=("$plugin_name")
-    done
-
-    local fish_summary=()
-    if [[ ${#SELECTED_FISH_PLUGINS[@]} -gt 0 ]]; then
-      fish_summary=("${SELECTED_FISH_PLUGINS[@]}")
-    else
-      fish_summary=("(nenhum - apenas funcionalidades nativas)")
-    fi
-
-    if confirm_selection "🐟 Plugins Fish" "${fish_summary[@]}"; then
-      break
-    fi
-    clear_screen
-  done
-}
+# ─────────────────────────────────────────────────────────────────
+# themes.sh — instalacao dos temas escolhidos (fase 4, tarefa C: split
+# em tres arquivos — preview em lib/theme_preview.sh, selecao em
+# lib/theme_select.sh — sem mudanca de comportamento).
+#
+# Le as globais populadas em lib/theme_select.sh: INSTALL_OH_MY_ZSH,
+# INSTALL_POWERLEVEL10K, INSTALL_OH_MY_POSH, INSTALL_STARSHIP,
+# SELECTED_OMZ_PLUGINS, SELECTED_OMZ_EXTERNAL_PLUGINS,
+# SELECTED_FISH_PLUGINS, SELECTED_STARSHIP_PRESET, SELECTED_OMP_THEME
+# e SELECTED_CATPPUCCIN_FLAVOR (esta ultima tambem recebe um default
+# aqui, em install_starship, se o usuario nao tiver escolhido sabor).
+#
+# Le tambem INSTALL_ZSH/INSTALL_FISH/INSTALL_NUSHELL, TARGET_OS,
+# ZSH_CUSTOM, DRY_RUN, REMOTE_SCRIPT_STRICT, REMOTE_SCRIPT_ALLOWLIST e
+# FISHER_FUNCTION_SHA256 — todas externas, definidas em install.sh ou
+# no ambiente. Escreve em INSTALLED_MISC (array externo, declarado em
+# install.sh, consumido pelo relatorio pos-instalacao).
+#
+# Nao chama nenhuma funcao de lib/theme_preview.sh ou
+# lib/theme_select.sh: as funcoes install_* sao autocontidas, chamadas
+# so por install_selected_themes (neste mesmo arquivo) e por
+# install.sh.
+# ─────────────────────────────────────────────────────────────────
 
 # ═══════════════════════════════════════════════════════════
 # Instalação de Oh My Zsh
@@ -818,7 +64,7 @@ install_oh_my_zsh() {
       case "$plugin" in
         zsh-autosuggestions)
           msg "  📥 Baixando zsh-autosuggestions..."
-          if git clone https://github.com/zsh-users/zsh-autosuggestions.git "$plugin_dir" 2>/dev/null; then
+          if run_mutating "clonar zsh-autosuggestions" git clone https://github.com/zsh-users/zsh-autosuggestions.git "$plugin_dir" 2>/dev/null; then
             msg "  ✅ zsh-autosuggestions instalado"
             INSTALLED_MISC+=("omz-plugin: zsh-autosuggestions")
           else
@@ -827,7 +73,7 @@ install_oh_my_zsh() {
           ;;
         zsh-syntax-highlighting)
           msg "  📥 Baixando zsh-syntax-highlighting..."
-          if git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugin_dir" 2>/dev/null; then
+          if run_mutating "clonar zsh-syntax-highlighting" git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugin_dir" 2>/dev/null; then
             msg "  ✅ zsh-syntax-highlighting instalado"
             INSTALLED_MISC+=("omz-plugin: zsh-syntax-highlighting")
           else
@@ -836,7 +82,7 @@ install_oh_my_zsh() {
           ;;
         fast-syntax-highlighting)
           msg "  📥 Baixando fast-syntax-highlighting..."
-          if git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git "$plugin_dir" 2>/dev/null; then
+          if run_mutating "clonar fast-syntax-highlighting" git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git "$plugin_dir" 2>/dev/null; then
             msg "  ✅ fast-syntax-highlighting instalado"
             INSTALLED_MISC+=("omz-plugin: fast-syntax-highlighting")
           else
@@ -845,7 +91,7 @@ install_oh_my_zsh() {
           ;;
         zsh-autocomplete)
           msg "  📥 Baixando zsh-autocomplete..."
-          if git clone --depth 1 https://github.com/marlonrichert/zsh-autocomplete.git "$plugin_dir" 2>/dev/null; then
+          if run_mutating "clonar zsh-autocomplete" git clone --depth 1 https://github.com/marlonrichert/zsh-autocomplete.git "$plugin_dir" 2>/dev/null; then
             msg "  ✅ zsh-autocomplete instalado"
             INSTALLED_MISC+=("omz-plugin: zsh-autocomplete")
           else
@@ -854,7 +100,7 @@ install_oh_my_zsh() {
           ;;
         zsh-completions)
           msg "  📥 Baixando zsh-completions..."
-          if git clone https://github.com/zsh-users/zsh-completions.git "$plugin_dir" 2>/dev/null; then
+          if run_mutating "clonar zsh-completions" git clone https://github.com/zsh-users/zsh-completions.git "$plugin_dir" 2>/dev/null; then
             msg "  ✅ zsh-completions instalado"
             INSTALLED_MISC+=("omz-plugin: zsh-completions")
           else
@@ -863,7 +109,7 @@ install_oh_my_zsh() {
           ;;
         you-should-use)
           msg "  📥 Baixando you-should-use..."
-          if git clone https://github.com/MichaelAquilina/zsh-you-should-use.git "$plugin_dir" 2>/dev/null; then
+          if run_mutating "clonar you-should-use" git clone https://github.com/MichaelAquilina/zsh-you-should-use.git "$plugin_dir" 2>/dev/null; then
             msg "  ✅ you-should-use instalado"
             INSTALLED_MISC+=("omz-plugin: you-should-use")
           else
@@ -872,7 +118,7 @@ install_oh_my_zsh() {
           ;;
         fzf-tab)
           msg "  📥 Baixando fzf-tab..."
-          if git clone https://github.com/Aloxaf/fzf-tab.git "$plugin_dir" 2>/dev/null; then
+          if run_mutating "clonar fzf-tab" git clone https://github.com/Aloxaf/fzf-tab.git "$plugin_dir" 2>/dev/null; then
             msg "  ✅ fzf-tab instalado"
             INSTALLED_MISC+=("omz-plugin: fzf-tab")
           else
@@ -888,19 +134,21 @@ install_oh_my_zsh() {
   all_plugins+=("${SELECTED_OMZ_EXTERNAL_PLUGINS[@]}")
 
   if [[ ${#all_plugins[@]} -gt 0 ]] && [[ -f "$zshrc" ]]; then
-    msg "  🔌 Configurando plugins no .zshrc..."
-
     local plugins_str="${all_plugins[*]}"
 
     if grep -q "^plugins=" "$zshrc"; then
-      sed -i.bak "s/^plugins=.*/plugins=($plugins_str)/" "$zshrc"
-      msg "  ✅ Plugins configurados: $plugins_str"
+      if is_truthy "$DRY_RUN"; then
+        msg "  🔎 (dry-run) atualizaria plugins=($plugins_str) em $zshrc"
+      else
+        msg "  🔌 Configurando plugins no .zshrc..."
+        sed -i.bak "s/^plugins=.*/plugins=($plugins_str)/" "$zshrc"
+        rm -f "$zshrc.bak"
+        msg "  ✅ Plugins configurados: $plugins_str"
+      fi
     else
-      echo "plugins=($plugins_str)" >> "$zshrc"
+      append_block_to_file "$zshrc" "plugins=($plugins_str)"
       msg "  ✅ Plugins adicionados ao .zshrc"
     fi
-
-    rm -f "$zshrc.bak"
   fi
 }
 
@@ -922,7 +170,7 @@ install_powerlevel10k() {
   msg "  📦 Instalando Powerlevel10k..."
 
   if has_cmd git; then
-    if git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$p10k_dir" 2>/dev/null; then
+    if run_mutating "clonar powerlevel10k" git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$p10k_dir" 2>/dev/null; then
       INSTALLED_MISC+=("powerlevel10k: tema")
       msg "  ✅ Powerlevel10k instalado"
       msg "  💡 Execute 'p10k configure' para configurar o tema"
@@ -980,9 +228,11 @@ install_starship() {
 
     msg "  ✨ Configurando preset: $preset"
 
-    mkdir -p "$config_dir"
+    if ! is_truthy "$DRY_RUN"; then
+      mkdir -p "$config_dir"
+    fi
 
-    if starship preset "$preset" -o "$starship_config" 2>/dev/null; then
+    if run_mutating "gerar preset $preset do starship em $starship_config" starship preset "$preset" -o "$starship_config" 2>/dev/null; then
       msg "  ✅ Preset $preset aplicado"
 
       if [[ "$preset" == "catppuccin-powerline" ]] && [[ -n "${SELECTED_CATPPUCCIN_FLAVOR:-}" ]]; then
@@ -1001,7 +251,7 @@ install_starship() {
     else
       warn "Preset $preset não encontrado"
       msg "  ℹ️  Usando preset 'nerd-font-symbols' como fallback"
-      if starship preset nerd-font-symbols -o "$starship_config" 2>/dev/null; then
+      if run_mutating "gerar preset nerd-font-symbols do starship em $starship_config" starship preset nerd-font-symbols -o "$starship_config" 2>/dev/null; then
         msg "  ✅ Preset fallback aplicado"
       else
         msg "  💡 Você pode configurar manualmente editando $starship_config"
@@ -1071,11 +321,7 @@ install_oh_my_posh() {
         local safe_theme_file="${theme_file//\'/\'\\\'\'}"
         local init_line="eval \"\$(oh-my-posh init zsh --config '${safe_theme_file}')\""
         if ! grep -q "oh-my-posh init zsh" "$HOME/.zshrc"; then
-          {
-            echo ""
-            echo "# Oh My Posh"
-            echo "$init_line"
-          } >> "$HOME/.zshrc"
+          append_block_to_file "$HOME/.zshrc" "" "# Oh My Posh" "$init_line"
           msg "  ✅ Oh My Posh configurado no .zshrc"
         fi
       fi
@@ -1085,24 +331,24 @@ install_oh_my_posh() {
         mkdir -p "$HOME/.config/fish"
         local init_line="oh-my-posh init fish --config '$theme_file' | source"
         if ! grep -q "oh-my-posh init fish" "$fish_config" 2>/dev/null; then
-          {
-            echo ""
-            echo "# Oh My Posh"
-            echo "$init_line"
-          } >> "$fish_config"
+          append_block_to_file "$fish_config" "" "# Oh My Posh" "$init_line"
           msg "  ✅ Oh My Posh configurado no config.fish"
         fi
       fi
 
       if [[ ${INSTALL_NUSHELL:-0} -eq 1 ]]; then
         local nu_config_dir="$HOME/.config/nushell"
-        mkdir -p "$nu_config_dir/scripts"
-        cp "$theme_file" "$nu_config_dir/omp-theme.json"
-        if has_cmd oh-my-posh; then
-          oh-my-posh init nu --config "$nu_config_dir/omp-theme.json" > "$nu_config_dir/scripts/omp.nu" 2>/dev/null || true
-          msg "  ✅ Oh My Posh init script gerado para Nushell"
+        if is_truthy "$DRY_RUN"; then
+          msg "  🔎 (dry-run) configuraria Oh My Posh para Nushell em $nu_config_dir"
+        else
+          mkdir -p "$nu_config_dir/scripts"
+          cp "$theme_file" "$nu_config_dir/omp-theme.json"
+          if has_cmd oh-my-posh; then
+            oh-my-posh init nu --config "$nu_config_dir/omp-theme.json" > "$nu_config_dir/scripts/omp.nu" 2>/dev/null || true
+            msg "  ✅ Oh My Posh init script gerado para Nushell"
+          fi
+          msg "  ✅ Oh My Posh configurado para Nushell ($nu_config_dir/omp-theme.json)"
         fi
-        msg "  ✅ Oh My Posh configurado para Nushell ($nu_config_dir/omp-theme.json)"
       fi
     else
       warn "Tema $SELECTED_OMP_THEME não encontrado em diretórios conhecidos"
@@ -1186,7 +432,7 @@ install_fish_plugins() {
   local fisher_file="$HOME/.config/fish/functions/fisher.fish"
   if [[ ! -f "$fisher_file" ]]; then
     msg "  📦 Instalando Fisher (gerenciador de plugins)..."
-    if _install_fisher_secure; then
+    if run_mutating "instalar Fisher" _install_fisher_secure; then
       INSTALLED_MISC+=("fisher: gerenciador de plugins Fish")
       msg "  ✅ Fisher instalado"
     else
@@ -1227,6 +473,14 @@ install_fish_plugins() {
 
     if [[ -n "$plugin_repo" ]]; then
       msg "  📥 Instalando $plugin_name..."
+
+      if is_truthy "$DRY_RUN"; then
+        msg "  🔎 (dry-run) fisher install $plugin_repo"
+        INSTALLED_MISC+=("fish-plugin: $plugin")
+        msg "  ✅ $plugin instalado"
+        continue
+      fi
+
       local fish_install_ok=0
       local fish_err=""
       fish_err=$(fish -c "fisher install $plugin_repo" 2>&1) && fish_install_ok=1

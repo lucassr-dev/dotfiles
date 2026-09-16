@@ -7,14 +7,14 @@ cargo_smart_install() {
 
   if has_cmd cargo-binstall; then
     msg "  📦 Instalando $display_name via binstall (binário)..."
-    if cargo binstall -y "$crate"; then
+    if run_mutating "cargo binstall $crate" cargo binstall -y "$crate"; then
       INSTALLED_MISC+=("binstall: $crate")
       return 0
     fi
   fi
 
   msg "  🦀 Instalando $display_name via cargo (compilando, pode demorar)..."
-  if cargo install "$crate"; then
+  if run_mutating "cargo install $crate" cargo install "$crate"; then
     INSTALLED_MISC+=("cargo: $crate")
     return 0
   fi

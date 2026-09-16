@@ -1,17 +1,11 @@
-# Mise Configuration
-# Este arquivo define apenas settings globais.
-# Os runtimes globais sao adicionados pelo instalador conforme a selecao
-# feita em "Runtimes", via `mise use -g`.
-#
-# Exemplos de entradas que o mise adicionara automaticamente:
-# [tools]
-# node = "lts"
-# python = "latest"
-# php = "latest"
+[tools]
+bun = "latest"
+deno = "latest"
+neovim = "0.12.5"
+node = "lts"
+php = "8.3"
+python = "latest"
+rust = "stable"
 
 [settings]
-experimental = true
-legacy_version_file = true
-jobs = 4
-always_keep_download = false
-plugin_autoupdate_last_check_duration = "7d"
+not_found_auto_install = false

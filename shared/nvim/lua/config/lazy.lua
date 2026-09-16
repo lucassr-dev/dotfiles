@@ -25,46 +25,28 @@ vim.g.maplocalleader = "\\"
 -- Configurar lazy.nvim
 require("lazy").setup({
   spec = {
-    -- Importar LazyVim como base
+    -- ══════════════════════════════════════════════════════════════════════════
+    -- BASE: LAZYVIM
+    -- ══════════════════════════════════════════════════════════════════════════
     {
       "LazyVim/LazyVim",
       import = "lazyvim.plugins",
       opts = {
-        colorscheme = "catppuccin",
+        -- >>> tema:nome inicio (gerenciado por scripts/set_theme.sh; edicoes manuais aqui serao perdidas) >>>
+        colorscheme = "catppuccin-mocha",
+        -- <<< tema:nome fim <<<
         news = { lazyvim = true, neovim = true },
       },
     },
 
     -- ══════════════════════════════════════════════════════════════════════════
-    -- EXTRAS DO LAZYVIM
+    -- EXTRAS
+    -- Fonte unica: lazyvim.json. Gerenciar com :LazyExtras, nunca aqui.
     -- ══════════════════════════════════════════════════════════════════════════
-
-    -- Linguagens
-    { import = "lazyvim.plugins.extras.lang.typescript" },
-    { import = "lazyvim.plugins.extras.lang.json" },
-    { import = "lazyvim.plugins.extras.lang.markdown" },
-    { import = "lazyvim.plugins.extras.lang.python" },
-    { import = "lazyvim.plugins.extras.lang.tailwind" },
-    { import = "lazyvim.plugins.extras.lang.yaml" },
-
-    -- Linting e Formatting
-    { import = "lazyvim.plugins.extras.linting.eslint" },
-    { import = "lazyvim.plugins.extras.formatting.prettier" },
-
-    -- Editor
-    { import = "lazyvim.plugins.extras.editor.mini-files" },
-
-    -- Coding
-    { import = "lazyvim.plugins.extras.ai.copilot" },
-    { import = "lazyvim.plugins.extras.coding.mini-surround" },
-
-    -- UI
-    { import = "lazyvim.plugins.extras.ui.mini-animate" },
 
     -- ══════════════════════════════════════════════════════════════════════════
     -- PLUGINS CUSTOMIZADOS
     -- ══════════════════════════════════════════════════════════════════════════
-
     { import = "plugins" },
   },
 

@@ -19,14 +19,21 @@ _app_is_auto_installable() {
   case "${TARGET_OS:-}" in
     linux|wsl2)
       case "$app" in
-        ghostty|kitty|alacritty|gnome-terminal|pgadmin|mongodb)
+        ghostty|kitty|alacritty|gnome-terminal|pgadmin|mongodb|neovim)
           return 0
           ;;
       esac
       ;;
     macos)
       case "$app" in
-        iterm2|ghostty|kitty|alacritty|intellij-idea|pycharm|webstorm|phpstorm|goland|rubymine|clion|rider|datagrip|android-studio|rectangle|alfred|bartender|cleanmymac|istat-menus)
+        iterm2|ghostty|kitty|alacritty|intellij-idea|pycharm|webstorm|phpstorm|goland|rubymine|clion|rider|datagrip|android-studio|rectangle|alfred|bartender|cleanmymac|istat-menus|neovim)
+          return 0
+          ;;
+      esac
+      ;;
+    windows)
+      case "$app" in
+        neovim)
           return 0
           ;;
       esac

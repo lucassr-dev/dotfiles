@@ -293,13 +293,10 @@ print_post_install_report() {
   echo ""
 
   local backup_link="${BACKUP_DIR:-}"
-  if [[ -n "$backup_link" ]] && [[ ! -d "$backup_link" ]]; then
-    backup_link="(nenhum backup criado)"
-  fi
-  [[ -z "$backup_link" ]] && backup_link="(nenhum backup criado)"
+  [[ -n "$backup_link" ]] && [[ ! -d "$backup_link" ]] && backup_link=""
 
   _rpt_div "🔗 LINKS E CAMINHOS"
-  _rpt_kv "$kv_label_w" "Backup" "$backup_link"
+  [[ -n "$backup_link" ]] && _rpt_kv "$kv_label_w" "Backup" "$backup_link"
   _rpt_kv "$kv_label_w" "Site" "https://lucassr.dev"
   _rpt_kv "$kv_label_w" "Repositório" "https://github.com/lucassr-dev/.config"
   echo ""

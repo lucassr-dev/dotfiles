@@ -368,7 +368,8 @@ install_linux_selected_apps() {
     _install_app_with_catalog "$app" "$ide_cmd" || {
       case "$app" in
         cursor) install_cursor ;;
-        windsurf) install_windsurf ;;
+        devin-desktop) install_devin_desktop ;;
+        neovim) install_neovim ;;
         *) record_failure "optional" "IDE sem instalador automático no Linux: $app" ;;
       esac
     }
@@ -535,8 +536,10 @@ install_php_build_deps_linux() {
 
 apply_linux_configs() {
   local source_dir="$CONFIG_LINUX"
-  [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
-  [[ -d "$source_dir" ]] || return
+  if [[ ! -d "$source_dir" ]]; then
+    warn "Diretório de configs Linux não encontrado ($source_dir); pulando cópia."
+    return
+  fi
   msg "▶ Copiando configs Linux"
   if [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]]; then
     copy_dir "$source_dir/ghostty" "$HOME/.config/ghostty"

@@ -71,10 +71,23 @@ state_has() {
   [[ -n "${DOTFILES_STATE["$key"]:-}" ]]
 }
 
+# Enumera as chaves de DOTFILES_STATE em ordem alfabetica estavel.
+# Compartilhado por state_dump e checkpoint_save — os dois percorriam
+# o array da mesma forma, cada um serializando o valor a sua maneira.
+# (state_save tambem usava, mas foi removido em 2026-07-19 como codigo
+# morto -- via auditoria direto no espelho publico -- junto com
+# state_load e o teste de roundtrip.) So a travessia e comum; o formato
+# de saida de cada um fica como esta (checkpoint_save nao pode mudar o
+# que grava em disco).
+_state_sorted_keys() {
+  _state_ensure_map
+  printf '%s\n' "${!DOTFILES_STATE[@]}" | sort
+}
+
 state_dump() {
   _state_ensure_map
   local key
-  for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
+  for key in $(_state_sorted_keys); do
     printf '%s=%s\n' "$key" "${DOTFILES_STATE[$key]}"
   done
 }
@@ -82,6 +95,36 @@ state_dump() {
 state_clear() {
   _state_ensure_map
   DOTFILES_STATE=()
+}
+
+# Controle de seguranca compartilhado com lib/checkpoint.sh
+# (_checkpoint_file_is_secure). Recusa arquivo que nao seja do usuario
+# atual ou que tenha permissao de grupo/outro — barreira contra carregar
+# um checkpoint plantado por terceiro (checkpoint_load faz source do
+# arquivo). Mora aqui porque lib/state.sh e sourced antes de
+# lib/checkpoint.sh no install.sh; o inverso quebraria em tempo de
+# execucao.
+_state_file_is_secure() {
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  [[ -O "$file" ]] || return 1
+
+  local perm=""
+  if command -v stat >/dev/null 2>&1; then
+    perm="$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$perm" ]] && [[ "$perm" =~ ^[0-7]{3,4}$ ]]; then
+    local mode="$perm"
+    [[ ${#mode} -eq 4 ]] && mode="${mode:1}"
+    local group_digit="${mode:1:1}"
+    local other_digit="${mode:2:1}"
+    if (( 10#$group_digit != 0 || 10#$other_digit != 0 )); then
+      return 1
+    fi
+  fi
+
+  return 0
 }
 
 # ═══════════════════════════════════════════════════════════

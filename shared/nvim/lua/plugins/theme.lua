@@ -40,12 +40,11 @@ return {
         operators = {},
       },
       integrations = {
-        alpha = true,
-        cmp = true,
+        blink_cmp = true,
         flash = true,
         gitsigns = true,
+        grug_far = true,
         illuminate = true,
-        indent_blankline = { enabled = true },
         lsp_trouble = true,
         mason = true,
         mini = true,
@@ -58,13 +57,11 @@ return {
             information = { "undercurl" },
           },
         },
-        navic = { enabled = true, custom_bg = "lualine" },
         neotest = true,
         noice = true,
         notify = true,
-        nvimtree = true,
         semantic_tokens = true,
-        telescope = true,
+        snacks = true,
         treesitter = true,
         treesitter_context = true,
         which_key = true,
@@ -117,6 +114,53 @@ return {
         sidebars = "dark",
         floats = "dark",
       },
+    },
+  },
+
+  -- ──────────────────────────────────────────────────────────────────────────────
+  -- GRUVBOX (TEMA ALTERNATIVO)
+  -- ──────────────────────────────────────────────────────────────────────────────
+  {
+    "ellisonleao/gruvbox.nvim",
+    lazy = true,
+    priority = 1000,
+    opts = {
+      terminal_colors = true,
+      undercurl = true,
+      underline = true,
+      bold = true,
+      italic = {
+        strings = true,
+        emphasis = true,
+        comments = true,
+        operators = false,
+        folds = true,
+      },
+      strikethrough = true,
+      invert_selection = false,
+      invert_signs = false,
+      invert_tabline = false,
+      invert_intend_guides = false,
+      inverse = true,
+      contrast = "",
+      palette_overrides = {},
+      overrides = {},
+      dim_inactive = false,
+      transparent_mode = false,
+    },
+  },
+
+  -- ──────────────────────────────────────────────────────────────────────────────
+  -- SELETOR DE TEMA
+  -- Preview de sessao, ao vivo — nao grava nada em disco e some ao reabrir o
+  -- editor. A troca persistente, propagada tambem para as outras ferramentas
+  -- de terminal, e scripts/set_theme.sh (marcador tema:nome em
+  -- lua/config/lazy.lua), nao este seletor.
+  -- ──────────────────────────────────────────────────────────────────────────────
+  {
+    "folke/snacks.nvim",
+    keys = {
+      { "<leader>uC", function() Snacks.picker.colorschemes() end, desc = "Trocar tema" },
     },
   },
 }

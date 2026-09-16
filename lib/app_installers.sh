@@ -13,41 +13,43 @@ install_cursor() {
   case "$TARGET_OS" in
     macos)
       if ! has_cmd cursor; then
-        msg "  📥 Baixe Cursor manualmente em: https://cursor.sh"
+        msg "  📥 Baixe Cursor manualmente em: https://cursor.com"
       fi
       ;;
     linux|wsl2)
       if ! has_cmd cursor; then
-        msg "  📥 Baixe Cursor AppImage em: https://cursor.sh"
+        msg "  📥 Baixe Cursor AppImage em: https://cursor.com"
       fi
       ;;
     windows)
       if ! has_cmd cursor; then
-        msg "  📥 Baixe Cursor em: https://cursor.sh"
+        msg "  📥 Baixe Cursor em: https://cursor.com"
       fi
       ;;
   esac
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Windsurf - IDE AI-first da Codeium (tem installers nativos)
+# Devin Desktop - IDE AI-first da Cognition (ex-Windsurf, rebrand de 02/06/2026)
 # ─────────────────────────────────────────────────────────────────────────────
 
-install_windsurf() {
+install_devin_desktop() {
   case "$TARGET_OS" in
     macos)
-      brew_install_cask windsurf optional
+      # Cask antigo era "windsurf" (removido do homebrew-cask); a Cognition
+      # publicou o cask "devin-desktop" no lugar dele.
+      brew_install_cask devin-desktop optional
       ;;
     linux|wsl2)
-      if ! has_cmd windsurf; then
-        msg "  📥 Baixe Windsurf em: https://codeium.com/windsurf"
+      if ! has_cmd devin-desktop; then
+        msg "  📥 Baixe Devin Desktop em: https://devin.ai/desktop"
       fi
       ;;
     windows)
       if has_cmd winget; then
-        winget_install "Codeium.Windsurf" "Windsurf" optional
+        winget_install "CognitionAI.DevinDesktop" "Devin Desktop" optional
       else
-        msg "  📥 Baixe Windsurf em: https://codeium.com/windsurf"
+        msg "  📥 Baixe Devin Desktop em: https://devin.ai/desktop"
       fi
       ;;
   esac

@@ -15,10 +15,21 @@ CONFIG_SHARED="$SCRIPT_DIR/shared"
 CONFIG_LINUX="$SCRIPT_DIR/linux"
 CONFIG_MACOS="$SCRIPT_DIR/macos"
 CONFIG_WINDOWS="$SCRIPT_DIR/windows"
-CONFIG_UNIX_LEGACY="$SCRIPT_DIR/mac-linux"
 DATA_APPS="$SCRIPT_DIR/data/apps.sh"
 DATA_RUNTIMES="$SCRIPT_DIR/data/runtimes.sh"
-BACKUP_DIR="$(mktemp -d "$HOME/.bkp-$(date +%Y%m%d-%H%M%S)-XXXXXX" 2>/dev/null || echo "$HOME/.bkp-$(date +%Y%m%d-%H%M%S)-$$")"
+# BACKUP_DIR e criado sob demanda: nenhuma execucao deve deixar um diretorio
+# vazio em $HOME quando nada precisa ser copiado (ex.: DRY_RUN=1).
+# _ensure_backup_dir NAO imprime nada de proposito: chamar em $(...) rodaria
+# num subshell e a atribuicao a BACKUP_DIR se perderia ao sair dele. Use a
+# variavel global diretamente depois de chamar a funcao.
+BACKUP_DIR=""
+_ensure_backup_dir() {
+  [[ -n "$BACKUP_DIR" ]] && return 0
+  local stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  BACKUP_DIR="$(mktemp -d "$HOME/.bkp-${stamp}-XXXXXX" 2>/dev/null || echo "$HOME/.bkp-${stamp}-$$")"
+  mkdir -p "$BACKUP_DIR"
+}
 TARGET_OS=""
 ARCH=""
 LINUX_PKG_MANAGER=""
@@ -351,6 +362,25 @@ run_with_sudo() {
     warn "Comando '$*' requer sudo, mas sudo não está disponível."
     return 1
   fi
+}
+
+# Ponto de estrangulamento para comando externo que altera a maquina do
+# usuario sem precisar de sudo (git clone, cargo install, fisher install,
+# instalador via curl | sh chamado direto). Mesmo espirito do run_with_sudo:
+# em DRY_RUN, imprime o que faria e devolve sucesso simulado sem tocar em
+# nada; fora de DRY_RUN, executa o comando normalmente.
+#
+# Nao serve para comando cuja saida e capturada via `>` ou `$(...)` no
+# proprio call site: a redirecao encostaria na mensagem de dry-run tambem,
+# porque ela sai por stdout dentro desta funcao. Esses casos usam gate local.
+run_mutating() {
+  local desc="$1"
+  shift
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) $desc ($*)"
+    return 0
+  fi
+  "$@"
 }
 
 source "$SCRIPT_DIR/lib/fileops.sh"
@@ -777,14 +807,13 @@ append_preserved_config() {
   done <<< "$preserved_config"
 
   if [[ ${#lines_to_add[@]} -gt 0 ]]; then
-    {
-      echo ""
-      echo "# ═══════════════════════════════════════════════════════════"
-      echo "# Configurações preservadas do arquivo anterior"
-      echo "# (NVM, Android, SDKMAN, pyenv, Go, yarn, pnpm, etc.)"
-      echo "# ═══════════════════════════════════════════════════════════"
-      printf '%s\n' "${lines_to_add[@]}"
-    } >> "$file"
+    append_block_to_file "$file" \
+      "" \
+      "# ═══════════════════════════════════════════════════════════" \
+      "# Configurações preservadas do arquivo anterior" \
+      "# (NVM, Android, SDKMAN, pyenv, Go, yarn, pnpm, etc.)" \
+      "# ═══════════════════════════════════════════════════════════" \
+      "${lines_to_add[@]}"
     msg "    ✅ $added_count configurações preservadas"
     [[ $skipped_count -gt 0 ]] && msg "    ℹ️  $skipped_count já existiam (ignoradas)"
   else
@@ -966,6 +995,8 @@ detect_ui_mode
 [[ -f "$SCRIPT_DIR/lib/banner.sh" ]] && source "$SCRIPT_DIR/lib/banner.sh"
 [[ -f "$SCRIPT_DIR/lib/selections.sh" ]] && source "$SCRIPT_DIR/lib/selections.sh"
 [[ -f "$SCRIPT_DIR/lib/nerd_fonts.sh" ]] && source "$SCRIPT_DIR/lib/nerd_fonts.sh"
+[[ -f "$SCRIPT_DIR/lib/theme_preview.sh" ]] && source "$SCRIPT_DIR/lib/theme_preview.sh"
+[[ -f "$SCRIPT_DIR/lib/theme_select.sh" ]] && source "$SCRIPT_DIR/lib/theme_select.sh"
 [[ -f "$SCRIPT_DIR/lib/themes.sh" ]] && source "$SCRIPT_DIR/lib/themes.sh"
 
 declare -A APPS_PROCESSED
@@ -1380,7 +1411,11 @@ review_selections() {
     if [[ ${#actions_to_do[@]} -gt 0 ]]; then
       _rv_kv 15 "Ações extras" "${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
     fi
-    _rv_kv 15 "Backup" "${UI_SUBTEXT0}${BACKUP_DIR}${UI_RESET}"
+    if [[ -n "$BACKUP_DIR" ]]; then
+      _rv_kv 15 "Backup" "${UI_SUBTEXT0}${BACKUP_DIR}${UI_RESET}"
+    else
+      _rv_kv 15 "Backup" "${UI_SUBTEXT0}(criado sob demanda, se necessário)${UI_RESET}"
+    fi
     echo ""
 
     local env_count=$(( ${#selected_shells[@]} + ${#SELECTED_TERMINALS[@]} + ${#themes_selected[@]} + ${#SELECTED_NERD_FONTS[@]} ))
@@ -2779,6 +2814,67 @@ _apply_ssh_keys() {
     manage_ssh_keys "$ssh_source"
     set_ssh_permissions
     msg "  ✓ Chaves SSH configuradas com permissões corretas (700/600)"
+    _validate_ssh_keys
+    _migrate_remote_to_ssh
+  fi
+}
+
+# Confirma na hora que a chave ficou utilizavel, em vez de deixar o dono
+# descobrir no primeiro push. `ssh -T` contra o GitHub sempre sai com codigo 1
+# mesmo quando da certo (nao ha shell para abrir), entao o que vale e a
+# mensagem de boas-vindas, nao o codigo de saida.
+_validate_ssh_keys() {
+  has_cmd ssh || return 0
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) ssh -T nos hosts do ~/.ssh/config"
+    return 0
+  fi
+
+  local host resposta
+  while IFS= read -r host; do
+    resposta="$(ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+                    -o ConnectTimeout=10 "$host" 2>&1)"
+    if printf '%s' "$resposta" | grep -q "successfully authenticated"; then
+      msg "  ✓ $host: chave aceita"
+    else
+      warn "$host: nao autenticou. Resposta: $(printf '%s' "$resposta" | head -1)"
+    fi
+  done < <(awk '/^Host github\.com-/ {print $2}' "$HOME/.ssh/config" 2>/dev/null)
+}
+
+# O README manda clonar por HTTPS com token na primeira instalacao, porque as
+# chaves ainda nao existem — ovo e galinha resolvido. O efeito colateral e que o
+# token fica gravado no .git/config do clone, em texto claro, para sempre.
+#
+# Agora que as chaves estao no lugar, o remote pode passar para SSH. Troca so
+# quando o host do alias existe no ~/.ssh/config; senao avisa e nao mexe.
+_migrate_remote_to_ssh() {
+  has_cmd git || return 0
+  [[ -d "$SCRIPT_DIR/.git" ]] || return 0
+
+  local url
+  url="$(git -C "$SCRIPT_DIR" config --get remote.origin.url 2>/dev/null)" || return 0
+  [[ "$url" =~ ^https://[^@]+@github\.com/(.+)$ ]] || return 0
+
+  local repo="${BASH_REMATCH[1]}"
+  repo="${repo%.git}"
+  local dono="${repo%%/*}"
+  local alias_host="github.com-${dono}"
+
+  if ! grep -q "^Host ${alias_host}\b" "$HOME/.ssh/config" 2>/dev/null; then
+    warn "remote usa HTTPS com credencial embutida, mas nao achei '$alias_host' no ~/.ssh/config — deixando como esta"
+    return 0
+  fi
+
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) git remote set-url origin git@${alias_host}:${repo}.git"
+    return 0
+  fi
+
+  if git -C "$SCRIPT_DIR" remote set-url origin "git@${alias_host}:${repo}.git"; then
+    msg "  🔐 remote migrado para SSH — o token deixou de ficar gravado em .git/config"
+  else
+    warn "falha ao migrar o remote para SSH"
   fi
 }
 
@@ -3075,7 +3171,14 @@ main() {
 
   TARGET_OS="$(detect_os)"
 
-  INSTALL_LOG="$HOME/.dotfiles-install-$(date +%Y%m%d-%H%M%S).log"
+  # Simulacao nao suja o $HOME: em DRY_RUN o log vai para o diretorio temporario
+  # do sistema. Sem isso, cada `DRY_RUN=1 bash install.sh` deixava um
+  # .dotfiles-install-*.log permanente no home de quem so queria simular.
+  if is_truthy "$DRY_RUN"; then
+    INSTALL_LOG="${TMPDIR:-/tmp}/dotfiles-install-dryrun-$(date +%Y%m%d-%H%M%S).log"
+  else
+    INSTALL_LOG="$HOME/.dotfiles-install-$(date +%Y%m%d-%H%M%S).log"
+  fi
 
   if [[ "$MODE" == "export" ]]; then
     export_configs

@@ -51,7 +51,10 @@ init_app_catalog() {
   APP_SOURCES[hyperfine]="cargo:hyperfine,brew:hyperfine,winget:sharkdp.hyperfine"
   APP_SOURCES[mise]="official:mise.run,brew:mise,cargo:mise"
   APP_SOURCES[tmux]="apt:tmux,brew:tmux,dnf:tmux,pacman:tmux,zypper:tmux"
-  APP_SOURCES[neovim]="apt:neovim,brew:neovim,winget:Neovim.Neovim,flatpak:io.neovim.nvim"
+  # neovim NAO entra no catalogo generico: exige 0.12+ para a config LazyVim
+  # entregue neste repositorio, e apt/brew/winget entregam versoes mais antigas.
+  # A instalacao passa sempre por install_neovim() (lib/editors.sh), pinada via
+  # mise, chamada como instalador especial nos case de os_linux.sh e os_macos.sh.
   APP_SOURCES[helix]="apt:helix,brew:helix,winget:Helix.Helix"
   APP_SOURCES[jq]="apt:jq,brew:jq,winget:jqlang.jq"
   APP_SOURCES[direnv]="apt:direnv,brew:direnv,winget:direnv.direnv"
@@ -191,7 +194,37 @@ init_app_catalog() {
 # Obter prioridade de instalação para o OS atual
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Excecoes de prioridade por app
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Ferramenta de terminal que le configuracao de ~/.config NAO pode vir de pacote
+# em sandbox. Snap com confinamento estrito e flatpak isolam o $HOME:
+#
+#   - o perfil AppArmor do snapd exclui todo dot-dir do topo de $HOME
+#     (regra "owner @{HOME}/[^s.]** rwklix," em
+#     /var/lib/snapd/apparmor/profiles/snap.<app>.<app>)
+#   - o flatpak redireciona a configuracao para ~/.var/app/<id>/config
+#
+# Nos dois casos o dotfile e escrito normalmente, a ferramenta nunca o le, e a
+# falha e SILENCIOSA. Foi exatamente o que aconteceu com o btop desta maquina:
+# o btop.conf e de marco, e o snap nunca conseguiu abri-lo (apparmor="DENIED"
+# no log do kernel, verificado em Set/2026). Pior: criar ~/.config/btop/themes/
+# faz o btop abortar com SIGABRT, porque ele tolera nao conseguir CRIAR o
+# diretorio mas nao tolera encontra-lo sem poder ler.
+#
+# Para essas ferramentas, pacote nativo primeiro; sandbox so como ultimo
+# recurso, que ainda e melhor do que nao ter a ferramenta.
+declare -A APP_PRIORITY_OVERRIDE=(
+  [btop]="official,apt,brew,cargo,snap,flatpak"
+)
+
 get_install_priority() {
+  local app="${1:-}"
+  if [[ -n "$app" && -n "${APP_PRIORITY_OVERRIDE[$app]:-}" ]]; then
+    echo "${APP_PRIORITY_OVERRIDE[$app]}"
+    return
+  fi
   case "$TARGET_OS" in
     linux|wsl2)
       echo "${INSTALL_PRIORITY_LINUX:-$PRIORITY_LINUX_DEFAULT}"
@@ -772,7 +805,7 @@ _get_best_install_method() {
   [[ -z "$sources" ]] && return
 
   local priority
-  priority="$(get_install_priority)"
+  priority="$(get_install_priority "$app")"
   IFS=',' read -ra priority_list <<< "$priority"
 
   for method in "${priority_list[@]}"; do
@@ -816,7 +849,7 @@ install_with_priority() {
   fi
 
   local priority
-  priority="$(get_install_priority)"
+  priority="$(get_install_priority "$app")"
 
   IFS=',' read -ra priority_list <<< "$priority"
 

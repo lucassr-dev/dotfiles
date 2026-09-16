@@ -55,12 +55,16 @@ end
 # ═══════════════════════════════════════════════════════════
 set -gx EDITOR nvim
 set -gx VISUAL nvim
+# >>> tema:nome inicio (gerenciado por scripts/set_theme.sh; edicoes manuais aqui serao perdidas) >>>
 set -gx BAT_THEME "Catppuccin Mocha"
+# <<< tema:nome fim <<<
 set -gx EXA_COLORS "da=38;5;245:sb=38;5;245:sn=38;5;245:uu=38;5;245:un=38;5;245:gu=38;5;245:gn=38;5;245"
+# >>> tema:cores inicio (gerenciado por scripts/set_theme.sh; edicoes manuais aqui serao perdidas) >>>
 set -gx FZF_DEFAULT_OPTS "\
 --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
 --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
 --color=marker:#f5e0dc,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8"
+# <<< tema:cores fim <<<
 set -gx RIPGREP_CONFIG_PATH ~/.ripgreprc
 set -gx NODE_OPTIONS "--max-old-space-size=4096"
 set -gx NPM_CONFIG_PREFIX ~/.npm-global
@@ -382,6 +386,17 @@ alias gitconfig='nvim ~/.gitconfig'
 # ═══════════════════════════════════════════════════════════
 # Custom Functions
 # ═══════════════════════════════════════════════════════════
+
+function ca-login --description "Renova token do AWS CodeArtifact (Inovanti)"
+    set -gx CODEARTIFACT_AUTH_TOKEN (aws codeartifact get-authorization-token \
+        --domain inovanti \
+        --domain-owner 536302455321 \
+        --region us-east-2 \
+        --query authorizationToken \
+        --output text)
+    echo "✓ CodeArtifact token renovado (válido por 12h)"
+end
+
 function mkcd -d "Create directory and cd into it"
     if test (count $argv) -eq 0
         echo "❌ Uso: mkcd <diretório>"
@@ -549,3 +564,11 @@ if status is-interactive
     # echo "💻 Sistema: "(uname -s)" | "(uname -m)
     # echo ""
 end
+
+# Codex Android SDK setup for bankeiro-inovanti-app
+set -gx JAVA_HOME "$HOME/.local/share/mise/installs/java/temurin-17.0.19+10"
+set -gx ANDROID_HOME "$HOME/Android/Sdk"
+set -gx ANDROID_SDK_ROOT "$ANDROID_HOME"
+set -gx ANDROID_AVD_HOME "$HOME/.config/.android/avd"
+fish_add_path ~/.local/bin "$JAVA_HOME/bin" "$ANDROID_HOME/cmdline-tools/latest/bin" "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/emulator"
+set -gx PATH "$HOME/.local/bin" $PATH

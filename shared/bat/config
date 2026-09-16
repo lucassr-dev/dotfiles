@@ -1,7 +1,9 @@
 # bat configuration
 # Tema automático por esquema de cores do terminal
 --theme="auto"
+# >>> tema:nome inicio (gerenciado por scripts/set_theme.sh; edicoes manuais aqui serao perdidas) >>>
 --theme-dark="Catppuccin Mocha"
+# <<< tema:nome fim <<<
 --theme-light="Catppuccin Latte"
 
 # Visual padrão para uso diário

@@ -27,8 +27,8 @@ backup_if_exists() {
   if [[ -e "$path" ]] && [[ "$MODE" == "install" ]]; then
     local base_name=""
     base_name="$(basename "$path")"
+    _ensure_backup_dir
     local backup_path="$BACKUP_DIR/$base_name"
-    mkdir -p "$BACKUP_DIR"
     msg "  💾 Backup: $path -> $backup_path"
     if ! cp -a "$path" "$backup_path" 2>/dev/null && ! cp -R "$path" "$backup_path" 2>/dev/null; then
       record_failure "critical" "Falha ao fazer backup de: $path" "Verifique permissões e espaço em disco"
@@ -126,19 +126,132 @@ copy_file() {
   fi
 }
 
+# Ponto de estrangulamento para os varios `{ echo ...; echo ...; } >> "$arquivo"`
+# espalhados por lib/themes.sh e install.sh (plugins do zsh, init do Oh My
+# Posh, configuracoes de PATH preservadas). Recebe o arquivo e uma ou mais
+# linhas; cada argumento depois do arquivo se torna uma linha no bloco
+# anexado, na ordem recebida. Em DRY_RUN, so mostra o que seria escrito.
+append_block_to_file() {
+  local file="$1"
+  shift
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) escreveria em $file:"
+    local line
+    for line in "$@"; do
+      msg "  🔎 (dry-run)   $line"
+    done
+    return 0
+  fi
+  printf '%s\n' "$@" >> "$file"
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Barreira de material secreto
+#
+# O modo export copia mais de 20 caminhos de $HOME para dentro do repositorio,
+# e varios deles carregam credencial: ~/.ssh (chave privada), ~/.npmrc
+# (_authToken de registry), ~/.aider.conf.yml (api-key em texto claro),
+# ~/.docker/config.json (auths). Sem esta barreira, um unico `install.sh export`
+# versiona tudo isso.
+#
+# Nao foi hipotese: as duas chaves ed25519 do dono, sem passphrase, entraram no
+# repositorio por aqui no commit 0d14782 (mar/2026) e foram enviadas ao remoto.
+#
+# A checagem e por CONTEUDO, nao por nome de arquivo, porque o nome nao e
+# confiavel — uma chave chamada "config" continua sendo uma chave.
+#
+# O criterio NAO e "segredo nunca entra" — este repositorio e privado e guarda
+# credencial de proposito (shared/.ssh e o cofre de chaves do dono). O criterio
+# e: material secreto so pode cair em destino que o espelho publico exclui.
+#
+# SECRET_EXPORT_DESTS espelha a lista de --exclude de scripts/sync_public.sh.
+# As duas precisam andar juntas; _check_secret_dests_match_public_sync verifica
+# isso e e chamada pelos testes.
+#
+# Escape consciente: ALLOW_SECRET_EXPORT=1 libera qualquer destino.
+_looks_like_secret() {
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  head -c 4096 "$file" 2>/dev/null | grep -qE -- "-----BEGIN ([A-Z]+ )?PRIVATE KEY-----" && return 0
+  head -c 8192 "$file" 2>/dev/null | grep -qE "(_authToken|_auth|_password|api[-_]?key|password|secret|token)[[:space:]]*[:=][[:space:]]*[\"']?[A-Za-z0-9_./+-]{16,}" && return 0
+  return 1
+}
+
+# Destinos, relativos a raiz do repositorio, que o espelho publico exclui e que
+# portanto podem receber material secreto.
+SECRET_EXPORT_DESTS=(
+  "shared/.ssh"
+  "shared/git/.gitconfig-personal"
+  "shared/git/.gitconfig-work"
+  "shared/npm"
+  "shared/pnpm"
+  "shared/yarn"
+  "shared/pip"
+  "shared/cargo"
+  "shared/docker"
+  "shared/aider"
+)
+
+_dest_excluded_from_public() {
+  local dest="$1" rel prefix
+  rel="${dest#"$SCRIPT_DIR"/}"
+  for prefix in "${SECRET_EXPORT_DESTS[@]}"; do
+    [[ "$rel" == "$prefix" || "$rel" == "$prefix"/* ]] && return 0
+  done
+  return 1
+}
+
+# Confere que todo destino da lista acima realmente tem --exclude no
+# sync_public.sh. Se alguem acrescentar um destino aqui e esquecer la, o
+# segredo passa a sair no espelho publico sem ninguem perceber.
+_check_secret_dests_match_public_sync() {
+  local sync="$SCRIPT_DIR/scripts/sync_public.sh" prefix faltando=0
+  [[ -f "$sync" ]] || { echo "sync_public.sh nao encontrado" >&2; return 1; }
+  for prefix in "${SECRET_EXPORT_DESTS[@]}"; do
+    grep -qF -- "--exclude '$prefix'" "$sync" || { echo "sem --exclude no espelho publico: $prefix" >&2; faltando=1; }
+  done
+  return "$faltando"
+}
+
+# Devolve 0 (pode exportar) ou 1 (recusado, ja avisou).
+_secret_export_allowed() {
+  local file="$1" dest="${2:-}"
+  _looks_like_secret "$file" || return 0
+  if is_truthy "${ALLOW_SECRET_EXPORT:-0}"; then
+    msg "  ⚠️  $file tem credencial — exportando mesmo assim (ALLOW_SECRET_EXPORT=1)"
+    return 0
+  fi
+  if [[ -n "$dest" ]] && _dest_excluded_from_public "$dest"; then
+    return 0
+  fi
+  msg "  🔒 $file NAO exportado: tem credencial e o destino nao esta fora do espelho publico."
+  msg "      Destino: ${dest:-?}. Para forcar: ALLOW_SECRET_EXPORT=1"
+  return 1
+}
+
 export_dir() {
   local src="$1"
   local dest="$2"
   [[ -d "$src" ]] || return
   msg "  📤 $src -> $dest"
   mkdir -p "$dest"
-  if is_truthy "$DRY_RUN"; then
-    msg "  🔎 (dry-run) cp -R $src/. $dest/"
-    return
-  fi
-  if ! cp -R "$src/." "$dest/"; then
-    record_failure "optional" "Falha ao exportar diretório: $src -> $dest"
-  fi
+
+  # Copia arquivo a arquivo em vez de `cp -R` para que a barreira de segredo
+  # possa recusar itens individuais sem abortar o diretorio inteiro.
+  local rel f_src f_dest
+  while IFS= read -r -d '' f_src; do
+    rel="${f_src#"$src"/}"
+    f_dest="$dest/$rel"
+    _secret_export_allowed "$f_src" "$f_dest" || continue
+    if is_truthy "$DRY_RUN"; then
+      msg "  🔎 (dry-run) cp $f_src $f_dest"
+      continue
+    fi
+    mkdir -p "$(dirname "$f_dest")"
+    if ! cp "$f_src" "$f_dest"; then
+      record_failure "optional" "Falha ao exportar arquivo: $f_src -> $f_dest"
+    fi
+  done < <(find "$src" -type f -print0 2>/dev/null)
 }
 
 export_file() {
@@ -149,6 +262,7 @@ export_file() {
     msg "  ✅ $dest (inalterado)"
     return
   fi
+  _secret_export_allowed "$src" "$dest" || return
   msg "  📤 $src -> $dest"
   mkdir -p "$(dirname "$dest")"
   if is_truthy "$DRY_RUN"; then
@@ -255,6 +369,15 @@ export_vscode_extensions() {
 
   local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
   msg "  📦 Exportando extensões VS Code..."
+
+  # Esta funcao gera o arquivo em vez de copia-lo, entao nao passa por
+  # export_file e precisa checar DRY_RUN por conta propria. Sem isso, uma
+  # simulacao sobrescrevia a lista versionada com a da maquina atual — em
+  # Set/2026 um `DRY_RUN=1 install.sh export` apagou 73 das 108 extensoes.
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) code --list-extensions > $extensions_file"
+    return
+  fi
 
   mkdir -p "$(dirname "$extensions_file")"
   code --list-extensions > "$extensions_file" 2>/dev/null || warn "Falha ao exportar extensões VS Code"

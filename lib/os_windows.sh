@@ -313,8 +313,8 @@ install_windows_selected_apps() {
     case "$ide" in
       vscode) _install_windows_app vscode code "Microsoft.VisualStudioCode" "VS Code" ;;
       zed) _install_windows_app zed zed "Zed.Zed" "Zed" ;;
-      cursor) msg "  ℹ️  Cursor deve ser instalado manualmente: https://cursor.sh" ;;
-      windsurf) install_windsurf ;;
+      cursor) msg "  ℹ️  Cursor deve ser instalado manualmente: https://cursor.com" ;;
+      devin-desktop) install_devin_desktop ;;
       neovim) _install_windows_app neovim nvim "Neovim.Neovim" "Neovim" ;;
       sublime-text) _install_windows_app sublime-text subl "SublimeHQ.SublimeText.4" "Sublime Text" ;;
       android-studio) _install_windows_app android-studio studio "Google.AndroidStudio" "Android Studio" ;;

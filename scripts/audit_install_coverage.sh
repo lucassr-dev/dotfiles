@@ -20,6 +20,9 @@ declare -a MANAGED_NON_CATALOG=(
   gnome-terminal
   pgadmin
   mongodb
+  # Linux + macOS (instalador dedicado install_neovim, pinado via mise -
+  # fora do catalogo generico porque exige 0.12+ para a config LazyVim)
+  neovim
   # macOS (via Brewfile dinâmico / instaladores dedicados)
   iterm2
   intellij-idea

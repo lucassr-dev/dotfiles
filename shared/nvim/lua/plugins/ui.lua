@@ -115,48 +115,6 @@ return {
           local icon = level:match("error") and " " or " "
           return " " .. icon .. count
         end,
-        offsets = {
-          {
-            filetype = "neo-tree",
-            text = "Neo-tree",
-            highlight = "Directory",
-            text_align = "left",
-          },
-        },
-      },
-    },
-  },
-
-  -- ──────────────────────────────────────────────────────────────────────────────
-  -- INDENT BLANKLINE (GUIAS DE INDENTAÇÃO)
-  -- ──────────────────────────────────────────────────────────────────────────────
-  {
-    "lukas-reineke/indent-blankline.nvim",
-    main = "ibl",
-    opts = {
-      indent = {
-        char = "│",
-        tab_char = "│",
-      },
-      scope = {
-        enabled = true,
-        show_start = true,
-        show_end = false,
-      },
-      exclude = {
-        filetypes = {
-          "help",
-          "alpha",
-          "dashboard",
-          "neo-tree",
-          "Trouble",
-          "trouble",
-          "lazy",
-          "mason",
-          "notify",
-          "toggleterm",
-          "lazyterm",
-        },
       },
     },
   },
@@ -172,8 +130,14 @@ return {
       require("incline").setup({
         highlight = {
           groups = {
-            InclineNormal = { guibg = "#313244", guifg = "#cdd6f4" },
-            InclineNormalNC = { guibg = "#1e1e2e", guifg = "#6c7086" },
+            InclineNormal = {
+              guibg = Snacks.util.color("CursorLine", "bg") or "#313244",
+              guifg = Snacks.util.color("Normal", "fg") or "#cdd6f4",
+            },
+            InclineNormalNC = {
+              guibg = Snacks.util.color("Normal", "bg") or "#1e1e2e",
+              guifg = Snacks.util.color("Comment", "fg") or "#6c7086",
+            },
           },
         },
         window = {
@@ -191,7 +155,7 @@ return {
             ft_icon and { " ", ft_icon, " ", guifg = ft_color } or "",
             " ",
             { filename, gui = modified and "bold,italic" or "bold" },
-            modified and { " ●", guifg = "#f38ba8" } or "",
+            modified and { " ●", guifg = Snacks.util.color("DiagnosticError") or "#f38ba8" } or "",
             " ",
           }
         end,
@@ -203,7 +167,7 @@ return {
   -- DASHBOARD (TELA INICIAL)
   -- ──────────────────────────────────────────────────────────────────────────────
   {
-    "nvimdev/dashboard-nvim",
+    "folke/snacks.nvim",
     opts = function(_, opts)
       local logo = [[
       ███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗
@@ -213,11 +177,10 @@ return {
       ██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║
       ╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝
       ]]
-
-      logo = string.rep("\n", 4) .. logo .. "\n\n"
-
-      opts.config = opts.config or {}
-      opts.config.header = vim.split(logo, "\n")
+      opts.dashboard = opts.dashboard or {}
+      opts.dashboard.preset = opts.dashboard.preset or {}
+      opts.dashboard.preset.header = logo
+      return opts
     end,
   },
 }

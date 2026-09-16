@@ -222,11 +222,16 @@ install_macos_selected_apps() {
   for app in "${SELECTED_IDES[@]}"; do
     case "$app" in
       cursor) install_cursor ;;
-      windsurf) install_windsurf ;;
+      devin-desktop) install_devin_desktop ;;
       xcode) msg "  ℹ️  Xcode deve ser instalado via App Store." ;;
       vscode) _install_macos_app vscode code "cask:visual-studio-code" ;;
       zed) _install_macos_app zed zed "cask:zed" ;;
-      neovim) _install_macos_app neovim nvim neovim ;;
+      neovim)
+        if ! is_app_processed neovim; then
+          mark_app_processed neovim
+          install_neovim
+        fi
+        ;;
       sublime-text) _install_macos_app sublime-text subl "cask:sublime-text" ;;
       intellij-idea) _install_macos_app intellij-idea idea "cask:intellij-idea-ce" ;;
       pycharm) _install_macos_app pycharm pycharm "cask:pycharm-ce" ;;
@@ -438,8 +443,10 @@ install_php_build_deps_macos() {
 
 apply_macos_configs() {
   local source_dir="$CONFIG_MACOS"
-  [[ -d "$source_dir" ]] || source_dir="$CONFIG_UNIX_LEGACY"
-  [[ -d "$source_dir" ]] || return
+  if [[ ! -d "$source_dir" ]]; then
+    warn "Diretório de configs macOS não encontrado ($source_dir); pulando cópia."
+    return
+  fi
   msg "▶ Copiando configs macOS"
 
   if [[ ${COPY_TERMINAL_CONFIG:-0} -eq 1 ]]; then

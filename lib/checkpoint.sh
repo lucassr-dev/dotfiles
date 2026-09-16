@@ -18,32 +18,23 @@ _current_repo_sha() {
   fi
 }
 
+# Alias de compatibilidade — a implementacao real e _state_file_is_secure
+# em lib/state.sh (sourced antes deste arquivo no install.sh). Mantido
+# para quem ainda chamar pelo nome antigo.
 _checkpoint_file_is_secure() {
-  local file="$1"
-  [[ -f "$file" ]] || return 1
-  [[ -O "$file" ]] || return 1
-
-  local perm=""
-  if command -v stat >/dev/null 2>&1; then
-    perm="$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null || true)"
-  fi
-
-  if [[ -n "$perm" ]] && [[ "$perm" =~ ^[0-7]{3,4}$ ]]; then
-    local mode="$perm"
-    [[ ${#mode} -eq 4 ]] && mode="${mode:1}"
-    local group_digit="${mode:1:1}"
-    local other_digit="${mode:2:1}"
-    if (( 10#$group_digit != 0 || 10#$other_digit != 0 )); then
-      return 1
-    fi
-  fi
-
-  return 0
+  _state_file_is_secure "$@"
 }
 
 checkpoint_save() {
   local stage="$1"
   CHECKPOINT_STAGE="$stage"
+
+  # Simulacao nao grava checkpoint: o arquivo mora em $HOME e sobrevive a
+  # execucao, entao um DRY_RUN deixaria o instalador convencido de que ha uma
+  # instalacao pela metade para retomar.
+  if is_truthy "${DRY_RUN:-0}"; then
+    return 0
+  fi
 
   # Sincronizar globals atuais para state antes de salvar
   if declare -F _sync_globals_to_state >/dev/null 2>&1; then
@@ -56,9 +47,9 @@ checkpoint_save() {
     printf 'CHECKPOINT_REPO_SHA=%q\n' "$(_current_repo_sha)"
 
     # Salvar state centralizado
-    if declare -F state_dump >/dev/null 2>&1; then
+    if declare -F _state_sorted_keys >/dev/null 2>&1; then
       local key
-      for key in $(printf '%s\n' "${!DOTFILES_STATE[@]}" | sort); do
+      for key in $(_state_sorted_keys); do
         printf 'state_set %q %q\n' "$key" "${DOTFILES_STATE[$key]}"
       done
     fi

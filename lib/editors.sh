@@ -3,85 +3,118 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # INSTALAÇÃO DO NEOVIM
 # ══════════════════════════════════════════════════════════════════════════════
-install_neovim_linux() {
-  local arch
-  arch=$(uname -m)
-  local nvim_arch="x86_64"
-  [[ "$arch" == "aarch64" || "$arch" == "arm64" ]] && nvim_arch="arm64"
 
-  local nvim_url="https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-${nvim_arch}.appimage"
-  local install_dir="$HOME/.local/bin"
-  local nvim_path="$install_dir/nvim"
+# Versão mínima exigida pela configuração do LazyVim entregue neste repositório:
+# usa vim.lsp.config, vim.diagnostic.jump e vim.lsp.inline_completion, APIs que
+# não existem no Neovim 0.11. Atualizar esta constante junto com a config.
+NVIM_VERSION="0.12.5"
 
-  mkdir -p "$install_dir"
-
-  msg "  🔄 Baixando Neovim nightly (requerido pelo LazyVim)..."
-  if curl -fsSL "$nvim_url" -o "$nvim_path" 2>/dev/null; then
-    chmod +x "$nvim_path"
-    if "$nvim_path" --version >/dev/null 2>&1; then
-      local version
-      version=$("$nvim_path" --version 2>/dev/null | head -1 | awk '{print $2}')
-      msg "  ✅ Neovim $version instalado via AppImage"
-      INSTALLED_MISC+=("neovim: appimage $version")
-      return 0
-    else
-      msg "  ⚠️  AppImage não executável, tentando extrair..."
-      cd "$install_dir" || return 1
-      "$nvim_path" --appimage-extract >/dev/null 2>&1
-      if [[ -d "squashfs-root" ]]; then
-        rm -f "$nvim_path"
-        mv squashfs-root neovim-extracted
-        ln -sf "$install_dir/neovim-extracted/AppRun" "$nvim_path"
-        if "$nvim_path" --version >/dev/null 2>&1; then
-          local version
-          version=$("$nvim_path" --version 2>/dev/null | head -1 | awk '{print $2}')
-          msg "  ✅ Neovim $version instalado (extraído)"
-          INSTALLED_MISC+=("neovim: appimage-extracted $version")
-          return 0
-        fi
-      fi
-    fi
+install_neovim() {
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) instalaria Neovim ${NVIM_VERSION} via mise (fallback: tarball oficial estável)"
+    return 0
   fi
 
-  msg "  ⚠️  AppImage falhou, usando pacote da distro..."
-  install_neovim_package
+  if has_cmd mise; then
+    msg "  🔄 Instalando Neovim ${NVIM_VERSION} via mise..."
+    if mise use -g -y "neovim@${NVIM_VERSION}"; then
+      _mise_add_shims_to_path
+      INSTALLED_MISC+=("neovim: mise ${NVIM_VERSION}")
+      _report_neovim_version "$NVIM_VERSION" mise exec "neovim@${NVIM_VERSION}" -- nvim
+      return 0
+    fi
+    msg "  ⚠️  mise falhou ao instalar o Neovim, tentando tarball oficial..."
+  fi
+
+  install_neovim_tarball "$NVIM_VERSION"
 }
 
-install_neovim_package() {
-  case "$LINUX_PKG_MANAGER" in
-    apt|apt-get)
-      if has_cmd add-apt-repository; then
-        run_with_sudo add-apt-repository -y ppa:neovim-ppa/unstable || true
-        run_with_sudo apt update || true
-      fi
-      if run_with_sudo apt install -y neovim; then
-        INSTALLED_MISC+=("neovim: apt")
-      else
-        record_failure "optional" "Falha ao instalar Neovim"
-      fi
-      ;;
-    dnf)
-      if run_with_sudo dnf install -y neovim; then
-        INSTALLED_MISC+=("neovim: dnf")
-      else
-        record_failure "optional" "Falha ao instalar Neovim"
-      fi
-      ;;
-    pacman)
-      if run_with_sudo pacman -S --noconfirm neovim; then
-        INSTALLED_MISC+=("neovim: pacman")
-      else
-        record_failure "optional" "Falha ao instalar Neovim"
-      fi
-      ;;
-    zypper)
-      if run_with_sudo zypper install -y neovim; then
-        INSTALLED_MISC+=("neovim: zypper")
-      else
-        record_failure "optional" "Falha ao instalar Neovim"
-      fi
-      ;;
+# O `mise use -g` deixa o binario em .../mise/installs/..., alcancavel so
+# pelos shims do mise. Os shims entram no PATH do usuario via .zshrc/config.fish,
+# mas isso so vale no PROXIMO shell - o processo atual do instalador (e os
+# testes de PATH logo em seguida, como o gate de install_nvim_config e o
+# relatorio final) nao enxergam o binario recem-instalado sem isto.
+_mise_add_shims_to_path() {
+  local shims_dir="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
+
+  if ! [[ -x "$shims_dir/nvim" ]]; then
+    has_cmd mise && mise reshim >/dev/null 2>&1
+  fi
+
+  [[ -d "$shims_dir" ]] || return 0
+
+  case ":$PATH:" in
+    *":$shims_dir:"*) ;;
+    *) export PATH="$shims_dir:$PATH" ;;
   esac
+}
+
+install_neovim_tarball() {
+  local nvim_version="$1"
+
+  local arch
+  case "$(uname -m)" in
+    x86_64|amd64) arch="x86_64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) arch="$(uname -m)" ;;
+  esac
+
+  local os_slug="linux"
+  [[ "$TARGET_OS" == "macos" ]] && os_slug="macos"
+
+  local asset="nvim-${os_slug}-${arch}.tar.gz"
+  local url="https://github.com/neovim/neovim/releases/download/v${nvim_version}/${asset}"
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+
+  msg "  🔄 Baixando Neovim ${nvim_version} (tarball oficial estável)..."
+  mkdir -p "$HOME/.local"
+
+  if curl -fsSL "$url" -o "$tmp_dir/$asset" && \
+     tar -xzf "$tmp_dir/$asset" --strip-components=1 -C "$HOME/.local"; then
+    rm -rf "$tmp_dir" 2>/dev/null || true
+    INSTALLED_MISC+=("neovim: tarball ${nvim_version}")
+    _report_neovim_version "$nvim_version" "$HOME/.local/bin/nvim"
+    return 0
+  fi
+
+  rm -rf "$tmp_dir" 2>/dev/null || true
+  record_failure "optional" "Falha ao instalar Neovim (mise e tarball oficial indisponíveis)"
+  return 1
+}
+
+_report_neovim_version() {
+  local expected="$1"
+  shift
+  local version
+  version="$("$@" --version 2>/dev/null | head -1 | awk '{print $2}')"
+
+  if [[ -z "$version" ]]; then
+    msg "  ⚠️  Neovim instalado, mas não foi possível verificar a versão"
+    return 0
+  fi
+
+  if [[ "$version" == "v${expected}" ]]; then
+    msg "  ✅ Neovim $version instalado e verificado"
+    return 0
+  fi
+
+  msg "  ⚠️  Neovim $version instalado (esperado v${expected})"
+  return 1
+}
+
+# Verdadeiro quando existe um `nvim` no PATH em versão >= $NVIM_VERSION.
+# Falha de forma segura (retorna falso) se `nvim` não existe ou se a saída de
+# `--version` não bate com o formato esperado (major.minor.patch).
+_nvim_meets_min_version() {
+  has_cmd nvim || return 1
+
+  local current
+  current="$(nvim --version 2>/dev/null | head -1 | awk '{print $2}')"
+  current="${current#v}"
+  [[ "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+
+  [[ "$(printf '%s\n%s\n' "$NVIM_VERSION" "$current" | sort -V | tail -1)" == "$current" ]]
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -108,18 +141,11 @@ install_nvim_config() {
     return 0
   fi
 
-  if ! has_cmd nvim; then
-    msg "  📦 Instalando Neovim..."
+  if ! _nvim_meets_min_version; then
+    msg "  📦 Instalando/atualizando Neovim (mínimo ${NVIM_VERSION})..."
     case "$TARGET_OS" in
-      linux|wsl2)
-        install_neovim_linux
-        ;;
-      macos)
-        if brew install neovim; then
-          INSTALLED_MISC+=("neovim: brew")
-        else
-          record_failure "optional" "Falha ao instalar Neovim"
-        fi
+      linux|wsl2|macos)
+        install_neovim
         ;;
       windows)
         if has_cmd winget && winget install -e --id Neovim.Neovim --silent --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
@@ -136,6 +162,10 @@ install_nvim_config() {
   if ! has_cmd nvim; then
     record_failure "optional" "Neovim não disponível; pulando configuração"
     return 0
+  fi
+
+  if ! _nvim_meets_min_version; then
+    msg "  ⚠️  Neovim presente, mas abaixo de ${NVIM_VERSION} (mínimo exigido pela config LazyVim); copiando mesmo assim"
   fi
 
   mkdir -p "$HOME/.config"

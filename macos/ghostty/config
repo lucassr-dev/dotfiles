@@ -9,7 +9,9 @@ shell-integration = detect
 # ═══════════════════════════════════════════════════════════
 # Theme
 # ═══════════════════════════════════════════════════════════
+# >>> tema:nome inicio (gerenciado por scripts/set_theme.sh; edicoes manuais aqui serao perdidas) >>>
 theme = Catppuccin Mocha
+# <<< tema:nome fim <<<
 background-opacity = 0.95
 
 # ═══════════════════════════════════════════════════════════
