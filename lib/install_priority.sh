@@ -30,7 +30,7 @@ init_app_catalog() {
   # ─────────────────────────────────────────────────────────────────────────────
   # CLI Tools
   # ─────────────────────────────────────────────────────────────────────────────
-  APP_SOURCES[lazygit]="official:github/jesseduffield/lazygit,brew:lazygit,winget:jesseduffield.lazygit,scoop:lazygit"
+  APP_SOURCES[lazygit]="official:github/jesseduffield/lazygit,brew:lazygit,winget:JesseDuffield.lazygit,scoop:lazygit"
   APP_SOURCES[btop]="snap:btop,apt:btop,brew:btop,flatpak:io.github.AstroTechPy.Btop"
   APP_SOURCES[gh]="official:github-cli,apt:gh,brew:gh,winget:GitHub.cli"
   APP_SOURCES[fzf]="official:github/junegunn/fzf,apt:fzf,brew:fzf,winget:junegunn.fzf"
@@ -47,7 +47,7 @@ init_app_catalog() {
   APP_SOURCES[procs]="cargo:procs,brew:procs,winget:dalance.procs"
   APP_SOURCES[dust]="cargo:du-dust,brew:dust,winget:bootandy.dust"
   APP_SOURCES[sd]="cargo:sd,brew:sd,winget:chmln.sd"
-  APP_SOURCES[tokei]="cargo:tokei,brew:tokei,winget:XAMPPRocky.tokei"
+  APP_SOURCES[tokei]="cargo:tokei,brew:tokei,winget:XAMPPRocky.Tokei"
   APP_SOURCES[hyperfine]="cargo:hyperfine,brew:hyperfine,winget:sharkdp.hyperfine"
   APP_SOURCES[mise]="official:mise.run,brew:mise,cargo:mise"
   APP_SOURCES[tmux]="apt:tmux,brew:tmux,dnf:tmux,pacman:tmux,zypper:tmux"
@@ -64,9 +64,9 @@ init_app_catalog() {
   APP_SOURCES[difftastic]="cargo:difftastic,brew:difftastic"
   APP_SOURCES[zellij]="cargo:zellij,brew:zellij"
   APP_SOURCES[xh]="cargo:xh,brew:xh,winget:ducaale.xh"
-  APP_SOURCES[gitui]="cargo:gitui,brew:gitui,winget:extrawurst.gitui"
+  APP_SOURCES[gitui]="cargo:gitui,brew:gitui"
   APP_SOURCES[rclone]="apt:rclone,brew:rclone,winget:Rclone.Rclone"
-  APP_SOURCES[broot]="cargo:broot,apt:broot,brew:broot,winget:Canop.broot"
+  APP_SOURCES[broot]="cargo:broot,apt:broot,brew:broot"
   APP_SOURCES[glow]="brew:glow,apt:glow,winget:charmbracelet.glow,pacman:glow"
   APP_SOURCES[navi]="cargo:navi,brew:navi,pacman:navi"
   APP_SOURCES[topgrade]="cargo:topgrade,brew:topgrade,winget:topgrade-rs.topgrade"
@@ -90,7 +90,7 @@ init_app_catalog() {
   # ─────────────────────────────────────────────────────────────────────────────
   APP_SOURCES[discord]="snap:discord,flatpak:com.discordapp.Discord,brew:discord,winget:Discord.Discord"
   APP_SOURCES[telegram]="flatpak:org.telegram.desktop,brew:telegram,winget:Telegram.TelegramDesktop"
-  APP_SOURCES[whatsapp]="flatpak:io.github.mimbrero.WhatsAppDesktop,brew:whatsapp,winget:WhatsApp.WhatsApp"
+  APP_SOURCES[whatsapp]="flatpak:io.github.mimbrero.WhatsAppDesktop,brew:whatsapp"
   APP_SOURCES[signal]="flatpak:org.signal.Signal,brew:signal,winget:OpenWhisperSystems.Signal"
   APP_SOURCES[teams]="flatpak:com.github.IsmaelMartinez.teams_for_linux,brew:microsoft-teams,winget:Microsoft.Teams"
   APP_SOURCES[zoom]="flatpak:us.zoom.Zoom,brew:zoom,winget:Zoom.Zoom"
@@ -119,7 +119,7 @@ init_app_catalog() {
   APP_SOURCES[vscode]="official:code.visualstudio.com,apt:code,snap:code --classic,brew:visual-studio-code,winget:Microsoft.VisualStudioCode"
   APP_SOURCES[docker]="official:docker.com,apt:docker-ce,brew:docker,winget:Docker.DockerDesktop"
   APP_SOURCES[postman]="snap:postman,flatpak:com.getpostman.Postman,brew:postman,winget:Postman.Postman"
-  APP_SOURCES[dbeaver]="snap:dbeaver-ce --classic,flatpak:io.dbeaver.DBeaverCommunity,brew:dbeaver-community,winget:dbeaver.dbeaver"
+  APP_SOURCES[dbeaver]="snap:dbeaver-ce --classic,flatpak:io.dbeaver.DBeaverCommunity,brew:dbeaver-community,winget:DBeaver.DBeaver"
   APP_SOURCES[bruno]="flatpak:com.usebruno.Bruno,brew:bruno,winget:Bruno.Bruno"
   APP_SOURCES[insomnia]="flatpak:rest.insomnia.Insomnia,brew:insomnia,winget:Insomnia.Insomnia"
   APP_SOURCES[gitkraken]="flatpak:com.axosoft.GitKraken,brew:gitkraken,winget:Axosoft.GitKraken"
@@ -131,7 +131,7 @@ init_app_catalog() {
   APP_SOURCES[sublime-merge]="brew:sublime-merge,winget:SublimeHQ.SublimeMerge"
   APP_SOURCES[k9s]="brew:k9s,winget:Derailed.k9s"
   APP_SOURCES[lens]="brew:lens,winget:Mirantis.Lens"
-  APP_SOURCES[zed]="flatpak:dev.zed.Zed,brew:zed,winget:Zed.Zed"
+  APP_SOURCES[zed]="flatpak:dev.zed.Zed,brew:zed,winget:ZedIndustries.Zed"
   APP_SOURCES[sublime-text]="flatpak:com.sublimetext.three,brew:sublime-text,winget:SublimeHQ.SublimeText.4"
   APP_SOURCES[wezterm]="official:wezfurlong.org,flatpak:org.wezfurlong.wezterm,brew:wezterm,winget:wez.wezterm"
 
@@ -141,9 +141,9 @@ init_app_catalog() {
   APP_SOURCES[firefox]="apt:firefox,flatpak:org.mozilla.firefox,brew:firefox,winget:Mozilla.Firefox"
   APP_SOURCES[chrome]="official:google.com/chrome,flatpak:com.google.Chrome,brew:google-chrome,winget:Google.Chrome"
   APP_SOURCES[brave]="official:brave.com,flatpak:com.brave.Browser,brew:brave-browser,winget:Brave.Brave"
-  APP_SOURCES[zen]="flatpak:io.github.AstroTechPy.Zen,brew:zen-browser"
+  APP_SOURCES[zen]="flatpak:io.github.AstroTechPy.Zen,brew:zen"
   APP_SOURCES[arc]="brew:arc,winget:TheBrowserCompany.Arc"
-  APP_SOURCES[vivaldi]="apt:vivaldi-stable,brew:vivaldi,winget:VivaldiTechnologies.Vivaldi"
+  APP_SOURCES[vivaldi]="apt:vivaldi-stable,brew:vivaldi,winget:Vivaldi.Vivaldi"
   APP_SOURCES[edge]="flatpak:com.microsoft.Edge,brew:microsoft-edge,winget:Microsoft.Edge"
   APP_SOURCES[opera]="flatpak:com.opera.Opera,brew:opera,winget:Opera.Opera"
   APP_SOURCES[opera-gx]="winget:Opera.OperaGX"  # Opera GX: somente Windows via winget; Linux/macOS requer instalação manual
@@ -169,7 +169,7 @@ init_app_catalog() {
   # ─────────────────────────────────────────────────────────────────────────────
   # Bancos de Dados
   # ─────────────────────────────────────────────────────────────────────────────
-  APP_SOURCES[postgresql]="apt:postgresql,brew:postgresql,winget:PostgreSQL.PostgreSQL"
+  APP_SOURCES[postgresql]="apt:postgresql,brew:postgresql@17,winget:PostgreSQL.PostgreSQL"
   APP_SOURCES[redis]="apt:redis,brew:redis,winget:Redis.Redis"
   APP_SOURCES[mysql]="apt:mysql-server,brew:mysql,winget:Oracle.MySQL"
   APP_SOURCES[mariadb]="apt:mariadb-server,brew:mariadb,winget:MariaDB.Server"

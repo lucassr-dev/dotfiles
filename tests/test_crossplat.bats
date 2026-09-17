@@ -273,10 +273,22 @@ SCRIPT
     _install_windows_app lazygit lazygit
   '
   [ "$status" -eq 0 ]
-  # lib/install_priority.sh: APP_SOURCES[lazygit] contem winget:jesseduffield.lazygit
-  # -- tem que estar especificamente no comando de "install" (a linha de
-  # "list" tambem leva o ID e nao provaria nada sobre o comando que instala).
-  run grep -F 'install --id jesseduffield.lazygit' "$MOCK_LOG"
+  # O ID esperado vem do proprio catalogo, nao fixado aqui: quando uma fonte e
+  # corrigida em lib/install_priority.sh (ja aconteceu, com a caixa deste mesmo
+  # ID), o teste acompanha em vez de virar falso negativo.
+  #
+  # Tem que estar especificamente no comando de "install" -- a linha de "list"
+  # tambem leva o ID e nao provaria nada sobre o comando que instala.
+  local esperado
+  esperado="$(
+    bash -c 'source "'"$REPO_ROOT"'/lib/install_priority.sh"; init_app_catalog
+             IFS=","; for f in ${APP_SOURCES[lazygit]}; do
+               if [ "${f%%:*}" = "winget" ]; then printf "%s" "${f#*:}"; fi
+             done'
+  )"
+  [ -n "$esperado" ]
+
+  run grep -F "install --id $esperado" "$MOCK_LOG"
   [ "$status" -eq 0 ]
 }
 
