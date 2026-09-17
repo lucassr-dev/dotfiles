@@ -49,6 +49,32 @@ err() {
   printf '%b\n' "  ❌ $1" >&2
 }
 
+# Como msg, mas quebra o texto na largura do terminal em vez de deixar vazar
+# para a linha seguinte. Usa _wrap_text de lib/utils.sh quando ele ja estiver
+# carregado; senao imprime sem quebrar, que e o comportamento antigo — este
+# modulo carrega antes do utils.sh e nao pode depender dele.
+#
+# A largura vem de `tput cols`, e a medicao de _wrap_text e em COLUNAS de
+# exibicao (_visible_len), nao em bytes. Isso importa: uma frase com acento e
+# emoji tem bem mais bytes do que colunas, e medir errado faz o texto quebrar
+# cedo demais.
+msg_wrap() {
+  local texto="$1" margem="${2:-0}" largura
+  if ! declare -F _wrap_text >/dev/null 2>&1; then
+    msg "$texto"
+    return 0
+  fi
+  largura=$(tput cols 2>/dev/null || echo 80)
+  largura=$(( largura - margem ))
+  (( largura < 20 )) && largura=20
+  local -a partes=()
+  _wrap_text "$texto" "$largura" partes
+  local linha
+  for linha in "${partes[@]}"; do
+    msg "$(printf '%*s' "$margem" '')$linha"
+  done
+}
+
 is_truthy() {
   case "${1:-}" in
     1|true|TRUE|yes|YES|y|Y|on|ON) return 0 ;;

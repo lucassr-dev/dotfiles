@@ -62,9 +62,16 @@ show_ascii_banner_responsive() {
   local width="${1:-$(get_term_width)}"
 
   echo ""
+  # A arte em blocos tem 88 COLUNAS de exibicao — medido com `wc -L`, nao com
+  # o comprimento da string: cada "█" ocupa 3 bytes e 1 coluna, entao contar
+  # caracteres da um numero quase tres vezes maior e faz a arte parecer caber.
+  #
+  # A variante "media" e a grande com dois espacos a menos no fim: tem as mesmas
+  # 88 colunas. Ate Set/2026 ela era escolhida a partir de 65 colunas, e entre 65
+  # e 87 a arte vazava para a linha seguinte, quebrando o desenho.
   if [[ $width -ge 100 ]]; then
     show_banner_large "$width"
-  elif [[ $width -ge 65 ]]; then
+  elif [[ $width -ge 88 ]]; then
     show_banner_medium "$width"
   else
     show_banner_small "$width"
@@ -91,7 +98,7 @@ show_banner_large() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# BANNER MÉDIO (65-99 cols) - LUCASSR-DEV
+# BANNER MEDIO (88-99 cols) - LUCASSR-DEV
 # ══════════════════════════════════════════════════════════════════════════════
 show_banner_medium() {
   local width="$1"
@@ -110,7 +117,7 @@ show_banner_medium() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# BANNER PEQUENO (<65 cols)
+# BANNER PEQUENO (<88 cols) - cabe em qualquer terminal, tem 17 colunas
 # ══════════════════════════════════════════════════════════════════════════════
 show_banner_small() {
   local width="$1"
