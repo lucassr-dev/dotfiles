@@ -39,6 +39,12 @@ ensure_homebrew() {
 # ═══════════════════════════════════════════════════════════
 
 brew_install_batch() {
+  # Gate de DRY_RUN. Ate Set/2026 nenhuma das funcoes de instalacao de app GUI em Windows/macOS tinha um: o gate so existia uma camada acima, em install_prerequisites, que cobre so as dependencias base. Um DRY_RUN=1 interativo com apps selecionados instalava de verdade. No Linux isso nao acontecia porque tudo passa por run_with_sudo, que ja checa.
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) brew_install_batch $*"
+    return 0
+  fi
+
   local level="${1:-optional}"; shift
   local formulas=("$@")
   [[ ${#formulas[@]} -eq 0 ]] && return
@@ -73,6 +79,12 @@ brew_install_batch() {
 }
 
 brew_install_formula() {
+  # Gate de DRY_RUN — ver nota em brew_install_batch.
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) brew_install_formula $*"
+    return 0
+  fi
+
   local formula="$1"
   local level="${2:-optional}"
 

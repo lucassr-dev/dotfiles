@@ -70,6 +70,10 @@ install_neovim_tarball() {
   msg "  🔄 Baixando Neovim ${nvim_version} (tarball oficial estável)..."
   mkdir -p "$HOME/.local"
 
+  if ! has_cmd tar; then
+    record_failure "optional" "tar nao encontrado - necessario para extrair o pacote"
+    return 1
+  fi
   if curl -fsSL "$url" -o "$tmp_dir/$asset" && \
      tar -xzf "$tmp_dir/$asset" --strip-components=1 -C "$HOME/.local"; then
     rm -rf "$tmp_dir" 2>/dev/null || true

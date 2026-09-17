@@ -1661,6 +1661,16 @@ install_bat_catppuccin_theme() {
     return 0
   fi
 
+  # O bat passou a empacotar Catppuccin na v0.26.0 (out/2025). Clonar o
+  # repositorio nesse caso e trabalho morto: baixa, grava em ~/.config/bat/themes
+  # e reconstroi o cache para um tema que ja estava ali. A checagem e pelo tema
+  # disponivel, nao pela versao — assim continua funcionando em bat antigo, que
+  # e justamente quem ainda precisa do clone.
+  if "$bat_cmd" --list-themes 2>/dev/null | grep -qx "Catppuccin Mocha"; then
+    msg "  ✅ Tema Catppuccin do bat ja vem no proprio bat ($("$bat_cmd" --version 2>/dev/null | head -1))"
+    return 0
+  fi
+
   local themes_dir="$HOME/.config/bat/themes"
   local catppuccin_dir="$themes_dir/catppuccin"
 

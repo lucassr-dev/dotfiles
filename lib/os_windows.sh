@@ -6,6 +6,12 @@
 # ═══════════════════════════════════════════════════════════
 
 winget_install() {
+  # Gate de DRY_RUN. Ate Set/2026 nenhuma das funcoes de instalacao de app GUI em Windows/macOS tinha um: o gate so existia uma camada acima, em install_prerequisites, que cobre so as dependencias base. Um DRY_RUN=1 interativo com apps selecionados instalava de verdade. No Linux isso nao acontecia porque tudo passa por run_with_sudo, que ja checa.
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) winget_install $*"
+    return 0
+  fi
+
   local package_id="$1"
   local friendly_name="$2"
   local level="${3:-optional}"
@@ -38,6 +44,12 @@ _choco_pkg_installed() {
 }
 
 _choco_install_or_upgrade() {
+  # Gate de DRY_RUN — ver nota em winget_install.
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) _choco_install_or_upgrade $*"
+    return 0
+  fi
+
   local pkg="$1"
   if _choco_pkg_installed "$pkg"; then
     choco upgrade "$pkg" -y >/dev/null 2>&1 || true
@@ -53,6 +65,12 @@ _scoop_pkg_installed() {
 }
 
 _scoop_install_or_update() {
+  # Gate de DRY_RUN — ver nota em winget_install.
+  if is_truthy "${DRY_RUN:-0}"; then
+    msg "  🔎 (dry-run) _scoop_install_or_update $*"
+    return 0
+  fi
+
   local pkg="$1"
   if _scoop_pkg_installed "$pkg"; then
     scoop update "$pkg" >/dev/null 2>&1 || true

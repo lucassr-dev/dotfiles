@@ -194,6 +194,11 @@ install_selected_ia_tools() {
         ensure_uv
         msg "▶ Serena (MCP Server) via uvx"
         msg "  ℹ️  Executando comando oficial para disponibilizar o Serena..."
+        if ! has_cmd uvx; then
+          warn "Serena requer uvx (vem com o uv). Instale o uv primeiro."
+          record_failure "optional" "uvx nao encontrado - necessario para o Serena"
+          continue
+        fi
         if uvx --from git+https://github.com/oraios/serena serena start-mcp-server --help; then
           INSTALLED_MISC+=("serena: uvx (cache)")
           msg "  💡 Para iniciar o servidor depois:"

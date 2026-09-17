@@ -320,6 +320,10 @@ _install_lazygit_official() {
   local tmp_dir=""
   tmp_dir="$(mktemp -d)"
 
+  if ! has_cmd tar; then
+    record_failure "optional" "tar nao encontrado - necessario para extrair o lazygit"
+    return 1
+  fi
   if curl -fsSL "$url" -o "$tmp_dir/lazygit.tar.gz" && \
      tar xf "$tmp_dir/lazygit.tar.gz" -C "$tmp_dir" lazygit; then
     run_with_sudo mkdir -p /usr/local/bin

@@ -302,6 +302,10 @@ install_nushell_linux() {
   temp_dir=$(mktemp -d)
   trap 'rm -rf "$temp_dir"' RETURN
 
+  if ! has_cmd tar; then
+    record_failure "optional" "tar nao encontrado - necessario para extrair o Nushell"
+    return 1
+  fi
   if curl -fsSL "$download_url" -o "$temp_dir/nu.tar.gz"; then
     tar -xzf "$temp_dir/nu.tar.gz" -C "$temp_dir"
     local nu_bin
