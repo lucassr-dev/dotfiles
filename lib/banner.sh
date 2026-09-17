@@ -160,32 +160,37 @@ show_welcome_message() {
 # ══════════════════════════════════════════════════════════════════════════════
 
 show_section_header() {
+  # Cabecalho de secao unificado: titulo em negrito+mauve seguido de uma
+  # regra que preenche ate a largura -- mesma gramatica visual dos
+  # divisores de review_selections (_rv_div) e do relatorio (_rpt_div),
+  # so que em destaque de pagina em vez de subsecao. Substituiu a caixa
+  # dupla (╔═╗) anterior: menos ruido vertical, mesma hierarquia em toda
+  # tela que chama esta funcao.
   local title="$1"
   local width
   width=$(get_term_width)
-  local box_w=$((width > 70 ? 70 : width - 4))
-  [[ $box_w -lt 40 ]] && box_w=40
-  local inner=$((box_w - 2))
-  local line
-  line=$(printf '═%.0s' $(seq 1 "$inner"))
+  local box_w=$((width > 76 ? 76 : width - 4))
+  [[ $box_w -lt 36 ]] && box_w=36
+
   local title_text="$title"
   local title_visual_w
   title_visual_w=$(_visible_len "$title_text")
-  local pad=$((inner - 2 - title_visual_w))
-  if [[ $pad -lt 0 ]]; then
-    # ANSI-safe truncation: strip codes, truncate visible text, readd no codes (title is plain)
+  local max_title_w=$((box_w - 6))
+  if [[ $title_visual_w -gt $max_title_w ]]; then
+    # ANSI-safe truncation: strip codes, truncate visible text (title e plano)
     local clean_title
     clean_title=$(printf '%s' "$title_text" | _strip_ansi)
-    title_text="${clean_title:0:$((inner - 5))}..."
+    title_text="${clean_title:0:$((max_title_w - 1))}…"
     title_visual_w=$(_visible_len "$title_text")
-    pad=$((inner - 2 - title_visual_w))
-    [[ $pad -lt 0 ]] && pad=0
   fi
 
+  local fill=$((box_w - title_visual_w - 4))
+  [[ $fill -lt 1 ]] && fill=1
+  local fill_str
+  fill_str=$(printf '─%.0s' $(seq 1 "$fill"))
+
   echo ""
-  echo -e "${BANNER_CYAN}╔${line}╗${BANNER_RESET}"
-  printf "${BANNER_CYAN}║${BANNER_RESET}  ${BANNER_BOLD}%s${BANNER_RESET}%*s${BANNER_CYAN}║${BANNER_RESET}\n" "$title_text" "$pad" ""
-  echo -e "${BANNER_CYAN}╚${line}╝${BANNER_RESET}"
+  echo -e "  ${UI_OVERLAY1}── ${UI_MAUVE}${UI_BOLD}${title_text}${UI_RESET} ${UI_OVERLAY1}${fill_str}${UI_RESET}"
   echo ""
 }
 

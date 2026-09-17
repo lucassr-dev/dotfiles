@@ -667,7 +667,7 @@ _rv_div() {
   [[ $fill -lt 0 ]] && fill=0
   printf -v fill_str '%*s' "$fill" ''
   if [[ -n "$count" ]]; then
-    printf "%*s%b\n" "$pad_left" "" "${divider_color}── ${section_color}${UI_BOLD}${title}${UI_RESET} ${UI_SUBTEXT0}(${count})${UI_RESET}${divider_color} ${fill_str// /─}${UI_RESET}"
+    printf "%*s%b\n" "$pad_left" "" "${divider_color}── ${section_color}${UI_BOLD}${title}${UI_RESET} ${UI_PEACH}${UI_BOLD}(${count})${UI_RESET}${divider_color} ${fill_str// /─}${UI_RESET}"
   else
     printf "%*s%b\n" "$pad_left" "" "${divider_color}── ${section_color}${UI_BOLD}${title}${UI_RESET}${divider_color} ${fill_str// /─}${UI_RESET}"
   fi
@@ -853,15 +853,16 @@ _auto_enable_configs() {
 }
 
 print_error_block() {
-  local pad="$1" title="$2"
-  shift 2
+  local pad="$1" title="$2" symbol="$3" color="$4"
+  shift 4
   local items=("$@")
   if [[ ${#items[@]} -eq 0 ]]; then
     return
   fi
   printf "%*s  %b\n" "$pad" "" "$title"
+  local item
   for item in "${items[@]}"; do
-    printf "%*s   - %s\n" "$pad" "" "$item"
+    printf "%*s  ${color}%s${UI_RESET} %s\n" "$pad" "" "$symbol" "$item"
   done
   echo ""
 }
@@ -876,7 +877,13 @@ print_final_summary() {
     exit_code="$force_exit"
   fi
 
-  if [[ ${#CRITICAL_ERRORS[@]} -gt 0 || ${#OPTIONAL_ERRORS[@]} -gt 0 ]]; then
+  # O detalhe de falhas ja aparece dentro de print_post_install_report
+  # (secoes "O QUE FALHOU"/"O QUE FOI PULADO") quando ela roda antes desta
+  # funcao -- repetir aqui so duplicaria a tela sem necessidade de rolar.
+  # Mas se print_final_summary for chamada sozinha (abort por FAIL_FAST
+  # antes do relatorio existir), o detalhe completo tem que aparecer aqui,
+  # que e a unica tela que o usuario vai ver.
+  if [[ "${POST_INSTALL_REPORT_SHOWN:-0}" -ne 1 ]] && [[ ${#CRITICAL_ERRORS[@]} -gt 0 || ${#OPTIONAL_ERRORS[@]} -gt 0 ]]; then
     local term_w
     term_w=$(tput cols 2>/dev/null || echo 80)
     local width=$((term_w > 100 ? 94 : term_w - 6))
@@ -889,8 +896,8 @@ print_final_summary() {
 
     echo ""
     printf "%*s%b\n" "$lp" "" "${fs_divider}── ${fs_section}${UI_BOLD}⚠ FALHAS (${MODE})${UI_RESET}${fs_divider} ${bar:0:$((width - 22))}${UI_RESET}"
-    print_error_block "$lp" "${UI_RED}${UI_BOLD}❌ Falhas críticas:${UI_RESET}" "${CRITICAL_ERRORS[@]}"
-    print_error_block "$lp" "${UI_WARNING}⚠️  Falhas opcionais:${UI_RESET}" "${OPTIONAL_ERRORS[@]}"
+    print_error_block "$lp" "${UI_RED}${UI_BOLD}❌ Falhas críticas:${UI_RESET}" "✗" "$UI_RED" "${CRITICAL_ERRORS[@]}"
+    print_error_block "$lp" "${UI_WARNING}⚠️  Falhas opcionais:${UI_RESET}" "·" "$UI_OVERLAY0" "${OPTIONAL_ERRORS[@]}"
 
     if [[ ${#CRITICAL_ERRORS[@]} -eq 0 ]]; then
       printf "%*s  %b\n" "$lp" "" "${UI_GREEN}✅ Execução concluída sem falhas críticas.${UI_RESET}"

@@ -99,7 +99,7 @@ ui_progress() {
   printf -v bar_empty '%*s' "$empty" ''
   bar_empty="${bar_empty// /░}"
 
-  printf "\r  ${UI_GREEN}%s${UI_SURFACE1}%s${UI_RESET} ${UI_MUTED}%d%%${UI_RESET} %s" \
+  printf "\r  ${UI_GREEN}%s${UI_SURFACE1}%s${UI_RESET} ${UI_PEACH}${UI_BOLD}%d%%${UI_RESET} ${UI_OVERLAY1}%s${UI_RESET}" \
     "$bar_filled" "$bar_empty" "$pct" "${label}"
 }
 

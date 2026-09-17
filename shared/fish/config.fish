@@ -302,7 +302,12 @@ alias pa='pnpm add'
 alias pad='pnpm add -D'
 alias pr='pnpm remove'
 alias pup='pnpm update'
-alias ps='pnpm start'
+# pst, nao ps: `ps` e o comando do sistema que lista processos, e um alias
+# aqui o substitui por completo em sessao interativa. Quebrou o plugin `done`
+# do fish, que chama `ps -o ppid= -p <pid>` para saber se o comando terminou
+# em foreground — e recebia `pnpm start -o ppid=...`. Segue o padrao dos
+# vizinhos (pad, pup).
+alias pst='pnpm start'
 alias pd='pnpm dev'
 alias pb='pnpm build'
 

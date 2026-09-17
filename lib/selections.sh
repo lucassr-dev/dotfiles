@@ -17,10 +17,11 @@ menu_header() {
     ui_section "$1"
   else
     local title="$1"
+    local rule
+    rule=$(printf '─%.0s' $(seq 1 56))
     msg ""
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    msg "  $title"
-    msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "  ${UI_MAUVE}${UI_BOLD}${title}${UI_RESET}"
+    echo -e "  ${UI_OVERLAY1}${rule}${UI_RESET}"
     echo ""
   fi
 }
@@ -181,7 +182,7 @@ confirm_selection() {
   [[ $fill_len -lt 0 ]] && fill_len=0
   local fill
   fill=$(printf '─%.0s' $(seq 1 "$fill_len"))
-  echo -e "${UI_CYAN}╭─ ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${fill}╮${UI_RESET}"
+  echo -e "${UI_OVERLAY1}╭─ ${UI_MAUVE}${UI_BOLD}$title${UI_RESET}${UI_OVERLAY1} ${fill}╮${UI_RESET}"
 
   if [[ ${#items[@]} -gt 0 ]]; then
     for item in "${items[@]}"; do
@@ -190,7 +191,7 @@ confirm_selection() {
       if [[ $item_vis -le $content_w ]]; then
         local pad=$((inner_w - 4 - item_vis))
         [[ $pad -lt 0 ]] && pad=0
-        echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${item}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+        echo -e "${UI_OVERLAY1}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${UI_TEXT}${item}${UI_RESET}$(printf '%*s' "$pad" '')${UI_OVERLAY1}│${UI_RESET}"
       else
         local current_line=""
         local first_line=1
@@ -211,10 +212,10 @@ confirm_selection() {
               local pad=$(( inner_w - 4 - cur_vis ))
               [[ $pad -lt 0 ]] && pad=0
               if [[ $first_line -eq 1 ]]; then
-                echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+                echo -e "${UI_OVERLAY1}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${UI_TEXT}${current_line}${UI_RESET}$(printf '%*s' "$pad" '')${UI_OVERLAY1}│${UI_RESET}"
                 first_line=0
               else
-                echo -e "${UI_CYAN}│${UI_RESET}    ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+                echo -e "${UI_OVERLAY1}│${UI_RESET}    ${UI_TEXT}${current_line}${UI_RESET}$(printf '%*s' "$pad" '')${UI_OVERLAY1}│${UI_RESET}"
               fi
               current_line="$word"
             fi
@@ -227,26 +228,26 @@ confirm_selection() {
           local pad=$(( inner_w - 4 - cur_vis ))
           [[ $pad -lt 0 ]] && pad=0
           if [[ $first_line -eq 1 ]]; then
-            echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+            echo -e "${UI_OVERLAY1}│${UI_RESET}  ${UI_GREEN}✓${UI_RESET} ${UI_TEXT}${current_line}${UI_RESET}$(printf '%*s' "$pad" '')${UI_OVERLAY1}│${UI_RESET}"
           else
-            echo -e "${UI_CYAN}│${UI_RESET}    ${current_line}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+            echo -e "${UI_OVERLAY1}│${UI_RESET}    ${UI_TEXT}${current_line}${UI_RESET}$(printf '%*s' "$pad" '')${UI_OVERLAY1}│${UI_RESET}"
           fi
         fi
       fi
     done
   else
-    local empty_msg="(nenhum selecionado)"
+    local empty_msg="· (nenhum selecionado)"
     local pad=$((inner_w - 2 - ${#empty_msg}))
     [[ $pad -lt 0 ]] && pad=0
-    echo -e "${UI_CYAN}│${UI_RESET}  ${UI_DIM}${empty_msg}${UI_RESET}$(printf '%*s' "$pad" '')${UI_CYAN}│${UI_RESET}"
+    echo -e "${UI_OVERLAY1}│${UI_RESET}  ${UI_OVERLAY0}${empty_msg}${UI_RESET}$(printf '%*s' "$pad" '')${UI_OVERLAY1}│${UI_RESET}"
   fi
 
-  echo -e "${UI_CYAN}├${h_line}┤${UI_RESET}"
+  echo -e "${UI_OVERLAY1}├${h_line}┤${UI_RESET}"
   local action_text="Enter Continuar    B Voltar e editar"
   local action_pad=$((inner_w - 2 - ${#action_text}))
   [[ $action_pad -lt 0 ]] && action_pad=0
-  echo -e "${UI_CYAN}│${UI_RESET}  ${UI_GREEN}Enter${UI_RESET} Continuar    ${UI_YELLOW}B${UI_RESET} Voltar e editar$(printf '%*s' "$action_pad" '')${UI_CYAN}│${UI_RESET}"
-  echo -e "${UI_CYAN}╰${h_line}╯${UI_RESET}"
+  echo -e "${UI_OVERLAY1}│${UI_RESET}  ${UI_GREEN}${UI_BOLD}Enter${UI_RESET} ${UI_OVERLAY1}Continuar${UI_RESET}    ${UI_YELLOW}${UI_BOLD}B${UI_RESET} ${UI_OVERLAY1}Voltar e editar${UI_RESET}$(printf '%*s' "$action_pad" '')${UI_OVERLAY1}│${UI_RESET}"
+  echo -e "${UI_OVERLAY1}╰${h_line}╯${UI_RESET}"
   echo ""
 
   local choice
@@ -303,7 +304,7 @@ ask_cli_tools() {
     clear_screen
     show_section_header "🛠️  FERRAMENTAS CLI - Linha de Comando"
 
-    msg "Ferramentas modernas para melhorar sua experiência na linha de comando."
+    msg_wrap "Ferramentas modernas para melhorar sua experiência na linha de comando."
     msg ""
 
     local selected_desc=()
@@ -351,7 +352,7 @@ ask_ia_tools() {
     clear_screen
     show_section_header "🤖 FERRAMENTAS IA - Desenvolvimento Assistido"
 
-    msg "Ferramentas que usam IA para auxiliar no desenvolvimento."
+    msg_wrap "Ferramentas que usam IA para auxiliar no desenvolvimento."
     msg ""
     msg "⚠️  Algumas ferramentas podem exigir configuração adicional"
     msg "   (API keys, login, instalação manual)."
@@ -423,7 +424,7 @@ ask_terminals() {
     clear_screen
     show_section_header "💻 TERMINAIS - Emuladores de Terminal"
 
-    msg "Escolha qual(is) emulador(es) de terminal você deseja instalar."
+    msg_wrap "Escolha qual(is) emulador(es) de terminal você deseja instalar."
     msg ""
 
     local selected_desc=()
@@ -497,44 +498,67 @@ ask_shells() {
 # Tela de dependências base
 # ═══════════════════════════════════════════════════════════
 
+# Bullet "nome - descrição" com hierarquia (nome em destaque, descrição
+# recuada) e quebra de linha na largura real do terminal -- sem isso, a
+# descrição mais longa de cada bloco (ex.: chafa no macOS) estoura 60
+# colunas tal como o `msg` fixo fazia antes.
+_dep_item() {
+  local name="$1" desc="$2" width="${3:-16}"
+  local prefix
+  printf -v prefix "  ${UI_OVERLAY1}•${UI_RESET} ${UI_TEXT}%-${width}s${UI_RESET} ${UI_OVERLAY1}- " "$name"
+  local indent=$((width + 7))
+  local cols avail
+  cols=$(tput cols 2>/dev/null || echo 80)
+  avail=$((cols - indent))
+  [[ $avail -lt 15 ]] && avail=15
+  local -a lines=()
+  _wrap_text "$desc" "$avail" lines
+  [[ ${#lines[@]} -eq 0 ]] && lines=("$desc")
+  printf '%s%s%b\n' "$prefix" "${lines[0]}" "$UI_RESET"
+  local i
+  for (( i=1; i<${#lines[@]}; i++ )); do
+    printf "%*s${UI_OVERLAY1}%s${UI_RESET}\n" "$indent" "" "${lines[i]}"
+  done
+}
+
 ask_base_dependencies() {
   show_section_header "📦 DEPENDÊNCIAS BASE"
 
-  msg "As seguintes dependências são essenciais e serão instaladas:"
+  msg_wrap "As seguintes dependências são essenciais e serão instaladas:"
   msg ""
 
   case "$TARGET_OS" in
     linux|wsl2)
-      msg "  • ca-certificates  - Certificados SSL/TLS"
-      msg "  • git              - Sistema de controle de versão"
-      msg_wrap "• curl — ferramenta para transferência de dados" 2
-      msg "  • wget             - Download de arquivos"
-      msg "  • gnupg            - Criptografia e assinaturas digitais"
-      msg "  • unzip            - Descompressão de arquivos"
-      msg "  • fontconfig       - Gerenciamento de fontes"
-      msg "  • imagemagick      - Preview de imagens e temas"
-      msg "  • chafa            - Preview de imagens no terminal"
-      msg_wrap "• fzf — interface de seleção fuzzy (UI moderna)" 2
-      msg_wrap "• gum — UI interativa para terminal (fallback)" 2
+      _dep_item "ca-certificates" "Certificados SSL/TLS" 16
+      _dep_item "git" "Sistema de controle de versão" 16
+      _dep_item "curl" "Ferramenta para transferência de dados" 16
+      _dep_item "wget" "Download de arquivos" 16
+      _dep_item "gnupg" "Criptografia e assinaturas digitais" 16
+      _dep_item "unzip" "Descompressão de arquivos" 16
+      _dep_item "fontconfig" "Gerenciamento de fontes" 16
+      _dep_item "imagemagick" "Preview de imagens e temas" 16
+      _dep_item "chafa" "Preview de imagens no terminal" 16
+      _dep_item "fzf" "Interface de seleção fuzzy (UI moderna)" 16
+      _dep_item "gum" "UI interativa para terminal (fallback)" 16
       ;;
     macos)
-      msg "  • git              - Sistema de controle de versão"
-      msg "  • curl             - Ferramenta para transferência de dados"
-      msg "  • wget             - Download de arquivos"
-      msg "  • imagemagick      - Redimensionar prévias de imagem"
-      msg "  • chafa            - Preview de imagens no terminal (auto-detecta protocolo)"
-      msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
-      msg "  • gum              - UI interativa para terminal (fallback)"
+      _dep_item "git" "Sistema de controle de versão" 14
+      _dep_item "curl" "Ferramenta para transferência de dados" 14
+      _dep_item "wget" "Download de arquivos" 14
+      _dep_item "imagemagick" "Redimensionar prévias de imagem" 14
+      _dep_item "chafa" "Preview de imagens no terminal (auto-detecta protocolo)" 14
+      _dep_item "fzf" "Interface de seleção fuzzy (UI moderna)" 14
+      _dep_item "gum" "UI interativa para terminal (fallback)" 14
       msg ""
       msg "  ℹ️  Instalação via Homebrew"
       ;;
     windows)
-      msg "  • Git              - Sistema de controle de versão"
-      msg "  • Windows Terminal - Terminal moderno da Microsoft"
-      msg "  • ImageMagick      - Redimensionar prévias de imagem"
-      msg "  • chafa            - Preview de imagens no terminal"
-      msg "  • fzf              - Interface de seleção fuzzy (UI moderna)"
-      msg "  • gum              - UI interativa para terminal (fallback)"
+      _dep_item "Git" "Sistema de controle de versão" 18
+      _dep_item "Windows Terminal" "Terminal moderno da Microsoft" 18
+      _dep_item "ImageMagick" "Redimensionar prévias de imagem" 18
+      _dep_item "chafa" "Preview de imagens no terminal" 18
+      _dep_item "fzf" "Interface de seleção fuzzy (UI moderna)" 18
+      _dep_item "gum" "UI interativa para terminal (fallback)" 18
       msg ""
       msg "  ℹ️  Instalação via winget"
       ;;
@@ -567,7 +591,9 @@ review_selections() {
     local left_pad=2
     local rv_divider_color="${UI_OVERLAY1:-$UI_BORDER}"
     local rv_section_color="${UI_MAUVE:-$UI_ACCENT}"
-    local rv_label_color="${UI_SUBTEXT1:-$UI_MUTED}"
+    # Rotulo e a parte MENOS importante (recua) -- UI_OVERLAY1, nao
+    # UI_SUBTEXT1 (perto demais do texto primario pra recuar de verdade).
+    local rv_label_color="${UI_OVERLAY1:-$UI_MUTED}"
 
     local total_pkgs total_cfgs
     total_pkgs=$(_count_total_packages)
@@ -600,9 +626,21 @@ review_selections() {
 
     echo ""
     _rv_hbar "$width"
-    printf "%*s%b\n" "$left_pad" "" "  ${UI_GREEN}${UI_BOLD}📋 RESUMO FINAL${UI_RESET}"
+    printf "%*s%b\n" "$left_pad" "" "  ${UI_MAUVE}${UI_BOLD}📋 RESUMO FINAL${UI_RESET}"
     echo ""
-    printf "%*s%b\n" "$left_pad" "" "  ${UI_SUBTEXT1}Revise o plano abaixo. Use ${UI_YELLOW}${UI_BOLD}0-8${UI_RESET}${UI_SUBTEXT1} para ajustar qualquer grupo antes de iniciar.${UI_RESET}"
+    # Texto fixo tem que quebrar na largura real -- em 60 colunas ele estourava
+    # (achado desta sessao: nao era wrapado, so cabia por sorte em telas largas).
+    local hint_text hint_w
+    hint_text="${UI_SUBTEXT1}Revise o plano abaixo. Use ${UI_PEACH}${UI_BOLD}0-8${UI_RESET}${UI_SUBTEXT1} para ajustar qualquer grupo antes de iniciar.${UI_RESET}"
+    hint_w=$((width - 2))
+    [[ $hint_w -lt 20 ]] && hint_w=20
+    local -a hint_lines=()
+    _wrap_text "$hint_text" "$hint_w" hint_lines
+    [[ ${#hint_lines[@]} -eq 0 ]] && hint_lines=("$hint_text")
+    local hl
+    for hl in "${hint_lines[@]}"; do
+      printf "%*s  %b\n" "$left_pad" "" "$hl"
+    done
     _rv_hbar "$width"
     echo ""
 
@@ -705,13 +743,16 @@ review_selections() {
       done
     }
 
+    # Vocabulario de estado unificado (igual em toda tela): ✓ verde = feito,
+    # · overlay0 = nao selecionado. Nao usa ✗ aqui -- isso e "falhou", e uma
+    # config disponivel e so nao marcada nao falhou nada.
     _rv_cfg_item() {
       local available="$1" selected_flag="$2" name="$3"
       if [[ $available -eq 1 ]]; then
         if [[ $selected_flag -eq 1 ]]; then
           echo "${UI_GREEN}${UI_BOLD}✓${UI_RESET} ${UI_TEXT}${name}${UI_RESET}"
         else
-          echo "${UI_DIM}✗ ${name}${UI_RESET}"
+          echo "${UI_OVERLAY0}· ${name}${UI_RESET}"
         fi
       fi
     }
@@ -755,19 +796,24 @@ review_selections() {
       done
     }
 
+    # Numero da secao (0-8) e a tecla que se aperta -- parece tecla:
+    # colchetes + destaque (peach+bold). A contagem entre parenteses e
+    # numero tambem (o que se escaneia primeiro), mesmo tratamento. O
+    # rotulo por extenso e o que resta pra quem procurar -- recua.
     _rv_menu_cell() {
       local num="$1" label="$2" cell_w="$3" badge="${4:-}"
+      local key_str="[${num}]"
       local badge_str=""
       if [[ -n "$badge" ]]; then
         badge_str=" (${badge})"
       fi
-      local cell_plain="${num} ${label}${badge_str}"
+      local cell_plain="${key_str} ${label}${badge_str}"
       local pad=$(( cell_w - $(_visible_len "$cell_plain") ))
       [[ $pad -lt 0 ]] && pad=0
       if [[ -n "$badge" ]]; then
-        printf "${UI_YELLOW}${UI_BOLD}%s${UI_RESET} ${UI_SUBTEXT1}%s${UI_RESET} ${UI_SUBTEXT0}(%s)${UI_RESET}%*s" "$num" "$label" "$badge" "$pad" ""
+        printf "${UI_PEACH}${UI_BOLD}%s${UI_RESET} ${UI_OVERLAY1}%s${UI_RESET} ${UI_PEACH}${UI_BOLD}(%s)${UI_RESET}%*s" "$key_str" "$label" "$badge" "$pad" ""
       else
-        printf "${UI_YELLOW}${UI_BOLD}%s${UI_RESET} ${UI_SUBTEXT1}%s${UI_RESET}%*s" "$num" "$label" "$pad" ""
+        printf "${UI_PEACH}${UI_BOLD}%s${UI_RESET} ${UI_OVERLAY1}%s${UI_RESET}%*s" "$key_str" "$label" "$pad" ""
       fi
     }
 
@@ -777,9 +823,20 @@ review_selections() {
     apps_label_w=$(_rv_measure_label_width 12 "IDEs" "Navegadores" "Dev Tools" "Bancos" "Produtividade" "Comunicação" "Mídia" "Utilitários")
     cfg_label_w=$(_rv_measure_label_width 12 "Shells" "Terminais" "Editores" "Runtimes" "Ferramentas")
 
-    _rv_kv 15 "Pacotes" "${UI_PEACH}${UI_BOLD}${total_pkgs}${UI_RESET} ${UI_TEXT}selecionados${UI_RESET}"
-    _rv_kv 15 "Configs" "${UI_BLUE}${UI_BOLD}${total_cfgs}${UI_RESET} ${UI_TEXT}para copiar${UI_RESET}"
-    _rv_kv 15 "Sistema" "${so_color}${UI_BOLD}${so_icon} ${so_name}${UI_RESET}"
+    # Painel de numeros: le-se de relance. O numero vem primeiro e grande
+    # (peach+bold), a unidade e discreta (overlay1), tudo numa linha so --
+    # critério do brief: "em uma olhada, quantos pacotes e quantas configs".
+    _rv_stat() {
+      printf "${UI_PEACH}${UI_BOLD}%s${UI_RESET} ${UI_OVERLAY1}%s${UI_RESET}" "$1" "$2"
+    }
+    # %b (nao %s) nos tres -- so_color/so_icon aqui vem de interpolacao
+    # direta, nunca passou por um printf que resolvesse o \033 literal em
+    # ESC de verdade; %s deixaria a cor aparecer como texto puro na tela.
+    printf "%*s  %s   %s   %b\n" "$left_pad" "" \
+      "$(_rv_stat "$total_pkgs" "pacotes")" \
+      "$(_rv_stat "$total_cfgs" "configs")" \
+      "${so_color}${UI_BOLD}${so_icon} ${so_name}${UI_RESET}"
+    echo ""
     if [[ ${#actions_to_do[@]} -gt 0 ]]; then
       _rv_kv 15 "Ações extras" "${UI_TEXT}$(_join_items "${actions_to_do[@]}")${UI_RESET}"
     fi
@@ -918,7 +975,7 @@ review_selections() {
       fi
     done
     echo ""
-    printf "%*s  ${UI_GREEN}${UI_BOLD}⏎ Enter${UI_RESET} ${UI_TEXT}iniciar instalação${UI_RESET}    ${UI_SUBTEXT0}S sair${UI_RESET}\n" "$left_pad" ""
+    printf "%*s  ${UI_GREEN}${UI_BOLD}⏎ Enter${UI_RESET} ${UI_TEXT}iniciar instalação${UI_RESET}    ${UI_OVERLAY1}S sair${UI_RESET}\n" "$left_pad" ""
 
     _rv_hbar "$width"
     echo ""
@@ -1054,17 +1111,34 @@ _toggle_configs() {
   while true; do
     clear_screen
     echo ""
-    echo -e "  ${UI_ACCENT}${UI_BOLD}📋 Toggle Configs${UI_RESET}  ${UI_MUTED}(digite número para alternar, Enter para voltar)${UI_RESET}"
+    local term_w
+    term_w=$(tput cols 2>/dev/null || echo 80)
+    echo -e "  ${UI_MAUVE}${UI_BOLD}📋 Toggle Configs${UI_RESET}"
+    # Hint na propria linha, quebrado na largura real -- junto com o titulo
+    # numa so linha estourava 60 colunas sempre (nao so as vezes).
+    local -a hint_lines=()
+    _wrap_text "(digite número para alternar, Enter para voltar)" "$((term_w - 2))" hint_lines
+    local hl
+    for hl in "${hint_lines[@]}"; do
+      echo -e "  ${UI_OVERLAY1}${hl}${UI_RESET}"
+    done
     echo ""
 
-    local i cols=3
+    # cols fixo em 3 nao olhava pra largura do terminal: 3 celulas de ~23
+    # colunas cada somam 69, estourando 60 colunas sempre, nao so as vezes.
+    local cell_w=23
+    local i cols=$(( term_w / cell_w ))
+    [[ $cols -lt 1 ]] && cols=1
+    [[ $cols -gt 3 ]] && cols=3
     local col_w=25
     local count=${#cfg_names[@]}
 
     for (( i=0; i<count; i++ )); do
       local key="${cfg_keys[$i]}"
       local val="${!key:-0}"
-      local icon="${UI_DIM}✗${UI_RESET}"
+      # Vocabulario unificado: ✓ verde = feito, · overlay0 = nao selecionado
+      # (nao ✗ -- nao selecionado nao e falha). Igual ao resto do resumo.
+      local icon="${UI_OVERLAY0}·${UI_RESET}"
       [[ $val -eq 1 ]] && icon="${UI_GREEN}${UI_BOLD}✓${UI_RESET}"
       local num="${UI_PEACH}${UI_BOLD}$((i+1))${UI_RESET}"
       printf "  ${num} ${icon} ${UI_TEXT}%-16s${UI_RESET}" "${cfg_names[$i]}"

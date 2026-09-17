@@ -86,15 +86,21 @@ record_failure() {
   local level="$1"
   local message="$2"
   local fix_hint="${3:-}"
+  # A live warn() so mostra a dica na hora -- sem isso ela some do
+  # relatorio final, que so tem o array. Guarda a dica junto na mensagem
+  # armazenada (nao muda a chamada, so o que fica pra depois) para
+  # print_post_install_report poder responder "o que fazer a respeito".
+  local stored="$message"
+  [[ -n "$fix_hint" ]] && stored="${message} — ${fix_hint}"
   if [[ "$level" == "critical" ]]; then
-    CRITICAL_ERRORS+=("$message")
+    CRITICAL_ERRORS+=("$stored")
     warn "❌ $message"
     [[ -n "$fix_hint" ]] && warn "💡 $fix_hint"
     if [[ "$FAIL_FAST" -eq 1 ]]; then
       print_final_summary 1
     fi
   else
-    OPTIONAL_ERRORS+=("$message")
+    OPTIONAL_ERRORS+=("$stored")
     warn "$message"
     [[ -n "$fix_hint" ]] && warn "💡 $fix_hint"
   fi
@@ -112,12 +118,31 @@ run_with_sudo() {
   fi
   if [[ $EUID -eq 0 ]]; then
     "$@"
-  elif has_cmd sudo; then
-    sudo "$@"
-  else
+    return $?
+  fi
+
+  if ! has_cmd sudo; then
     warn "Comando '$*' requer sudo, mas sudo não está disponível."
     return 1
   fi
+
+  # Distingue "o sudo nao autenticou" de "o comando falhou". Sem isso, um
+  # prompt de senha que expira vira uma mensagem enganosa: numa instalacao real
+  # de 17/set o sudo deu "timed out" e o relatorio final acusou "Falha ao
+  # instalar (apt) kitty" — sendo que o kitty ja estava instalado e o apt nunca
+  # chegou a rodar. Quem le o relatorio vai investigar o pacote errado.
+  #
+  # -n falha na hora se a credencial nao estiver em cache, sem abrir prompt;
+  # usamos isso so para DETECTAR, e em seguida rodamos normalmente para que o
+  # prompt apareca de verdade quando for o caso.
+  if ! sudo -n true 2>/dev/null; then
+    if ! sudo -v 2>/dev/null; then
+      warn "sudo nao autenticou (senha errada, expirada ou cancelada) — '$*' nao foi executado"
+      return 126
+    fi
+  fi
+
+  sudo "$@"
 }
 
 # Ponto de estrangulamento para comando externo que altera a maquina do

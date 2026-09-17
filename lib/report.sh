@@ -78,7 +78,9 @@ print_post_install_report() {
   local kv_label_w=13
   local rpt_divider_color="${UI_OVERLAY1:-$UI_BORDER}"
   local rpt_section_color="${UI_MAUVE:-$UI_ACCENT}"
-  local rpt_label_color="${UI_LAVENDER:-$UI_ACCENT}"
+  # Rotulo recua (UI_OVERLAY1) -- era UI_LAVENDER, cor de destaque, o
+  # oposto do que a hierarquia pede pro elemento menos importante da linha.
+  local rpt_label_color="${UI_OVERLAY1:-$UI_ACCENT}"
 
   _rpt_div() {
     local title="$1"
@@ -104,6 +106,21 @@ print_post_install_report() {
     local bar
     printf -v bar '%*s' "$width" ''
     printf "%*s%b\n" "$left_pad" "" "${rpt_divider_color}${bar// /─}${UI_RESET}"
+  }
+
+  # Como _rpt_div, mas com cor de severidade em vez de mauve fixo -- "o que
+  # falhou" e "o que foi pulado" precisam se distinguir um do outro so de
+  # olhar o cabecalho, sem ler o texto (achado real: as duas caiam no mesmo
+  # ⚠ antes, e uma opcional nao deveria alarmar como uma critica).
+  _rpt_div_sev() {
+    local title="$1" color="$2" count="$3"
+    local count_str="${UI_PEACH}${UI_BOLD}(${count})${UI_RESET}"
+    local title_vis fill fill_str
+    title_vis=$(_visible_len "${title} (${count})")
+    fill=$(( width - title_vis - 4 ))
+    [[ $fill -lt 0 ]] && fill=0
+    printf -v fill_str '%*s' "$fill" ''
+    printf "%*s%b\n" "$left_pad" "" "${rpt_divider_color}── ${color}${UI_BOLD}${title}${UI_RESET} ${count_str}${rpt_divider_color} ${fill_str// /─}${UI_RESET}"
   }
 
   _rpt_kv() {
@@ -191,14 +208,43 @@ print_post_install_report() {
     done
   }
 
-  clear_screen
-  echo ""
+  # Mensagem longa ou com URL nao pode vazar da largura -- quebra na coluna
+  # real do terminal, mesma tecnica de _rpt_kv (_wrap_text em COLUNAS de
+  # exibicao, nao bytes). symbol/symbol_color seguem o vocabulario unico:
+  # ✗ vermelho = falhou, · overlay0 = pulado.
+  _rpt_issue_block() {
+    local symbol="$1" symbol_color="$2" text_color="$3" arr_name="$4"
+    local -n _items="$arr_name"
+    local value_w=$((width - 4))
+    [[ $value_w -lt 20 ]] && value_w=20
+    local item
+    for item in "${_items[@]}"; do
+      local -a lines=()
+      _wrap_text "$item" "$value_w" lines
+      [[ ${#lines[@]} -eq 0 ]] && lines=("$item")
+      printf "%*s  ${symbol_color}%s${UI_RESET} ${text_color}%s${UI_RESET}\n" "$left_pad" "" "$symbol" "${lines[0]}"
+      local i
+      for (( i=1; i<${#lines[@]}; i++ )); do
+        printf "%*s    ${text_color}%s${UI_RESET}\n" "$left_pad" "" "${lines[i]}"
+      done
+    done
+  }
 
-  _rpt_hbar
-  printf "%*s%b\n" "$left_pad" "" "  ${UI_GREEN}${UI_BOLD}INSTALAÇÃO CONCLUÍDA${UI_RESET}"
-  printf "%*s%b\n" "$left_pad" "" "  ${UI_SUBTEXT1}Confira o status, o ambiente detectado e os próximos passos.${UI_RESET}"
-  _rpt_hbar
-  echo ""
+  # Texto fixo tambem tem que quebrar na largura real -- mesma tecnica que
+  # o resto do relatorio ja usa em _rpt_kv, so que aqui e uma linha solta
+  # sem rotulo (o masthead e a nota de falha), nao um par label/valor.
+  _rpt_wrap_line() {
+    local text="$1" color="$2"
+    local value_w=$((width - 2))
+    [[ $value_w -lt 20 ]] && value_w=20
+    local -a lines=()
+    _wrap_text "$text" "$value_w" lines
+    [[ ${#lines[@]} -eq 0 ]] && lines=("$text")
+    local line
+    for line in "${lines[@]}"; do
+      printf "%*s  ${color}%s${UI_RESET}\n" "$left_pad" "" "$line"
+    done
+  }
 
   local pkg_count=${#INSTALLED_PACKAGES[@]}
   local misc_count=${#INSTALLED_MISC[@]}
@@ -223,19 +269,61 @@ print_post_install_report() {
     so_name="WSL2"
   fi
 
-  _rpt_div "📌 STATUS GERAL"
-  if [[ $total_errors -eq 0 ]]; then
-    _rpt_kv "$kv_label_w" "Status" "${UI_GREEN}${UI_BOLD}Pronto para uso${UI_RESET}"
+  clear_screen
+  echo ""
+
+  # "Deu certo?" e a primeira linha da tela, inequivoca -- ✓ verde ou ✗
+  # vermelho, o mesmo vocabulario usado em toda parte. Se ha falha critica,
+  # o masthead ja avisa e a secao "O QUE FALHOU" vem logo a seguir, sem
+  # precisar rolar (antes, o detalhe so aparecia depois de todo o resto,
+  # via print_final_summary).
+  _rpt_hbar
+  if [[ $critical_count -gt 0 ]]; then
+    printf "%*s%b\n" "$left_pad" "" "  ${UI_RED}${UI_BOLD}✗ INSTALAÇÃO COM FALHAS CRÍTICAS${UI_RESET}"
   else
-    _rpt_kv "$kv_label_w" "Status" "${UI_RED}${UI_BOLD}Atenção necessária${UI_RESET} ${UI_SUBTEXT1}(${critical_count} crítica(s), ${optional_count} opcional(is))${UI_RESET}"
+    printf "%*s%b\n" "$left_pad" "" "  ${UI_GREEN}${UI_BOLD}✓ INSTALAÇÃO CONCLUÍDA${UI_RESET}"
   fi
-  _rpt_kv "$kv_label_w" "Instalados" "${UI_GREEN}${UI_BOLD}${total_installed}${UI_RESET}"
-  _rpt_kv "$kv_label_w" "Configs" "${UI_BLUE}${UI_BOLD}${configs_count}${UI_RESET}"
+  _rpt_wrap_line "Confira o status, o ambiente detectado e os próximos passos." "$UI_SUBTEXT1"
+  _rpt_hbar
+  echo ""
+
+  _rpt_div "📌 STATUS GERAL"
+  # Tres estados, nao dois: falha critica alarma (vermelho); so opcional
+  # pulado NAO e falha do processo -- instalacao terminou bem, so com
+  # ressalvas (verde, nota amarela). Antes as duas caiam no mesmo "Atenção
+  # necessária" vermelho, alarmando por um app sem instalador automatico.
+  if [[ $critical_count -gt 0 ]]; then
+    _rpt_kv "$kv_label_w" "Status" "${UI_RED}${UI_BOLD}Atenção necessária${UI_RESET} ${UI_SUBTEXT1}(${UI_PEACH}${UI_BOLD}${critical_count}${UI_RESET}${UI_SUBTEXT1} crítica(s), ${UI_PEACH}${UI_BOLD}${optional_count}${UI_RESET}${UI_SUBTEXT1} opcional(is))${UI_RESET}"
+  elif [[ $optional_count -gt 0 ]]; then
+    _rpt_kv "$kv_label_w" "Status" "${UI_GREEN}${UI_BOLD}Concluída${UI_RESET} ${UI_YELLOW}(${UI_BOLD}${optional_count}${UI_RESET}${UI_YELLOW} pulado(s))${UI_RESET}"
+  else
+    _rpt_kv "$kv_label_w" "Status" "${UI_GREEN}${UI_BOLD}Pronto para uso${UI_RESET}"
+  fi
+  _rpt_kv "$kv_label_w" "Instalados" "${UI_PEACH}${UI_BOLD}${total_installed}${UI_RESET}"
+  _rpt_kv "$kv_label_w" "Configs" "${UI_PEACH}${UI_BOLD}${configs_count}${UI_RESET}"
   _rpt_kv "$kv_label_w" "Tempo total" "${UI_PEACH}${UI_BOLD}${elapsed:-N/A}${UI_RESET}"
   if [[ -n "${INSTALL_LOG:-}" ]]; then
     _rpt_kv "$kv_label_w" "Log" "$INSTALL_LOG"
   fi
   echo ""
+
+  # "O que falhou" e "o que foi pulado e por que" -- CRITICAL_ERRORS e
+  # OPTIONAL_ERRORS ja carregam exatamente essa distincao (falha que impede
+  # de confiar no ambiente vs. item que o instalador pulou de proposito ou
+  # por falta de suporte). Ficam logo no topo, antes de SISTEMA/FERRAMENTAS,
+  # pra nao exigir rolagem quando existem.
+  if [[ $critical_count -gt 0 ]]; then
+    _rpt_div_sev "✗ O QUE FALHOU" "$UI_RED" "$critical_count"
+    _rpt_issue_block "✗" "$UI_RED" "$UI_TEXT" "CRITICAL_ERRORS"
+    _rpt_wrap_line "Revise os itens acima; o log completo tem o detalhe de cada etapa." "$UI_SUBTEXT1"
+    echo ""
+  fi
+
+  if [[ $optional_count -gt 0 ]]; then
+    _rpt_div_sev "· O QUE FOI PULADO" "$UI_YELLOW" "$optional_count"
+    _rpt_issue_block "·" "$UI_OVERLAY0" "$UI_SUBTEXT1" "OPTIONAL_ERRORS"
+    echo ""
+  fi
 
   _rpt_div "💻 SISTEMA"
   _rpt_kv "$kv_label_w" "Host" "$hostname"
@@ -267,13 +355,6 @@ print_post_install_report() {
   _rpt_add_tool runtimes "Deno" deno "$col_w"
   _rpt_dual_list_block "🔧 FERRAMENTAS" "$UI_GREEN" "tools" "(nenhuma)" "⚡ RUNTIMES" "$UI_PEACH" "runtimes" "(nenhum)"
   echo ""
-
-  if [[ $total_errors -gt 0 ]]; then
-    _rpt_div "⚠ ATENÇÃO"
-    printf "%*s  ${UI_RED}${UI_BOLD}%s${UI_RESET} ${UI_SUBTEXT1}falha(s) detectada(s). O resumo detalhado aparece logo após este dashboard.${UI_RESET}\n" "$left_pad" "" "$total_errors"
-    printf "%*s  ${rpt_label_color}Críticas:${UI_RESET} ${UI_TEXT}%s${UI_RESET}   ${rpt_label_color}Opcionais:${UI_RESET} ${UI_TEXT}%s${UI_RESET}\n" "$left_pad" "" "$critical_count" "$optional_count"
-    echo ""
-  fi
 
   local next_steps=()
   next_steps+=("Abra um novo terminal")

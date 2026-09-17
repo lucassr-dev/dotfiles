@@ -61,18 +61,35 @@ _wrap_text() {
   read -r -a words <<< "$text"
 
   for word in "${words[@]}"; do
-    if [[ -z "$current" ]]; then
-      current="$word"
+    # Palavra sozinha mais larga que max_width (path ou URL sem espaco pra
+    # quebrar) nao tem ponto de quebra natural -- corta em pedacos de
+    # max_width caracteres. So seguro pra ASCII (path/URL sao); largura de
+    # exibicao de caractere largo/emoji e outra conta, fora do caso aqui.
+    if (( $(_visible_len "$word") > max_width )); then
+      if [[ -n "$current" ]]; then
+        out_lines+=("$current")
+        current=""
+      fi
+      local remaining="$word"
+      while (( $(_visible_len "$remaining") > max_width )); do
+        out_lines+=("${remaining:0:max_width}")
+        remaining="${remaining:max_width}"
+      done
+      current="$remaining"
       continue
     fi
-    local cur_w word_w
-    cur_w=$(_visible_len "$current")
-    word_w=$(_visible_len "$word")
-    if (( cur_w + 1 + word_w <= max_width )); then
-      current="$current $word"
-    else
-      out_lines+=("$current")
+    if [[ -z "$current" ]]; then
       current="$word"
+    else
+      local cur_w word_w
+      cur_w=$(_visible_len "$current")
+      word_w=$(_visible_len "$word")
+      if (( cur_w + 1 + word_w <= max_width )); then
+        current="$current $word"
+      else
+        out_lines+=("$current")
+        current="$word"
+      fi
     fi
   done
 

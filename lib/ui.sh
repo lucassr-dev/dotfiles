@@ -10,7 +10,7 @@
 declare -g UI_MAGENTA="${UI_MAUVE:-$'\033[38;2;203;166;247m'}"
 
 declare -g UI_CHECK="✓"
-declare -g UI_UNCHECK="○"
+declare -g UI_UNCHECK="·"
 declare -g UI_ARROW="›"
 declare -g UI_BOX_H="─"
 declare -g UI_BOX_V="│"
@@ -135,7 +135,11 @@ step_begin() {
   local pct=$((INSTALL_STEP * 100 / INSTALL_TOTAL_STEPS))
   local pct_str="${pct}%"
 
-  local header="[${INSTALL_STEP}/${INSTALL_TOTAL_STEPS}] ${label}"
+  # step_counter [3/12] e o numero que se escaneia (bold+peach); label e o
+  # cabecalho da secao (bold+mauve). header (sem cor) so serve pra medir
+  # largura visivel do preenchimento -- igual ao valor colorido, mesmos bytes.
+  local step_counter="[${INSTALL_STEP}/${INSTALL_TOTAL_STEPS}]"
+  local header="${step_counter} ${label}"
   local header_len=${#header}
   local pct_len=${#pct_str}
   local fill=$((box_w - header_len - pct_len - 6))
@@ -144,9 +148,9 @@ step_begin() {
   for ((i=0; i<fill; i++)); do h_fill+="$UI_BOX_H"; done
 
   msg ""
-  msg "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H} ${UI_BOLD}${UI_WHITE}${header}${UI_RESET} ${UI_CYAN}${h_fill} ${UI_DIM}${pct_str}${UI_RESET} ${UI_CYAN}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
+  msg "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H} ${UI_PEACH}${UI_BOLD}${step_counter}${UI_RESET} ${UI_MAUVE}${UI_BOLD}${label}${UI_RESET} ${UI_CYAN}${h_fill} ${UI_DIM}${pct_str}${UI_RESET} ${UI_CYAN}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
   if [[ -n "$detail" ]]; then
-    msg "${UI_CYAN}${UI_BOX_V}${UI_RESET}  ${UI_DIM}${detail}${UI_RESET}"
+    msg "${UI_CYAN}${UI_BOX_V}${UI_RESET}  ${UI_OVERLAY1}${detail}${UI_RESET}"
   fi
 }
 
@@ -179,7 +183,7 @@ step_end() {
   for ((i=0; i<fill_len; i++)); do h_fill+="$UI_BOX_H"; done
 
   if [[ -n "$time_str" ]]; then
-    msg "${UI_CYAN}${UI_BOX_BL}${UI_BOX_H} ${status_text} ${UI_CYAN}${h_fill} ${UI_DIM}${time_str}${UI_RESET} ${UI_CYAN}${UI_BOX_H}${UI_BOX_BR}${UI_RESET}"
+    msg "${UI_CYAN}${UI_BOX_BL}${UI_BOX_H} ${status_text} ${UI_CYAN}${h_fill} ${UI_PEACH}${UI_BOLD}${time_str}${UI_RESET} ${UI_CYAN}${UI_BOX_H}${UI_BOX_BR}${UI_RESET}"
   else
     msg "${UI_CYAN}${UI_BOX_BL}${UI_BOX_H} ${status_text} ${UI_CYAN}${h_fill}${UI_BOX_BR}${UI_RESET}"
   fi
@@ -308,56 +312,47 @@ ui_select_multi_bash() {
     sel_count=${#selected_indices[@]}
 
     echo ""
-    echo -e "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H}${UI_BOX_H} ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${UI_BOX_H}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
-    echo -e "  ${UI_DIM}${sel_count}/${total} selecionados${UI_RESET}"
+    echo -e "  ${UI_MAUVE}${UI_BOLD}${title}${UI_RESET}"
+    echo -e "  ${UI_PEACH}${UI_BOLD}${sel_count}${UI_RESET}${UI_OVERLAY1}/${total} selecionados${UI_RESET}"
     echo ""
 
-    if [[ $total -gt 12 ]]; then
-      local mid=$(( (total + 1) / 2 ))
-      local col_width=38
+    # Uma coluna so, com quebra na largura real do terminal. O grid de 2
+    # colunas que existia aqui usava col_width=38 fixo, sem olhar pra
+    # tput cols -- uma lista de 32 ferramentas (CLI_TOOLS) virava uma linha
+    # de ate 147 colunas em QUALQUER largura de terminal. "nome - descricao"
+    # e longo demais pra caber em 2 colunas de forma segura; alinha e
+    # quebra, como o resto do app faz (msg_wrap, _rv_lv), em vez de escorrer.
+    local term_w
+    term_w=$(tput cols 2>/dev/null || echo 80)
+    local idx_w=2
+    [[ $total -ge 100 ]] && idx_w=3
+    local prefix_w=$((idx_w + 7))
+    local content_w=$((term_w - prefix_w - 1))
+    [[ $content_w -lt 20 ]] && content_w=20
+    local cont_indent
+    printf -v cont_indent '%*s' "$prefix_w" ''
 
-      for (( i=0; i<mid; i++ )); do
-        local left_idx=$((i + 1))
-        local right_idx=$((mid + i + 1))
-        local left_item="${options[i]}"
-
-        local left_check="$UI_UNCHECK"
-        local left_color="$UI_DIM"
-        if _is_selected "$i"; then
-          left_check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
-          left_color="$UI_RESET"
-        fi
-
-        if [[ $right_idx -le $total ]]; then
-          local right_item="${options[mid + i]}"
-          local right_check="$UI_UNCHECK"
-          local right_color="$UI_DIM"
-          if _is_selected "$((mid + i))"; then
-            right_check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
-            right_color="$UI_RESET"
-          fi
-          printf "  ${UI_DIM}%2d${UI_RESET} [%b] ${left_color}%-${col_width}s${UI_RESET}  ${UI_DIM}%2d${UI_RESET} [%b] ${right_color}%s${UI_RESET}\n" \
-            "$left_idx" "$left_check" "$left_item" "$right_idx" "$right_check" "$right_item"
-        else
-          printf "  ${UI_DIM}%2d${UI_RESET} [%b] ${left_color}%s${UI_RESET}\n" "$left_idx" "$left_check" "$left_item"
-        fi
+    for (( i=0; i<total; i++ )); do
+      local idx=$((i + 1))
+      local item="${options[i]}"
+      local check="$UI_UNCHECK"
+      local color="$UI_OVERLAY1"
+      if _is_selected "$i"; then
+        check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
+        color="$UI_TEXT"
+      fi
+      local -a item_lines=()
+      _wrap_text "$item" "$content_w" item_lines
+      [[ ${#item_lines[@]} -eq 0 ]] && item_lines=("$item")
+      printf "  ${UI_OVERLAY1}%${idx_w}d${UI_RESET} [%b] ${color}%s${UI_RESET}\n" "$idx" "$check" "${item_lines[0]}"
+      local li
+      for (( li=1; li<${#item_lines[@]}; li++ )); do
+        printf "%s${color}%s${UI_RESET}\n" "$cont_indent" "${item_lines[li]}"
       done
-    else
-      for (( i=0; i<total; i++ )); do
-        local idx=$((i + 1))
-        local item="${options[i]}"
-        local check="$UI_UNCHECK"
-        local color="$UI_DIM"
-        if _is_selected "$i"; then
-          check="${UI_GREEN}${UI_CHECK}${UI_RESET}"
-          color="$UI_RESET"
-        fi
-        printf "  ${UI_DIM}%2d${UI_RESET} [%b] ${color}%s${UI_RESET}\n" "$idx" "$check" "$item"
-      done
-    fi
+    done
 
     echo ""
-    echo -e "  ${UI_CYAN}Num${UI_RESET} toggle  ${UI_CYAN}a${UI_RESET} todos  ${UI_CYAN}n${UI_RESET} nenhum  ${UI_CYAN}Enter${UI_RESET} confirmar"
+    echo -e "  ${UI_TEXT}Num${UI_RESET} ${UI_OVERLAY1}toggle${UI_RESET}  ${UI_TEXT}a${UI_RESET} ${UI_OVERLAY1}todos${UI_RESET}  ${UI_TEXT}n${UI_RESET} ${UI_OVERLAY1}nenhum${UI_RESET}  ${UI_GREEN}${UI_BOLD}Enter${UI_RESET} ${UI_OVERLAY1}confirmar${UI_RESET}"
     echo ""
     read -r -p "  → " input
 
@@ -473,12 +468,12 @@ ui_select_single_bash() {
 
   while true; do
     echo ""
-    echo -e "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H}${UI_BOX_H}${UI_BOX_H} ${UI_BOLD}$title${UI_RESET}${UI_CYAN} ${UI_BOX_H}${UI_BOX_H}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
+    echo -e "  ${UI_MAUVE}${UI_BOLD}${title}${UI_RESET}"
     echo ""
 
     local idx=1
     for opt in "${options[@]}"; do
-      echo -e "  ${UI_CYAN}$idx${UI_RESET}) $opt"
+      echo -e "  ${UI_PEACH}${UI_BOLD}${idx}${UI_RESET}${UI_OVERLAY1})${UI_RESET} ${UI_TEXT}$opt${UI_RESET}"
       idx=$((idx + 1))
     done
 

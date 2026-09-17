@@ -187,7 +187,16 @@ download_and_install_font() {
 
   mkdir -p "$temp_dir"
 
-  if run_with_timeout 60 unzip -o "$temp_zip" -d "$temp_dir"; then
+  # -q obrigatorio: sem ele o unzip imprime uma linha "inflating:" por arquivo,
+  # e um pacote de Nerd Font tem mais de cem. Como os downloads rodam em ate 8
+  # jobs paralelos (MAX_PARALLEL_DOWNLOADS), a saida de varios unzip chega
+  # intercalada ao mesmo tee e ao mesmo terminal.
+  #
+  # Em Set/2026 isso derrubou o terminal do dono no meio de uma instalacao real:
+  # o log parou de crescer no meio do unzip do Meslo, sem erro e sem conclusao,
+  # e a janela inteira fechou. A saida nao tinha valor nenhum — o script ja
+  # reporta o resultado por fonte.
+  if run_with_timeout 60 unzip -qo "$temp_zip" -d "$temp_dir"; then
     local font_count=0
     while IFS= read -r -d '' font_file; do
       cp -f "$font_file" "$fonts_dir/" 2>/dev/null && ((font_count++))
