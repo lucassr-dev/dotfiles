@@ -207,8 +207,28 @@ _dest_excluded_from_public() {
 _check_secret_dests_match_public_sync() {
   local sync="$SCRIPT_DIR/scripts/sync_public.sh" prefix faltando=0
   [[ -f "$sync" ]] || { echo "sync_public.sh nao encontrado" >&2; return 1; }
+
+  # Le as entradas do array SYNC_EXCLUDES do outro script sem executa-lo.
+  # Ate Set/2026 isto procurava a forma "--exclude 'caminho'", inline no
+  # comando rsync; quando aquele script passou a declarar a lista num array,
+  # esta checagem quebrou em voz alta — que e o comportamento desejado. Se o
+  # formato mudar de novo, ela quebra de novo, em vez de passar por engano.
+  local -a excluidos=()
+  mapfile -t excluidos < <(
+    awk '/^SYNC_EXCLUDES=\(/{dentro=1; next} dentro && /^\)/{exit} dentro' "$sync" |
+    sed -nE "s/^[[:space:]]*['\"]([^'\"]+)['\"].*/\1/p"
+  )
+
+  if [[ "${#excluidos[@]}" -eq 0 ]]; then
+    echo "nao consegui ler SYNC_EXCLUDES de $sync — o formato da lista mudou?" >&2
+    return 1
+  fi
+
+  local e achou
   for prefix in "${SECRET_EXPORT_DESTS[@]}"; do
-    grep -qF -- "--exclude '$prefix'" "$sync" || { echo "sem --exclude no espelho publico: $prefix" >&2; faltando=1; }
+    achou=0
+    for e in "${excluidos[@]}"; do [[ "$e" == "$prefix" ]] && achou=1 && break; done
+    [[ "$achou" -eq 1 ]] || { echo "sem exclusao no espelho publico: $prefix" >&2; faltando=1; }
   done
   return "$faltando"
 }

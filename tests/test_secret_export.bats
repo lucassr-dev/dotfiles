@@ -86,3 +86,28 @@ teardown() {
   [ -f "$FAKE/dest/chave.pub" ]
   [ -f "$FAKE/dest/config" ]
 }
+
+@test "a lista de exclusao do sync e legivel no formato atual" {
+  run bash -c "awk '/^SYNC_EXCLUDES=\\(/{d=1; next} d && /^\\)/{exit} d' '$REPO_ROOT/scripts/sync_public.sh' | grep -c \"'\""
+  [ "$status" -eq 0 ]
+  [ "$output" -gt 10 ]
+}
+
+@test "a checagem acusa quando uma exclusao some do sync" {
+  local copia="$FAKE/sync_public.sh"
+  grep -v "'shared/aider'" "$REPO_ROOT/scripts/sync_public.sh" > "$copia"
+
+  mkdir -p "$FAKE/repo/scripts"
+  cp "$copia" "$FAKE/repo/scripts/sync_public.sh"
+
+  SCRIPT_DIR="$FAKE/repo" run _check_secret_dests_match_public_sync
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"shared/aider"* ]]
+}
+
+@test "o marco de sync esta na lista de exclusao" {
+  run grep -c 'SYNC_STAMP=' "$REPO_ROOT/scripts/sync_public.sh"
+  [ "$status" -eq 0 ]
+  run bash -c "awk '/^SYNC_EXCLUDES=\\(/{d=1; next} d && /^\\)/{exit} d' '$REPO_ROOT/scripts/sync_public.sh' | grep -c 'SYNC_STAMP'"
+  [ "$output" -eq 1 ]
+}
