@@ -39,12 +39,16 @@ IA_TOOLS=(
   claude-code  # CLI oficial do Claude (Anthropic)
   aider        # AI pair programming (25K+ GitHub stars)
   codex        # Codex CLI da OpenAI (assistente no terminal)
+  gemini-cli   # CLI oficial do Gemini (Google)
+  opencode     # Agente de terminal open-source multi-model
+  crush        # Agente de terminal da Charm (multi-model)
   continue     # Open-source AI assistant para IDEs
   goose        # AI agent framework (Block/Square)
   spec-kit     # Spec-driven development (GitHub Spec Kit)
   serena       # Assistente de código com IA (Language Server)
   ollama       # Runtime LLM local (modelos open-source)
   promptfoo    # Framework de eval/testing para LLMs
+  llm          # Chamada de modelo via pipe, para scripts (Simon Willison)
 )
 
 SHELLS=(

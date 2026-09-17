@@ -233,6 +233,116 @@ install_selected_ia_tools() {
             ;;
         esac
         ;;
+      gemini-cli)
+        msg "▶ Gemini CLI (Google)"
+        if is_truthy "$DRY_RUN"; then
+          msg "  🔎 (dry-run) instalaria Gemini CLI via Homebrew/npm"
+        else
+          case "$TARGET_OS" in
+            macos)
+              if has_cmd brew; then
+                brew_install_formula gemini-cli optional
+              elif has_cmd npm; then
+                msg "  📦 Instalando Gemini CLI via npm..."
+                if npm i -g @google/gemini-cli; then
+                  INSTALLED_MISC+=("gemini-cli: npm")
+                else
+                  record_failure "optional" "Falha ao instalar Gemini CLI via npm"
+                fi
+              else
+                warn "Gemini CLI requer Homebrew ou npm. Instale Node.js 18+ para usar npm."
+              fi
+              ;;
+            linux|wsl2|windows)
+              if has_cmd npm; then
+                msg "  📦 Instalando Gemini CLI via npm..."
+                if npm i -g @google/gemini-cli; then
+                  INSTALLED_MISC+=("gemini-cli: npm")
+                else
+                  record_failure "optional" "Falha ao instalar Gemini CLI via npm"
+                fi
+              else
+                warn "Gemini CLI requer npm (Node.js 18+). Instale Node.js para usar npm."
+              fi
+              ;;
+          esac
+        fi
+        ;;
+      opencode)
+        msg "▶ OpenCode"
+        if is_truthy "$DRY_RUN"; then
+          msg "  🔎 (dry-run) instalaria OpenCode via Homebrew/npm"
+        else
+          case "$TARGET_OS" in
+            macos)
+              if has_cmd brew; then
+                brew_install_formula opencode optional
+              elif has_cmd npm; then
+                msg "  📦 Instalando OpenCode via npm..."
+                if npm i -g opencode-ai; then
+                  INSTALLED_MISC+=("opencode: npm")
+                else
+                  record_failure "optional" "Falha ao instalar OpenCode via npm"
+                fi
+              else
+                warn "OpenCode requer Homebrew ou npm. Instale Node.js 18+ para usar npm."
+              fi
+              ;;
+            linux|wsl2|windows)
+              if has_cmd npm; then
+                msg "  📦 Instalando OpenCode via npm..."
+                if npm i -g opencode-ai; then
+                  INSTALLED_MISC+=("opencode: npm")
+                else
+                  record_failure "optional" "Falha ao instalar OpenCode via npm"
+                fi
+              else
+                warn "OpenCode requer npm (Node.js 18+). Instale Node.js para usar npm."
+              fi
+              ;;
+          esac
+        fi
+        ;;
+      crush)
+        msg "▶ Crush (Charm)"
+        if is_truthy "$DRY_RUN"; then
+          msg "  🔎 (dry-run) instalaria Crush via npm/winget"
+        else
+          case "$TARGET_OS" in
+            macos|linux|wsl2)
+              if has_cmd npm; then
+                msg "  📦 Instalando Crush via npm..."
+                if npm i -g @charmland/crush; then
+                  INSTALLED_MISC+=("crush: npm")
+                else
+                  record_failure "optional" "Falha ao instalar Crush via npm"
+                fi
+              else
+                warn "Crush requer npm (Node.js 18+). Instale Node.js para usar npm (não há fórmula Homebrew para o Crush)."
+              fi
+              ;;
+            windows)
+              if has_cmd winget; then
+                msg "  📦 Instalando Crush via winget..."
+                if winget install -e --id charmbracelet.crush --accept-package-agreements --accept-source-agreements; then
+                  INSTALLED_MISC+=("crush: winget")
+                else
+                  record_failure "optional" "Falha ao instalar Crush via winget"
+                fi
+              elif has_cmd npm; then
+                msg "  📦 Instalando Crush via npm..."
+                if npm i -g @charmland/crush; then
+                  INSTALLED_MISC+=("crush: npm")
+                else
+                  record_failure "optional" "Falha ao instalar Crush via npm"
+                fi
+              else
+                warn "Crush requer winget ou npm. Instale Node.js 18+ para usar npm."
+              fi
+              ;;
+          esac
+        fi
+        ;;
       claude-code)
         msg "▶ Claude Code"
         case "$TARGET_OS" in
@@ -388,6 +498,33 @@ install_selected_ia_tools() {
           brew_install_formula promptfoo optional
         else
           warn "promptfoo requer npm (Node.js) ou Homebrew. Instale Node primeiro."
+        fi
+        ;;
+      llm)
+        msg "▶ llm (chamada de modelo via pipe/script)"
+        if is_truthy "$DRY_RUN"; then
+          msg "  🔎 (dry-run) instalaria llm via Homebrew/uv/pipx"
+        elif [[ "$TARGET_OS" == "macos" ]] && has_cmd brew; then
+          brew_install_formula llm optional
+        else
+          ensure_uv
+          if has_cmd uv; then
+            msg "  📦 Instalando llm via uv..."
+            if uv tool install llm; then
+              INSTALLED_MISC+=("llm: uv tool")
+            else
+              record_failure "optional" "Falha ao instalar llm via uv"
+            fi
+          elif has_cmd pipx; then
+            msg "  📦 Instalando llm via pipx..."
+            if pipx install llm; then
+              INSTALLED_MISC+=("llm: pipx")
+            else
+              record_failure "optional" "Falha ao instalar llm via pipx"
+            fi
+          else
+            warn "llm requer Homebrew (macOS), uv ou pipx. Instale Python e uv primeiro."
+          fi
         fi
         ;;
       ollama)

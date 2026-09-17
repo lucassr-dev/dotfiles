@@ -332,12 +332,16 @@ ask_ia_tools() {
       spec-kit)    tools_with_desc+=("spec-kit    - Spec-driven development com IA") ;;
       serena)      tools_with_desc+=("serena      - Assistente de código baseado em IA") ;;
       codex)       tools_with_desc+=("codex       - Codex CLI da OpenAI (assistente de código no terminal)") ;;
+      gemini-cli)  tools_with_desc+=("gemini-cli  - CLI oficial do Gemini (Google)") ;;
+      opencode)    tools_with_desc+=("opencode    - Agente de terminal open-source multi-model") ;;
+      crush)       tools_with_desc+=("crush       - Agente de terminal da Charm (multi-model)") ;;
       claude-code) tools_with_desc+=("claude-code - CLI oficial do Claude AI (Anthropic)") ;;
       aider)       tools_with_desc+=("aider       - AI pair programming (25K+ GitHub stars)") ;;
       continue)    tools_with_desc+=("continue    - Open-source AI assistant para IDEs") ;;
       goose)       tools_with_desc+=("goose       - AI agent framework (Block/Square)") ;;
       ollama)      tools_with_desc+=("ollama      - Runtime LLM local (modelos open-source)") ;;
       promptfoo)   tools_with_desc+=("promptfoo   - Framework de eval/testing para LLMs") ;;
+      llm)         tools_with_desc+=("llm         - Chamada de modelo via pipe, para scripts") ;;
       *)           tools_with_desc+=("$tool") ;;
     esac
   done

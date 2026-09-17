@@ -1,0 +1,20 @@
+# Extensões de IA curadas à mão.
+#
+# extensions.txt é gerado por export_vscode_extensions (lib/fileops.sh), que
+# roda `code --list-extensions` e sobrescreve o arquivo inteiro a cada
+# `install.sh export`. Qualquer linha acrescentada ali a mão desaparece na
+# próxima exportação.
+#
+# Este arquivo existe para não perder curadoria: install_vscode_extensions
+# instala a partir dos dois arquivos, e só o extensions.txt é regenerado pelo
+# export. Adicione aqui extensões de IA que valem a pena ter por padrão, mesmo
+# que a máquina que rodar o export não as tenha instaladas.
+#
+# Linhas iniciadas por # são ignoradas, igual ao extensions.txt.
+
+saoudrizwan.claude-dev
+Google.geminicodeassist
+RooVeterinaryInc.roo-cline
+Codeium.codeium
+continue.continue
+openai.chatgpt

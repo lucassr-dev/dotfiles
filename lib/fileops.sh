@@ -405,6 +405,10 @@ export_vscode_extensions() {
 
 install_vscode_extensions() {
   local extensions_file="$CONFIG_SHARED/vscode/extensions.txt"
+  # extensions-ai.txt e curada a mao (extensoes de IA) e nao passa pelo export
+  # de extensions.txt (que sobrescreve o arquivo com `code --list-extensions`
+  # a cada `install.sh export`). Duas listas, uma so fonte de instalacao.
+  local extensions_ai_file="$CONFIG_SHARED/vscode/extensions-ai.txt"
 
   if [[ ${COPY_VSCODE_SETTINGS:-0} -ne 1 ]]; then
     msg "  ⏭️  VS Code extensions: usuário optou por não copiar/instalar"
@@ -416,7 +420,7 @@ install_vscode_extensions() {
     return
   fi
 
-  if [[ ! -f "$extensions_file" ]]; then
+  if [[ ! -f "$extensions_file" && ! -f "$extensions_ai_file" ]]; then
     return
   fi
 
@@ -427,24 +431,40 @@ install_vscode_extensions() {
   local installed_extensions
   installed_extensions="$(code --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')"
 
-  while IFS= read -r extension; do
-    [[ -z "$extension" ]] && continue
-    [[ "$extension" =~ ^# ]] && continue
+  local seen_extensions="|"
+  local extension ext_lower source_file
 
-    local ext_lower
-    ext_lower="$(echo "$extension" | tr '[:upper:]' '[:lower:]')"
+  for source_file in "$extensions_file" "$extensions_ai_file"; do
+    [[ -f "$source_file" ]] || continue
 
-    if echo "$installed_extensions" | grep -qi "^${ext_lower}$"; then
-      continue
-    fi
+    while IFS= read -r extension; do
+      [[ -z "$extension" ]] && continue
+      [[ "$extension" =~ ^# ]] && continue
 
-    msg "  🔌 Instalando: $extension"
-    if ! code --install-extension "$extension" --force >/dev/null 2>&1; then
-      warn "Falha ao instalar extensão: $extension"
-    else
-      installed_count=$((installed_count + 1))
-    fi
-  done < "$extensions_file"
+      ext_lower="$(echo "$extension" | tr '[:upper:]' '[:lower:]')"
+
+      if [[ "$seen_extensions" == *"|${ext_lower}|"* ]]; then
+        continue
+      fi
+      seen_extensions+="${ext_lower}|"
+
+      if echo "$installed_extensions" | grep -qi "^${ext_lower}$"; then
+        continue
+      fi
+
+      if is_truthy "$DRY_RUN"; then
+        msg "  🔎 (dry-run) code --install-extension $extension"
+        continue
+      fi
+
+      msg "  🔌 Instalando: $extension"
+      if ! code --install-extension "$extension" --force >/dev/null 2>&1; then
+        warn "Falha ao instalar extensão: $extension"
+      else
+        installed_count=$((installed_count + 1))
+      fi
+    done < "$source_file"
+  done
 
   if [[ $installed_count -gt 0 ]]; then
     INSTALLED_MISC+=("vscode extensions: $installed_count")
