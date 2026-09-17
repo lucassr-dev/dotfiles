@@ -27,6 +27,20 @@ _WIDE_CHARS_REGEX='(←|↑|→|↓|↔|⚙|✅|✏|✓|✗|❌|❓|⭐|🌍|�
 
 _visible_len() {
   local text="$1"
+
+  # Caminho rapido: ASCII puro e sem escape ANSI -> 1 byte = 1 coluna, e o
+  # comprimento da string ja e a resposta exata.
+  #
+  # Importa muito: o caminho lento abre TRES subprocessos por chamada
+  # (_strip_ansi, grep|wc, wc -L), e _wrap_text chama isto uma vez por palavra.
+  # No Git Bash do Windows, onde criar processo custa ~1s, o seletor de apps
+  # passou a gastar 3-5 segundos POR LINHA e estourou o limite de 5 minutos do
+  # CI em Set/2026. A maioria esmagadora das chamadas e nome de pacote e
+  # descricao em ASCII.
+  if [[ "$text" != *$'\033'* && "$text" != *[!$'\x20'-$'\x7e']* ]]; then
+    echo "${#text}"
+    return 0
+  fi
   local clean
   clean=$(printf '%s' "$text" | _strip_ansi)
 
