@@ -90,6 +90,7 @@ if [[ ! -f "$THEMES_FILE" ]]; then
   exit 1
 fi
 # shellcheck disable=SC1091
+# shellcheck source=../data/themes.sh
 source "$THEMES_FILE"
 
 THEME_ASSETS_FILE="$SCRIPT_DIR/lib/theme_assets.sh"
@@ -98,6 +99,7 @@ if [[ ! -f "$THEME_ASSETS_FILE" ]]; then
   exit 1
 fi
 # shellcheck disable=SC1091
+# shellcheck source=../lib/theme_assets.sh
 source "$THEME_ASSETS_FILE"
 
 DRY_RUN="${DRY_RUN:-0}"
@@ -126,7 +128,11 @@ is_truthy() {
 
 msg()  { printf '%b\n' "$1"; }
 warn() { msg "  ⚠️  $1"; }
-err()  { printf '%b\n' "  ❌ $1" >&2; }
+# msg/warn/err vem de lib/core.sh quando ele existir; as definicoes locais sao
+# o fallback para rodar este script de forma independente.
+if ! declare -F err >/dev/null 2>&1; then
+  err() { printf '%b\n' "  ❌ $1" >&2; }
+fi
 
 FAILED=0
 declare -a CHANGED_FILES=()
@@ -165,11 +171,11 @@ _region_interior_content() {
   local content="$1" label="$2"
   local start_needle="tema:${label} inicio"
   local end_needle="tema:${label} fim"
-  local -a src=()
-  mapfile -t src <<<"$content"
+  local -a linhas=()
+  mapfile -t linhas <<<"$content"
   local start_idx=-1 end_idx=-1 i
-  for i in "${!src[@]}"; do
-    case "${src[$i]}" in
+  for i in "${!linhas[@]}"; do
+    case "${linhas[$i]}" in
       *"$start_needle"*)
         [[ $start_idx -ge 0 ]] && { err "marcador '$label' duplicado (inicio)"; return 1; }
         start_idx=$i
@@ -185,7 +191,7 @@ _region_interior_content() {
     return 1
   fi
   local count=$((end_idx - start_idx - 1))
-  [[ $count -gt 0 ]] && printf '%s\n' "${src[@]:$((start_idx + 1)):$count}"
+  [[ $count -gt 0 ]] && printf '%s\n' "${linhas[@]:$((start_idx + 1)):$count}"
   return 0
 }
 
@@ -201,11 +207,11 @@ _splice_region_content() {
   local content="$1" label="$2" new_interior="$3"
   local start_needle="tema:${label} inicio"
   local end_needle="tema:${label} fim"
-  local -a src=()
-  mapfile -t src <<<"$content"
+  local -a linhas=()
+  mapfile -t linhas <<<"$content"
   local start_idx=-1 end_idx=-1 i
-  for i in "${!src[@]}"; do
-    case "${src[$i]}" in
+  for i in "${!linhas[@]}"; do
+    case "${linhas[$i]}" in
       *"$start_needle"*)
         [[ $start_idx -ge 0 ]] && { err "marcador '$label' duplicado (inicio)"; return 1; }
         start_idx=$i
@@ -223,7 +229,7 @@ _splice_region_content() {
   local -a new_lines=()
   mapfile -t new_lines <<<"$new_interior"
   local -a out=()
-  out=("${src[@]:0:$((start_idx + 1))}" "${new_lines[@]}" "${src[@]:$end_idx}")
+  out=("${linhas[@]:0:$((start_idx + 1))}" "${new_lines[@]}" "${linhas[@]:$end_idx}")
   printf '%s\n' "${out[@]}"
 }
 

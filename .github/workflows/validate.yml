@@ -11,7 +11,7 @@ jobs:
       - name: Check bash syntax
         run: |
           bash -n install.sh
-          for f in lib/*.sh data/*.sh; do
+          for f in lib/*.sh data/*.sh scripts/*.sh; do
             bash -n "$f" || exit 1
           done
           echo "All files pass syntax check"
@@ -26,7 +26,7 @@ jobs:
         run: command -v shellcheck >/dev/null || sudo apt-get install -y shellcheck
       - name: Run shellcheck
         run: |
-          shellcheck -x -S warning -e SC2034,SC2329,SC1091 install.sh lib/*.sh
+          shellcheck -x -S warning -e SC2034,SC2329,SC1091 install.sh lib/*.sh scripts/*.sh data/*.sh
 
   dry-run:
     name: Dry Run (${{ matrix.os }})

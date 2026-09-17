@@ -90,7 +90,7 @@ for _ in 1 2 3 4 5 6 7 8 9 10 11; do
   FIM=$(date +%s%N)
   AMOSTRAS+=( $(( (FIM - INICIO) / 1000000 )) )
 done
-ORDENADAS=($(printf '%s\n' "${AMOSTRAS[@]}" | sort -n))
+mapfile -t ORDENADAS < <(printf '%s\n' "${AMOSTRAS[@]}" | sort -n)
 MEDIA="${ORDENADAS[5]}"
 if (( MEDIA < MAX_STARTUP_MS )); then
   ok "${MEDIA} ms mediana (limite: ${MAX_STARTUP_MS} ms) — amostras: ${ORDENADAS[*]}"

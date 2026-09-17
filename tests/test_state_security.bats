@@ -20,6 +20,8 @@ setup() {
   HOME="$FAKE_HOME"
   export HOME
   # shellcheck disable=SC1091
+  source "$REPO_ROOT/lib/core.sh"
+  # shellcheck disable=SC1091
   source "$REPO_ROOT/lib/state.sh"
   # shellcheck disable=SC1091
   source "$REPO_ROOT/lib/checkpoint.sh"
@@ -115,8 +117,11 @@ EOF
   state_clear
   ! state_has "test.roundtrip.marker"
 
-  run checkpoint_load
-  [ "$status" -eq 0 ]
+  # checkpoint_load muda DOTFILES_STATE e CHECKPOINT_STAGE no processo atual;
+  # "run" do bats executaria isso num subshell e perderia as duas mutacoes.
+  local load_status=0
+  checkpoint_load || load_status=$?
+  [ "$load_status" -eq 0 ]
 
   [ "$(state_get 'test.roundtrip.marker')" = "valor-teste" ]
   [ "$(state_get 'selections.cli_tools')" = "fzf,bat,eza" ]

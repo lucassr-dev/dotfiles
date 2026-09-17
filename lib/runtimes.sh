@@ -44,7 +44,9 @@ _mise_install_runtime() {
   local version="$3"
 
   msg "  📦 ${label} (${version}) via mise..."
-  if mise use -g -y "${runtime}@${version}"; then
+  # `mise use -g` escreve em ~/.config/mise/config.toml e baixa o runtime.
+  # run_mutating cuida do gate de DRY_RUN, no mesmo padrao do run_with_sudo.
+  if run_mutating "mise use -g ${runtime}@${version}" mise use -g -y "${runtime}@${version}"; then
     INSTALLED_MISC+=("${runtime}: mise ${version}")
   else
     record_failure "optional" "Falha ao instalar ${label} (${version}) via mise"

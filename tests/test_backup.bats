@@ -1,12 +1,9 @@
 #!/usr/bin/env bats
 #
 # Regressao para o bug de subshell no BACKUP_DIR: _ensure_backup_dir() e
-# BACKUP_DIR="" vivem no topo do install.sh (nao em lib/), e install.sh chama
-# main() incondicionalmente na ultima linha. Nao da para dar "source" no
-# arquivo inteiro sem rodar o instalador interativo, entao extraimos so o
-# trecho sob teste (do "BACKUP_DIR=\"\"" ate o "}" da funcao) com sed e
-# fazemos "source" so dele. Isso testa o codigo real do install.sh, nao uma
-# copia reescrita aqui.
+# BACKUP_DIR="" vivem em lib/core.sh (extraidos do install.sh, que os chamava
+# incondicionalmente antes de lib/ poder ser testado sozinho). O source abaixo
+# carrega o arquivo real do modulo, nao uma copia reescrita aqui.
 #
 # Todo teste roda com HOME apontando para um diretorio temporario: nunca deve
 # tocar em ~/.bkp-* de verdade.
@@ -26,7 +23,7 @@ teardown() {
   echo "tmux" > "$FAKE_HOME/.tmux.conf"
 
   run env HOME="$FAKE_HOME" bash -c '
-    source <(sed -n "/^BACKUP_DIR=\"\"/,/^}/p" "'"$REPO_ROOT"'/install.sh")
+    source "'"$REPO_ROOT"'/lib/core.sh"
     source "'"$REPO_ROOT"'/lib/fileops.sh"
 
     msg() { :; }
@@ -48,7 +45,7 @@ teardown() {
   echo "zsh" > "$FAKE_HOME/.zshrc"
 
   run env HOME="$FAKE_HOME" bash -c '
-    source <(sed -n "/^BACKUP_DIR=\"\"/,/^}/p" "'"$REPO_ROOT"'/install.sh")
+    source "'"$REPO_ROOT"'/lib/core.sh"
     source "'"$REPO_ROOT"'/lib/fileops.sh"
 
     msg() { :; }
@@ -70,7 +67,7 @@ teardown() {
   echo "git" > "$FAKE_HOME/.gitconfig"
 
   run env HOME="$FAKE_HOME" bash -c '
-    source <(sed -n "/^BACKUP_DIR=\"\"/,/^}/p" "'"$REPO_ROOT"'/install.sh")
+    source "'"$REPO_ROOT"'/lib/core.sh"
     source "'"$REPO_ROOT"'/lib/fileops.sh"
 
     msg() { :; }
@@ -88,7 +85,7 @@ teardown() {
 
 @test "_ensure_backup_dir e idempotente: chamadas repetidas nao trocam o diretorio" {
   run env HOME="$FAKE_HOME" bash -c '
-    source <(sed -n "/^BACKUP_DIR=\"\"/,/^}/p" "'"$REPO_ROOT"'/install.sh")
+    source "'"$REPO_ROOT"'/lib/core.sh"
 
     _ensure_backup_dir
     first="$BACKUP_DIR"

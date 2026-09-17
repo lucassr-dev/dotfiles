@@ -17,19 +17,11 @@ CONFIG_MACOS="$SCRIPT_DIR/macos"
 CONFIG_WINDOWS="$SCRIPT_DIR/windows"
 DATA_APPS="$SCRIPT_DIR/data/apps.sh"
 DATA_RUNTIMES="$SCRIPT_DIR/data/runtimes.sh"
-# BACKUP_DIR e criado sob demanda: nenhuma execucao deve deixar um diretorio
-# vazio em $HOME quando nada precisa ser copiado (ex.: DRY_RUN=1).
-# _ensure_backup_dir NAO imprime nada de proposito: chamar em $(...) rodaria
-# num subshell e a atribuicao a BACKUP_DIR se perderia ao sair dele. Use a
-# variavel global diretamente depois de chamar a funcao.
-BACKUP_DIR=""
-_ensure_backup_dir() {
-  [[ -n "$BACKUP_DIR" ]] && return 0
-  local stamp
-  stamp="$(date +%Y%m%d-%H%M%S)"
-  BACKUP_DIR="$(mktemp -d "$HOME/.bkp-${stamp}-XXXXXX" 2>/dev/null || echo "$HOME/.bkp-${stamp}-$$")"
-  mkdir -p "$BACKUP_DIR"
-}
+# lib/core.sh define msg/warn/is_truthy/has_cmd/record_failure/run_with_sudo/
+# run_mutating/_ensure_backup_dir (+ BACKUP_DIR). Precisa ser o primeiro
+# source: o bloco de dados de apps/runtimes mais abaixo (~linha 940) ja chama
+# warn() no nivel superior do script, antes de qualquer outro source.
+source "$SCRIPT_DIR/lib/core.sh"
 TARGET_OS=""
 ARCH=""
 LINUX_PKG_MANAGER=""
@@ -180,21 +172,6 @@ for arg in "$@"; do
   esac
 done
 
-msg() {
-  printf '%b\n' "$1"
-}
-
-warn() {
-  msg "  ⚠️ $1"
-}
-
-is_truthy() {
-  case "${1:-}" in
-    1|true|TRUE|yes|YES|y|Y|on|ON) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
 snap_install_or_refresh() {
   local pkg="$1"
   local friendly="$2"
@@ -246,29 +223,6 @@ flatpak_install_or_update() {
   else
     record_failure "$level" "Falha ao instalar via flatpak: $friendly ($ref)"
   fi
-}
-
-record_failure() {
-  local level="$1"
-  local message="$2"
-  local fix_hint="${3:-}"
-  if [[ "$level" == "critical" ]]; then
-    CRITICAL_ERRORS+=("$message")
-    warn "❌ $message"
-    [[ -n "$fix_hint" ]] && warn "💡 $fix_hint"
-    if [[ "$FAIL_FAST" -eq 1 ]]; then
-      print_final_summary 1
-    fi
-  else
-    OPTIONAL_ERRORS+=("$message")
-    warn "$message"
-    [[ -n "$fix_hint" ]] && warn "💡 $fix_hint"
-  fi
-  return 1
-}
-
-has_cmd() {
-  command -v "$1" >/dev/null 2>&1
 }
 
 has_snap_pkg() {
@@ -347,40 +301,6 @@ is_app_installed() {
   fi
 
   return 1
-}
-
-run_with_sudo() {
-  if is_truthy "$DRY_RUN"; then
-    msg "  🔎 (dry-run) sudo $*"
-    return 0
-  fi
-  if [[ $EUID -eq 0 ]]; then
-    "$@"
-  elif has_cmd sudo; then
-    sudo "$@"
-  else
-    warn "Comando '$*' requer sudo, mas sudo não está disponível."
-    return 1
-  fi
-}
-
-# Ponto de estrangulamento para comando externo que altera a maquina do
-# usuario sem precisar de sudo (git clone, cargo install, fisher install,
-# instalador via curl | sh chamado direto). Mesmo espirito do run_with_sudo:
-# em DRY_RUN, imprime o que faria e devolve sucesso simulado sem tocar em
-# nada; fora de DRY_RUN, executa o comando normalmente.
-#
-# Nao serve para comando cuja saida e capturada via `>` ou `$(...)` no
-# proprio call site: a redirecao encostaria na mensagem de dry-run tambem,
-# porque ela sai por stdout dentro desta funcao. Esses casos usam gate local.
-run_mutating() {
-  local desc="$1"
-  shift
-  if is_truthy "$DRY_RUN"; then
-    msg "  🔎 (dry-run) $desc ($*)"
-    return 0
-  fi
-  "$@"
 }
 
 source "$SCRIPT_DIR/lib/fileops.sh"
@@ -2832,7 +2752,9 @@ _validate_ssh_keys() {
 
   local host resposta
   while IFS= read -r host; do
-    resposta="$(ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+    # -n e obrigatorio aqui: sem ele o ssh consome o stdin do laco, que e a
+    # propria lista de hosts, e so o primeiro seria verificado.
+    resposta="$(ssh -n -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
                     -o ConnectTimeout=10 "$host" 2>&1)"
     if printf '%s' "$resposta" | grep -q "successfully authenticated"; then
       msg "  ✓ $host: chave aceita"

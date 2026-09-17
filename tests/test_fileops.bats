@@ -9,7 +9,6 @@ setup() {
   TMP_DIR="$(mktemp -d)"
   SRC_DIR="$TMP_DIR/src"
   DEST_DIR="$TMP_DIR/dest"
-  BACKUP_DIR="$TMP_DIR/backup"
   mkdir -p "$SRC_DIR" "$DEST_DIR"
 
   DRY_RUN=0
@@ -17,13 +16,13 @@ setup() {
   CRITICAL_ERRORS=()
   OPTIONAL_ERRORS=()
   COPIED_PATHS=()
-
-  is_truthy() { case "${1:-}" in 1|true|TRUE|yes|YES|y|Y|on|ON) return 0 ;; *) return 1 ;; esac; }
-  has_cmd() { command -v "$1" >/dev/null 2>&1; }
-  msg() { printf '%b\n' "$1"; }
-  warn() { msg "  ⚠️ $1"; }
-  record_failure() { echo "FAIL[$1]: $2"; return 1; }
   UI_BORDER="" UI_RESET=""
+
+  # shellcheck source=/dev/null
+  source "$SCRIPT_DIR/lib/core.sh"
+  BACKUP_DIR="$TMP_DIR/backup"
+  mkdir -p "$BACKUP_DIR"
+  record_failure() { echo "FAIL[$1]: $2"; return 1; }
 
   # shellcheck source=/dev/null
   source "$SCRIPT_DIR/lib/fileops.sh"

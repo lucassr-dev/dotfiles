@@ -127,6 +127,10 @@ ensure_fonts_dir() {
   fonts_dir="$(get_fonts_dir)"
 
   if [[ ! -d "$fonts_dir" ]]; then
+    if is_truthy "$DRY_RUN"; then
+      msg "  🔎 (dry-run) criaria o diretorio de fontes: $fonts_dir"
+      return 0
+    fi
     msg "  📁 Criando diretório de fontes: $fonts_dir"
     mkdir -p "$fonts_dir" || {
       record_failure "optional" "Falha ao criar diretório de fontes: $fonts_dir"
@@ -138,6 +142,15 @@ ensure_fonts_dir() {
 }
 
 download_and_install_font() {
+  # Gate unico de DRY_RUN para toda a fonte: o download, o unzip e a copia para
+  # o diretorio de fontes acontecem dentro desta funcao. Gatear aqui evita
+  # espalhar a checagem por cada um dos tres, e mantem o formato de mensagem
+  # que o resto do instalador usa.
+  if is_truthy "$DRY_RUN"; then
+    msg "  🔎 (dry-run) baixaria e instalaria a fonte: ${1:-?}"
+    return 0
+  fi
+
   local font_name="$1"
   local fonts_dir
   fonts_dir="$(get_fonts_dir)"
@@ -201,8 +214,7 @@ refresh_font_cache() {
   case "$TARGET_OS" in
     linux|wsl2)
       if has_cmd fc-cache; then
-        msg "  🔄 Atualizando cache de fontes (fc-cache)..."
-        fc-cache -f "$(get_fonts_dir)" >/dev/null 2>&1 || true
+        run_mutating "fc-cache -f $(get_fonts_dir)" fc-cache -f "$(get_fonts_dir)" >/dev/null 2>&1 || true
       fi
       ;;
     macos)
