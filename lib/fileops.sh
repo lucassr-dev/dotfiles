@@ -155,7 +155,7 @@ append_block_to_file() {
 # versiona tudo isso.
 #
 # Nao foi hipotese: as duas chaves ed25519 do dono, sem passphrase, entraram no
-# repositorio por aqui no commit 0d14782 (mar/2026) e foram enviadas ao remoto.
+# repositorio por aqui no commit bb059ce (mar/2026) e foram enviadas ao remoto.
 #
 # A checagem e por CONTEUDO, nao por nome de arquivo, porque o nome nao e
 # confiavel — uma chave chamada "config" continua sendo uma chave.

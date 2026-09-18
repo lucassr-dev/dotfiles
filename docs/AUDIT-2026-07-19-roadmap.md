@@ -45,20 +45,20 @@ localmente). Nenhuma pendência de código restante desta rodada — só a exclu
 `claude-code-template` (ver nota acima) segue bloqueada por permissão externa (fora do controle
 do Claude Code).
 
-- [x] **1. SSH keys wired up** (commit `d24b873`) — `ask_ssh_keys()` novo (ETAPA 1, só pergunta se
+- [x] **1. SSH keys wired up** (commit `aec9294`) — `ask_ssh_keys()` novo (ETAPA 1, só pergunta se
   detectar fonte + terminal interativo), `_resolve_ssh_source()` extraído, wiring em toggle/contagem/
   resumo. Bônus: corrigido bug de segurança lateral (`set_ssh_permissions` não rodava se
   `manage_ssh_keys` "falhasse" no último item do loop — chaves anteriores ficavam 644
   permanentemente) + `chmod 600` imediato por-chave. Testado: dry-run completo, exit 0.
-- [x] **2. Checkpoint versionado** (commit `c66f0f5`) — grava SHA do commit no save (`SCRIPT_VERSION`
+- [x] **2. Checkpoint versionado** (commit `68f91d0`) — grava SHA do commit no save (`SCRIPT_VERSION`
   não serve, travado em "1.0.0"), avisa no load se divergir do SHA atual (não bloqueia, só avisa +
   instrui como recomeçar). Step-level progress tracking (pular só steps já concluídos) ficou de fora
   — redesign maior, não fix pontual; considerar depois se o usuário sentir falta.
-- [x] **3. MongoDB corrigido** (commit `21058e9`) — removida entrada de catálogo que sombreava os
+- [x] **3. MongoDB corrigido** (commit `976d300`) — removida entrada de catálogo que sombreava os
   installers reais; `brew tap mongodb/brew` adicionado (macOS); tentativa best-effort de repo apt
   oficial (Linux, ubuntu/debian via `/etc/os-release`, fallback pra mensagem com link da doc se
   codename não suportado ainda). Testado: dry-run de regressão, exit 0.
-- [x] **4. Cobertura de testes ~15%** (commits `adb01f4`, `ad07ef3`) — `tests/test_checkpoint.bats`
+- [x] **4. Cobertura de testes ~15%** (commits `5208f42`, `b67506b`) — `tests/test_checkpoint.bats`
   (7 testes: `_current_repo_sha`, grava SHA no save, load sem aviso com SHA igual, load avisa com
   SHA divergente, roundtrip de state via checkpoint, `checkpoint_exists`, `checkpoint_clear`) +
   `tests/test_fileops.bats` (9 testes: copy_file novo/idêntico/DRY_RUN/backup, copy_dir
@@ -70,7 +70,7 @@ do Claude Code).
   `themes.sh`/`install.sh` fim-a-fim seguem sem BATS dedicado — só exercitados pelo dry-run do CI;
   não fazia parte do escopo mínimo pedido (checkpoint+fileops), considerar depois se cobertura
   mais ampla for necessária.
-- [x] **5. Dead code (parcial, decisão refinada)** (commit `3959dd5`) — removidas `state_save`/
+- [x] **5. Dead code (parcial, decisão refinada)** (commit `3438e9f`) — removidas `state_save`/
   `state_load`/`_state_file_is_secure` de `lib/state.sh` (duplicavam `checkpoint.sh`, zero callers
   reais) + teste correspondente + `docs/ARCHITECTURE.md` corrigido. **`state_clear` NÃO removida**:
   diferente das outras 3, é usada como infra de isolamento por 2 outros testes ainda válidos
@@ -81,7 +81,7 @@ do Claude Code).
   latente confirmado em `ui_box` (`%s` em vez de `%b` pro conteúdo, quebraria ANSI se algum dia for
   usado) — inofensivo hoje porque a função é código morto; se algum dia for adotada, corrigir o
   `%s`→`%b` junto.
-- [x] **6. Emoji: largura corrigida** (commit `3cd70dc`) — testei os 69 emoji/símbolos realmente
+- [x] **6. Emoji: largura corrigida** (commit `bfce88c`) — testei os 69 emoji/símbolos realmente
   usados no repo individualmente contra `wc -L` (não assumido): só 39 vêm subcontados, os outros 29
   já contam certo — uma compensação "todo emoji +1" teria piorado quase metade dos casos. Também
   achei e corrigi um bug separado: bracket class `[...]` conta bytes individuais de UTF-8
@@ -90,7 +90,7 @@ do Claude Code).
 ## Como retomar se o contexto for perdido
 
 1. `cd c:\Users\lucas\Downloads\ARK-CLUSTER\dotfiles && git log --oneline -15` — ver o que já foi
-   commitado desde `44a83a3` (README curto do shared/claude) em diante.
+   commitado desde `27143d6` (README curto do shared/claude) em diante.
 2. Ler este arquivo inteiro antes de assumir que algo ainda está pendente — a lista de checkbox
    acima é a fonte de verdade, atualizar conforme for concluindo cada item.
 3. Rodar `DRY_RUN=1 bash install.sh < /dev/null` localmente antes de qualquer push, igual foi feito

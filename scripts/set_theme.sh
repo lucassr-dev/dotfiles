@@ -323,7 +323,7 @@ _apply_bat_file() {
 }
 
 # shared/starship.toml tem DOIS marcadores desde a sync com o sistema
-# (a716b2a): "tema:nome" so com a linha `palette = '...'`, e "tema:cores"
+# (37a1da1): "tema:nome" so com a linha `palette = '...'`, e "tema:cores"
 # com o bloco [palettes.X] inteiro — antes era um marcador so, com os dois
 # juntos e vocabulario de cor generico (color_fg0/color_aqua/...). O
 # vocabulario generico saiu de uso: o arquivo novo usa nomes nativos do
