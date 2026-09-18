@@ -372,6 +372,36 @@ ask_ssh_keys() {
   fi
 }
 
+# Chave cifrada no repo (.age) vira chave utilizavel no ~/.ssh. Roda depois
+# de manage_ssh_keys porque o que esta em claro no repo ja foi copiado por ela;
+# aqui so entra o que precisa de senha ou identidade.
+_decifrar_chaves_do_repo() {
+  local origem="$1"
+  declare -F crypto_decifrar_diretorio >/dev/null 2>&1 || return 0
+
+  local cifradas=0 arquivo
+  for arquivo in "$origem"/*.age; do
+    [[ -f "$arquivo" ]] && cifradas=$(( cifradas + 1 ))
+  done
+  (( cifradas > 0 )) || return 0
+
+  if ! crypto_disponivel; then
+    record_failure optional \
+      "ha ${cifradas} chave(s) cifrada(s) no repositorio, mas o age nao esta instalado" \
+      "instale o age e rode: bash install.sh --only=ssh"
+    return 0
+  fi
+
+  msg ""
+  msg "  ${UI_SKY:-}🔐 ${cifradas} chave(s) cifrada(s) no repositorio${UI_RESET:-}"
+  if [[ -z "${CRYPTO_IDENTIDADE:-}" ]]; then
+    msg "  ${UI_OVERLAY1:-}A senha e pedida uma vez por arquivo.${UI_RESET:-}"
+  fi
+  crypto_decifrar_diretorio "$origem" "$HOME/.ssh" || \
+    record_failure optional "nao foi possivel decifrar as chaves SSH" \
+      "confira a senha, ou use --ssh-identity=CAMINHO"
+}
+
 _apply_ssh_keys() {
   if [[ ${COPY_SSH_KEYS:-0} -ne 1 ]]; then
     msg "  ⏭️  SSH Keys: usuário optou por não copiar (padrão por segurança)"
@@ -388,6 +418,7 @@ _apply_ssh_keys() {
     # uma falha na ULTIMA chave pulava a correcao de permissao das chaves
     # anteriores que copiaram com sucesso (achado de auditoria de seguranca).
     manage_ssh_keys "$ssh_source"
+    _decifrar_chaves_do_repo "$ssh_source"
     set_ssh_permissions
     msg "  ✓ Chaves SSH configuradas com permissões corretas (700/600)"
     _validate_ssh_keys

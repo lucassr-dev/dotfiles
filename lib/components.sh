@@ -7,18 +7,13 @@
 # Requer: lib/colors.sh (design tokens)
 # Requer: lib/utils.sh (_strip_ansi, _visible_len)
 
-# Largura mínima global para componentes UI
-UI_MIN_WIDTH=42
-
 # ─── Box com título ───────────────────────────────────────
 # Uso: ui_box "Título" "Conteúdo linha 1\nLinha 2"
 ui_box() {
   local title="$1"
   local content="$2"
-  local term_w
-  term_w=$(tput cols 2>/dev/null || echo 80)
-  local width=$((term_w > 70 ? 70 : term_w - 4))
-  [[ $width -lt ${UI_MIN_WIDTH} ]] && width=${UI_MIN_WIDTH}
+  local width
+  width=$(ui_width "$UI_WIDTH_MAX_BOX")
   local inner=$((width - 2))
 
   local title_vis
@@ -39,7 +34,11 @@ ui_box() {
   while IFS= read -r line; do
     local vis_len
     vis_len=$(_visible_len "$line")
-    local pad=$((inner - vis_len))
+    # O -1 e o espaco que vem logo depois do "│". Sem ele o padding fecha a
+    # linha uma coluna adiante do topo e da base, e a borda direita de toda
+    # caixa do script sai desalinhada — em qualquer largura, nao so nas
+    # estreitas.
+    local pad=$((inner - vis_len - 1))
     (( pad < 0 )) && pad=0
     printf '%b│%b %s%*s%b│%b\n' "$UI_BORDER" "$UI_RESET" "$line" "$pad" '' "$UI_BORDER" "$UI_RESET"
   done <<< "$content"
@@ -106,9 +105,8 @@ ui_progress() {
 # ─── Separador simples ────────────────────────────────────
 # Uso: ui_divider
 ui_divider() {
-  local term_w
-  term_w=$(tput cols 2>/dev/null || echo 80)
-  local width=$((term_w > 70 ? 70 : term_w - 4))
+  local width
+  width=$(ui_width "$UI_WIDTH_MAX_BOX")
   local line=""
   printf -v line '%*s' "$width" ''
   echo -e "${UI_SURFACE1}${line// /─}${UI_RESET}"

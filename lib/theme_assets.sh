@@ -2,42 +2,26 @@
 # shellcheck disable=SC2034,SC2329,SC1091
 #
 # theme_assets.sh — instala os arquivos que faltam para os DOIS asset gaps
-# reais do catalogo (data/themes.sh:THEME_ASSET_STATUS), fase 3, Tarefa 4:
+# reais do catalogo (data/themes.sh:THEME_ASSET_STATUS):
 #
 #   tokyo-night:bat    e   tokyo-night:delta   (mesmo arquivo — delta usa o
 #     registro de temas do bat via syntect; um .tmTheme resolve os dois)
 #   catppuccin-mocha:btop
 #
 # A terceira lacuna do catalogo (gruvbox-dark:nvim) e plugin, nao asset
-# baixavel — fica para a Tarefa 5 (shared/nvim/lua/plugins/theme.lua), esta
+# baixavel — resolvido em shared/nvim/lua/plugins/theme.lua, esta
 # tarefa nao toca nisso.
 #
-# Contrato com quem chama (scripts/set_theme.sh):
-#   - Assume que has_cmd/msg/warn/is_truthy ja existem no processo (definidos
-#     em scripts/set_theme.sh ou em install.sh, que sourceiam este arquivo
-#     depois delas). CURL_CONNECT_TIMEOUT/CURL_TIMEOUT_NORMAL tem fallback
-#     proprio (mesmo default de lib/utils.sh) para funcionar mesmo sem essa
-#     lib carregada.
-#   - install_theme_assets_for "$TEMA" tenta instalar o asset do tema pedido
-#     (no-op para temas sem lacuna). Chamar ANTES de qualquer
-#     _warn_if_asset_missing do tema, sempre como statement solto (nunca
-#     dentro de $( ) — as funcoes de instalacao tem efeito colateral em
-#     disco, msg/warn no processo, e potencialmente rede).
-#   - theme_asset_present "$ferramenta" e a checagem PURA (so leitura, sem
-#     rede) que _warn_if_asset_missing usa depois da tentativa, pra decidir
-#     se ainda falta avisar.
+# Contrato com quem chama:
+#   - has_cmd/msg/warn/is_truthy vem de quem sourceia este arquivo.
+#   - install_theme_assets_for "$TEMA": chamar como statement solto (escreve
+#     em disco e usa rede), antes de qualquer _warn_if_asset_missing.
+#   - theme_asset_present "$ferramenta": checagem pura, so leitura.
 #
-# Decisao registrada no relatorio da tarefa: estas funcoes escrevem em
-# ~/.config SEMPRE que o tema pedido precisar do asset, independente de
-# APPLY_LIVE. APPLY_LIVE controla o espelhamento de arquivo de CONFIG do
-# repositorio para uma copia viva que ja existe (_mirror_live, que se
-# recusa a criar arvore nova); instalar um asset de tema e outra categoria
-# de escrita — cria diretorio novo por definicao (~/.config/bat/themes/ e
-# ~/.config/btop/themes/ nao existem ainda nesta maquina) e e pre-requisito
-# para a ferramenta reconhecer o nome que QUALQUER um dos dois caminhos
-# (repo ou live) vai gravar. Gatear isso em APPLY_LIVE deixaria o aviso de
-# asset faltando aparecendo por padrao sempre — exatamente o que esta
-# tarefa existe para resolver.
+# Estas funcoes escrevem em ~/.config independente de APPLY_LIVE. APPLY_LIVE
+# controla espelhar CONFIG para copia viva que ja existe; instalar asset cria
+# diretorio novo por definicao e e pre-requisito para a ferramenta reconhecer
+# o nome que qualquer um dos dois caminhos vai gravar.
 
 BAT_THEMES_DIR="${BAT_THEMES_DIR:-$HOME/.config/bat/themes}"
 BTOP_THEMES_DIR="${BTOP_THEMES_DIR:-$HOME/.config/btop/themes}"

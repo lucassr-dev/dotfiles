@@ -16,14 +16,10 @@ declare -g BANNER_RESET="${UI_RESET:-$'\033[0m'}"
 # ══════════════════════════════════════════════════════════════════════════════
 # FUNÇÕES UTILITÁRIAS
 # ══════════════════════════════════════════════════════════════════════════════
-clear_screen() {
-  if [[ "${IS_TTY:-0}" -eq 1 ]]; then
-    printf '\033[2J\033[H\033[3J' > /dev/tty 2>/dev/null || true
-  fi
-}
+# clear_screen mora em lib/core.sh: e chamada por 9 modulos, nao so por este.
 
 get_term_width() {
-  tput cols 2>/dev/null || echo 80
+  ui_term_cols
 }
 
 center_text() {

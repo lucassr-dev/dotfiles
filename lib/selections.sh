@@ -164,10 +164,8 @@ confirm_selection() {
   shift
   local items=("$@")
 
-  local term_w
-  term_w=$(tput cols 2>/dev/null || echo 80)
-  local box_w=$((term_w > 70 ? 70 : term_w - 4))
-  [[ $box_w -lt 40 ]] && box_w=40
+  local box_w
+  box_w=$(ui_width "$UI_WIDTH_MAX_BOX")
   local inner_w=$((box_w - 2))
   local content_w=$((box_w - 6))
 
@@ -508,7 +506,7 @@ _dep_item() {
   printf -v prefix "  ${UI_OVERLAY1}•${UI_RESET} ${UI_TEXT}%-${width}s${UI_RESET} ${UI_OVERLAY1}- " "$name"
   local indent=$((width + 7))
   local cols avail
-  cols=$(tput cols 2>/dev/null || echo 80)
+  cols=$(ui_term_cols)
   avail=$((cols - indent))
   [[ $avail -lt 15 ]] && avail=15
   local -a lines=()
@@ -583,11 +581,8 @@ review_selections() {
       clear
     fi
 
-    local term_width
-    term_width=$(tput cols 2>/dev/null || echo 80)
-
-    local width=$((term_width > 98 ? 92 : term_width - 6))
-    [[ $width -lt 48 ]] && width=48
+    local width
+    width=$(ui_width "$UI_WIDTH_MAX_FULL")
     local left_pad=2
     local rv_divider_color="${UI_OVERLAY1:-$UI_BORDER}"
     local rv_section_color="${UI_MAUVE:-$UI_ACCENT}"
@@ -1112,7 +1107,7 @@ _toggle_configs() {
     clear_screen
     echo ""
     local term_w
-    term_w=$(tput cols 2>/dev/null || echo 80)
+    term_w=$(ui_term_cols)
     echo -e "  ${UI_MAUVE}${UI_BOLD}📋 Toggle Configs${UI_RESET}"
     # Hint na propria linha, quebrado na largura real -- junto com o titulo
     # numa so linha estourava 60 colunas sempre (nao so as vezes).

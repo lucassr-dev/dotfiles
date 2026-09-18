@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════════════════════
-# set_theme.sh — aplica um tema (Tarefa 1: data/themes.sh) as regioes marcadas
-# pela Tarefa 2 nos arquivos de configuracao das ferramentas de terminal.
+# set_theme.sh — aplica um tema as regioes marcadas com `tema:*` nos
+# arquivos de configuracao das ferramentas de terminal.
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Escopo (o que este script toca, e por que exatamente isso):
@@ -13,68 +13,36 @@
 #   shared/lazygit/config.yml         tema:cores + tema:pager (mesmo arquivo, 2 rotulos)
 #   shared/fish/config.fish           tema:nome (BAT_THEME) + tema:cores (FZF_DEFAULT_OPTS)
 #   shared/tmux/.tmux.conf             tema:cores
-#   shared/btop/btop.conf              SEM marcador — ver "_apply_btop_file" abaixo (sem alteracao nesta tarefa)
-#   shared/nvim/lua/config/lazy.lua    tema:nome (Tarefa 5) — o `colorscheme`
-#     do spec do LazyVim, linha 35. NAO e a linha 56 (`install.colorscheme`):
-#     aquilo e so o fallback de instalacao do lazy.nvim, nunca a escolha real,
-#     e nao tem marcador. <leader>uC (theme.lua) continua preview de sessao,
-#     nao chama este script — ver README, secao Neovim.
+#   shared/btop/btop.conf              SEM marcador — ver _apply_btop_file
+#   shared/nvim/lua/config/lazy.lua    tema:nome — o `colorscheme` do spec.
+#     NAO o `install.colorscheme`, que e so fallback do lazy.nvim.
 #
 # Fora de escopo, de proposito:
-#   - shared/zsh/.zshrc     nunca teve FZF_DEFAULT_OPTS, a Tarefa 2 nao o tocou.
-#   - shared/yazi/theme.toml  usa 26 cores distintas (o catalogo só tem 10 por
-#     tema) e a Tarefa 2 NAO colocou marcador nele — nao era da lista de
-#     arquivos daquele brief. Cobrir precisaria de paletas estendidas de fonte
-#     oficial pros outros dois temas, o que romperia a regra central da fase
-#     ("nenhuma cor inventada"). Fica fixo em Catppuccin Mocha independente do
-#     tema escolhido aqui — reportado no resumo final.
+#   - shared/zsh/.zshrc       nunca teve FZF_DEFAULT_OPTS.
+#   - shared/yazi/theme.toml  usa 26 cores; o catalogo tem 10 por tema. Cobrir
+#     exigiria paleta estendida de fonte oficial para os outros dois temas, e
+#     nenhuma cor aqui e inventada. Fica em Catppuccin Mocha, e o resumo avisa.
 #
-# Onde escreve (Requisito 5, decisao registrada):
-#   Por padrao, SO no repositorio (estes arquivos sao a fonte versionada; o
-#   teste de idempotencia/reversibilidade da Tarefa 3 e feito com `git diff`
-#   contra eles). Os arquivos vivos em ~/.config sao copias que o install.sh
-#   já sincroniza por outro caminho (install/export/sync) — nao sao a fonte.
-#   Com APPLY_LIVE=1, alem do repositorio, espelha o MESMO conteudo final para
-#   o caminho vivo correspondente (so se ele já existir; se nao existir, avisa
-#   e pula, nunca cria árvore nova em ~/.config).
+# Onde escreve:
+#   Por padrao so no repositorio, que e a fonte versionada — ~/.config guarda
+#   copias que o install.sh sincroniza por outro caminho. Com APPLY_LIVE=1
+#   espelha tambem para o caminho vivo, e so se ele ja existir.
 #
 # Regra de ouro sobre backup (Requisito 4 — bug ja aconteceu neste repositorio):
 #   _ensure_backup_dir() so pode ser chamada como statement direto. Chamá-la
-#   dentro de $( ) roda num subshell: a atribuicao a BACKUP_DIR (e qualquer
-#   outra mutação de array/variavel global feita dentro da função) se perde
-#   ao sair do subshell, e o proximo backup_if_exists acha BACKUP_DIR vazio.
-#   Por isso as funções que só CALCULAM conteúdo novo (_splice_region_content,
-#   _region_interior_content, os geradores por arquivo) são puras — só
-#   produzem stdout, nunca tocam BACKUP_DIR/CHANGED_FILES/ASSET_WARNINGS — e
-#   podem ser capturadas com $( ) livremente. _ensure_backup_dir,
-#   _warn_if_asset_missing e _write_file_if_changed (que muta esses globais)
-#   são SEMPRE chamadas como statement solto, nunca dentro de $( ).
+#   dentro de $( ) roda num subshell e a mutacao de global se perde. Por isso
+#   as funcoes que so CALCULAM conteudo sao puras e podem ser capturadas;
+#   _ensure_backup_dir, _warn_if_asset_missing e _write_file_if_changed mutam
+#   global e sao SEMPRE chamadas como statement solto.
 #
-# Decisao sobre tema com asset faltante (bat sem Tokyo Night, btop sem
-# Catppuccin — ver data/themes.sh:THEME_ASSET_STATUS):
-#   O script ESCREVE o nome do tema mesmo quando o asset correspondente nao
-#   esta instalado (funcao pura do tema pedido, sem depender do estado
-#   anterior do arquivo) e AVISA CLARAMENTE no resumo final. A alternativa
-#   óbvia — pular a escrita e deixar o valor antigo — foi tentada no desenho
-#   e DESCARTADA: ela quebra a reversibilidade exata (o criterio mais
-#   importante da tarefa) sempre que uma ferramenta tem asset nativo num tema
-#   B e asset faltante no tema A — ao voltar de B para A, "pular" deixaria o
-#   valor de B gravado, nunca revertendo para o de A. Btop e o caso real: é
-#   nativo em tokyo-night e falta em catppuccin-mocha. Documentado no
-#   relatorio da tarefa com o caso concreto.
+# Tema com asset faltante: o script escreve o nome mesmo assim e avisa no
+#   resumo. Pular a escrita quebraria a reversibilidade — o btop e nativo em
+#   tokyo-night e falta em catppuccin-mocha, entao voltar de um para o outro
+#   deixaria o valor antigo gravado.
 #
-# Papeis de cor sem entrada no catalogo de 10 cores (aqua/teal do starship e
-# do lazygit; "rosewater" do spinner/pointer/marker do fzf; cyan/black/pink/
-# lavender do tmux): o catalogo (Tarefa 1) só define base/text/surface0/
-# overlay0/red/green/yellow/blue/mauve/peach. Esses valores extras NUNCA sao
-# escritos por este script — a linha existente e preservada byte a byte a
-# cada troca de tema. Mesma decisao que a Tarefa 1 tomou pro yazi
-# (manter acentos decorativos fixos em vez de inventar cor sem fonte
-# verificavel); aqui vale pros mesmos acentos secundarios de starship/
-# lazygit/fish/tmux. Efeito pratico: esses acentos ficam sempre com a cor de
-# Catppuccin Mocha (o que o repositorio já tem hoje), mesmo depois de trocar
-# para Tokyo Night ou Gruvbox — registrado no relatorio como limitacao
-# conhecida.
+# Cor sem entrada no catalogo de 10 (aqua/teal, rosewater, cyan/black/pink/
+#   lavender do tmux): nunca e escrita, a linha existente fica byte a byte.
+#   Na pratica esses acentos seguem em Catppuccin Mocha em qualquer tema.
 
 set -uo pipefail
 
@@ -144,10 +112,10 @@ declare -A _ASSET_WARNED=()
 # shared/bat/config + BAT_THEME do fish). Muta ASSET_WARNINGS — SEMPRE
 # chamada como statement solto (ver "Regra de ouro" no cabecalho).
 #
-# Ordem (Tarefa 4): a essa altura install_theme_assets_for ja tentou
+# Ordem: a essa altura install_theme_assets_for ja tentou
 # instalar o asset do $TEMA atual — theme_asset_present (lib/theme_assets.sh)
 # confere o disco de novo, sem rede, e so quem ainda falta depois da
-# tentativa vira aviso. Antes da Tarefa 4 isto avisava sempre que o status
+# tentativa vira aviso. Antes isto avisava sempre que o status
 # do catalogo era "asset", sem checar se o arquivo ja tinha sido instalado.
 _warn_if_asset_missing() {
   local ferramenta="$1"
@@ -333,7 +301,7 @@ _apply_bat_file() {
 # So 13 das 26 cores do Catppuccin sao escritas aqui (as 10 do catalogo +
 # crust/lavender/sapphire, Problema 3) — nao as 26. Escrever as outras 19
 # exigiria inventar mapeamento pra cada uma nos temas que nao sao
-# Catppuccin, o que a Tarefa 1 e este catalogo recusam fazer sem fonte.
+# Catppuccin, o que este catalogo recusa fazer sem fonte.
 _apply_starship_file() {
   local file="$SCRIPT_DIR/shared/starship.toml"
   [[ -f "$file" ]] || { warn "$file nao existe — pulando"; return 0; }
@@ -513,7 +481,7 @@ EOF
 # shared/nvim/lua/config/lazy.lua:35 — dentro de opts do spec da LazyVim,
 # NAO a linha 56 (install.colorscheme, fallback de instalacao, sem marcador
 # e nunca tocado por esta funcao). THEME_NVIM[$TEMA] escreve o nome exato de
-# colorscheme confirmado com `colorscheme <nome>` nesta maquina (Tarefa 5).
+# colorscheme confirmado com `colorscheme <nome>` nesta maquina.
 _apply_nvim_file() {
   local file="$SCRIPT_DIR/shared/nvim/lua/config/lazy.lua"
   [[ -f "$file" ]] || { warn "$file nao existe — pulando"; return 0; }
@@ -715,7 +683,7 @@ msg "Aplicando tema: $TEMA"
 is_truthy "$DRY_RUN" && msg "(dry-run — nada sera escrito)"
 msg ""
 
-# Tarefa 4: tenta instalar o asset do tema pedido (bat/delta em tokyo-night,
+# Tenta instalar o asset do tema pedido (bat/delta em tokyo-night,
 # btop em catppuccin-mocha) ANTES de aplicar qualquer arquivo — e o que
 # permite _warn_if_asset_missing, mais abaixo, parar de avisar quando a
 # instalacao funcionou. Sempre roda (nao gatea em APPLY_LIVE — ver cabecalho

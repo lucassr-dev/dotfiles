@@ -127,10 +127,8 @@ step_begin() {
   ((INSTALL_STEP++))
   STEP_BEGIN_TIME=$SECONDS
 
-  local term_w
-  term_w=$(tput cols 2>/dev/null || echo 80)
-  local box_w=$((term_w > 76 ? 70 : term_w - 6))
-  [[ $box_w -lt 40 ]] && box_w=40
+  local box_w
+  box_w=$(ui_width "$UI_WIDTH_MAX_BOX")
 
   local pct=$((INSTALL_STEP * 100 / INSTALL_TOTAL_STEPS))
   local pct_str="${pct}%"
@@ -142,7 +140,28 @@ step_begin() {
   local header="${step_counter} ${label}"
   local header_len=${#header}
   local pct_len=${#pct_str}
-  local fill=$((box_w - header_len - pct_len - 6))
+
+  # 8 = os caracteres fixos da linha que nao sao texto nem preenchimento:
+  # ╭ ─ e os cinco espacos separadores, mais ─ ╮ no fim. Com 6 o topo saia
+  # duas colunas mais largo que a base, em toda largura de terminal.
+  #
+  # Travar o preenchimento em 1 nao segura a linha: se o rotulo nao couber,
+  # ele proprio precisa encolher. Sem isto um terminal de 40 colunas recebia
+  # um topo de 41 e a moldura quebrava logo na primeira etapa.
+  local max_header=$((box_w - pct_len - 9))
+  (( max_header < 8 )) && max_header=8
+  if (( header_len > max_header )); then
+    local max_label=$((max_header - ${#step_counter} - 1))
+    if (( max_label < 2 )); then
+      label=""
+    else
+      label="${label:0:$((max_label - 1))}…"
+    fi
+    header="${step_counter} ${label}"
+    header_len=${#header}
+  fi
+
+  local fill=$((box_w - header_len - pct_len - 8))
   [[ $fill -lt 1 ]] && fill=1
   local h_fill=""
   for ((i=0; i<fill; i++)); do h_fill+="$UI_BOX_H"; done
@@ -150,16 +169,26 @@ step_begin() {
   msg ""
   msg "${UI_CYAN}${UI_BOX_TL}${UI_BOX_H} ${UI_PEACH}${UI_BOLD}${step_counter}${UI_RESET} ${UI_MAUVE}${UI_BOLD}${label}${UI_RESET} ${UI_CYAN}${h_fill} ${UI_DIM}${pct_str}${UI_RESET} ${UI_CYAN}${UI_BOX_H}${UI_BOX_TR}${UI_RESET}"
   if [[ -n "$detail" ]]; then
-    msg "${UI_CYAN}${UI_BOX_V}${UI_RESET}  ${UI_OVERLAY1}${detail}${UI_RESET}"
+    # A moldura tem que fechar tambem aqui. Sem o "│" da direita a caixa fica
+    # aberta no meio, e era a unica linha do bloco de progresso que nao
+    # fechava — o que dava a impressao de desenho quebrado logo na primeira
+    # etapa da instalacao.
+    local detail_vis pad_detail
+    detail_vis=$(_visible_len "$detail")
+    pad_detail=$((box_w - detail_vis - 4))
+    (( pad_detail < 0 )) && pad_detail=0
+    msg "$(printf '%b%s%b  %b%s%b%*s%b%s%b' \
+      "$UI_CYAN" "$UI_BOX_V" "$UI_RESET" \
+      "$UI_OVERLAY1" "$detail" "$UI_RESET" \
+      "$pad_detail" '' \
+      "$UI_CYAN" "$UI_BOX_V" "$UI_RESET")"
   fi
 }
 
 step_end() {
   local status="${1:-success}"
-  local term_w
-  term_w=$(tput cols 2>/dev/null || echo 80)
-  local box_w=$((term_w > 76 ? 70 : term_w - 6))
-  [[ $box_w -lt 40 ]] && box_w=40
+  local box_w
+  box_w=$(ui_width "$UI_WIDTH_MAX_BOX")
 
   local status_text status_vis
   case "$status" in
@@ -177,7 +206,21 @@ step_end() {
     fi
   fi
 
-  local fill_len=$((box_w - status_vis - time_vis - 5))
+  # Os dois ramos abaixo tem contagem de caracteres fixos diferente, e so o
+  # ramo sem tempo estava certo. Como o tempo so aparece quando a etapa leva
+  # mais de um segundo, o ramo errado passava despercebido em teste rapido.
+  local fixos=5
+  [[ -n "$time_str" ]] && fixos=4
+
+  # Terminal estreito: o tempo decorrido e o primeiro a sair. Sem isso a base
+  # estouraria a largura para caber um dado acessorio.
+  if [[ -n "$time_str" ]] && (( box_w - status_vis - time_vis - fixos < 1 )); then
+    time_str=""
+    time_vis=0
+    fixos=5
+  fi
+
+  local fill_len=$((box_w - status_vis - time_vis - fixos))
   [[ $fill_len -lt 1 ]] && fill_len=1
   local h_fill=""
   for ((i=0; i<fill_len; i++)); do h_fill+="$UI_BOX_H"; done
@@ -323,7 +366,7 @@ ui_select_multi_bash() {
     # e longo demais pra caber em 2 colunas de forma segura; alinha e
     # quebra, como o resto do app faz (msg_wrap, _rv_lv), em vez de escorrer.
     local term_w
-    term_w=$(tput cols 2>/dev/null || echo 80)
+    term_w=$(ui_term_cols)
     local idx_w=2
     [[ $total -ge 100 ]] && idx_w=3
     local prefix_w=$((idx_w + 7))

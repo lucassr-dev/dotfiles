@@ -10,6 +10,7 @@ CLI_TOOLS=(
   lazygit       # TUI para Git
   gh            # GitHub CLI oficial
   jq            # Processador JSON no terminal
+  age           # Criptografia de arquivo, simples e moderna
   direnv        # Carrega env vars por diretório
   btop          # Monitor de recursos (htop++)
   tmux          # Multiplexador de terminal

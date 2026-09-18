@@ -57,6 +57,7 @@ init_app_catalog() {
   # mise, chamada como instalador especial nos case de os_linux.sh e os_macos.sh.
   APP_SOURCES[helix]="apt:helix,brew:helix,winget:Helix.Helix"
   APP_SOURCES[jq]="apt:jq,brew:jq,winget:jqlang.jq"
+  APP_SOURCES[age]="apt:age,brew:age,winget:FiloSottile.age"
   APP_SOURCES[direnv]="apt:direnv,brew:direnv,winget:direnv.direnv"
   APP_SOURCES[bottom]="cargo:bottom,apt:bottom,brew:bottom,winget:Clement.bottom"
   APP_SOURCES[duf]="apt:duf,brew:duf,winget:muesli.duf,cargo:duf"

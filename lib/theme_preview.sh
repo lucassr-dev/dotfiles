@@ -212,7 +212,7 @@ show_theme_preview() {
   fi
 
   local term_cols
-  term_cols=$(tput cols 2>/dev/null || echo 80)
+  term_cols=$(ui_term_cols)
   local chafa_width=$((term_cols - 4))
   [[ $chafa_width -gt 80 ]] && chafa_width=80
   local chafa_height=$((chafa_width / 5))

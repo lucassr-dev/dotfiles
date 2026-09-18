@@ -129,6 +129,8 @@ show_usage() {
   echo -e "  ${c}install${r}     Instalar dotfiles no sistema (padrao)"
   echo -e "  ${c}export${r}      Exportar configs do sistema para o repo"
   echo -e "  ${c}sync${r}        Sincronizacao bidirecional"
+  echo -e "  ${c}doctor${r}      Diagnosticar ambiente e divergencias (nao altera nada)"
+  echo -e "  ${c}diff${r}        Mostrar o que difere entre repo e sistema"
   echo ""
   echo -e "${b}Opcoes:${r}"
   echo -e "  ${c}-h${r}, ${c}--help${r}          Mostrar esta ajuda"
@@ -137,6 +139,11 @@ show_usage() {
   echo -e "  ${c}--verbose${r}           Saida detalhada"
   echo -e "  ${c}--confirm-overwrite${r} Perguntar antes de sobrescrever configs"
   echo -e "  ${c}--no-color${r}          Desativar cores (equivale a NO_COLOR=1)"
+  echo -e "  ${c}--only=${r}A,B          Rodar somente estas etapas"
+  echo -e "  ${c}--skip=${r}A,B          Rodar tudo menos estas etapas"
+  echo -e "  ${c}--profile=${r}NOME      Instalar sem perguntar nada, usando um perfil"
+  echo -e "  ${c}--list-profiles${r}     Listar os perfis disponiveis"
+  echo -e "  ${c}--ssh-identity=${r}PATH  Decifrar chaves com identidade age, sem senha"
   echo ""
   echo -e "${b}Variaveis de ambiente:${r}"
   echo -e "  DRY_RUN=1                    Mesmo que --dry-run"
@@ -152,17 +159,34 @@ show_usage() {
   echo -e "  bash install.sh --dry-run          Simular instalacao"
   echo -e "  bash install.sh export             Exportar configs atuais"
   echo -e "  bash install.sh sync --verbose     Sync com saida detalhada"
+  echo -e "  bash install.sh doctor             Diagnosticar sem alterar nada"
+  echo -e "  bash install.sh diff --verbose     Ver o conteudo de cada diferenca"
+  echo -e "  bash install.sh --only=temas       Reinstalar so os temas"
+  echo -e "  bash install.sh --skip=fontes,gui  Instalar tudo menos fontes e apps GUI"
+  echo -e "  bash install.sh --profile=minimo   Instalacao sem perguntas (maquina nova)"
 }
+
+# lib/etapas.sh antes do parsing: a validacao de --only/--skip consulta o
+# catalogo, e recusar nome errado so vale se for na entrada.
+[[ -f "$SCRIPT_DIR/lib/etapas.sh" ]] && source "$SCRIPT_DIR/lib/etapas.sh"
+[[ -f "$SCRIPT_DIR/lib/perfil.sh" ]] && source "$SCRIPT_DIR/lib/perfil.sh"
+[[ -f "$SCRIPT_DIR/lib/crypto.sh" ]] && source "$SCRIPT_DIR/lib/crypto.sh"
+PERFIL_PEDIDO=""
 
 for arg in "$@"; do
   case "$arg" in
-    install|export|sync) MODE="$arg" ;;
+    install|export|sync|doctor|diff) MODE="$arg" ;;
     -h|--help) show_usage; exit 0 ;;
     -v|--version) show_version; exit 0 ;;
     -n|--dry-run) DRY_RUN=1 ;;
     --confirm-overwrite) CONFIRM_OVERWRITE=1 ;;
     --verbose) VERBOSE=1 ;;
     --no-color) export NO_COLOR=1 ;;
+    --only=*) ETAPAS_ONLY="${arg#--only=}" ;;
+    --profile=*) PERFIL_PEDIDO="${arg#--profile=}" ;;
+    --ssh-identity=*) CRYPTO_IDENTIDADE="${arg#--ssh-identity=}" ;;
+    --list-profiles) perfil_listar; exit 0 ;;
+    --skip=*) ETAPAS_SKIP="${arg#--skip=}" ;;
     *)
       echo "Argumento desconhecido: $arg" >&2
       echo "" >&2
@@ -171,6 +195,26 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+if declare -F etapas_validar >/dev/null 2>&1; then
+  etapas_validar "$ETAPAS_ONLY" "--only" || exit 1
+  etapas_validar "$ETAPAS_SKIP" "--skip" || exit 1
+fi
+
+# Identidade errada so apareceria na hora de decifrar, no meio da instalacao,
+# depois de tudo o mais ja ter rodado. Melhor parar aqui.
+if [[ -n "${CRYPTO_IDENTIDADE:-}" ]]; then
+  if [[ ! -r "$CRYPTO_IDENTIDADE" ]]; then
+    echo "  ❌ --ssh-identity: arquivo nao encontrado ou sem permissao de leitura: $CRYPTO_IDENTIDADE" >&2
+    exit 1
+  fi
+  if declare -F crypto_identidade_valida >/dev/null 2>&1 && \
+     ! crypto_identidade_valida "$CRYPTO_IDENTIDADE"; then
+    echo "  ❌ --ssh-identity: $CRYPTO_IDENTIDADE nao contem uma chave AGE-SECRET-KEY" >&2
+    echo "     Gere uma com: age-keygen -o CAMINHO" >&2
+    exit 1
+  fi
+fi
 
 snap_install_or_refresh() {
   local pkg="$1"
@@ -621,6 +665,14 @@ is_app_processed() {
 # em snap confinado.
 [[ -f "$SCRIPT_DIR/data/themes.sh" ]] && source "$SCRIPT_DIR/data/themes.sh"
 [[ -f "$SCRIPT_DIR/lib/theme_assets.sh" ]] && source "$SCRIPT_DIR/lib/theme_assets.sh"
+# data/config_map.sh: a correspondencia sistema <-> repo como DADO, nao como
+# chamada. E o que o doctor precisa para responder "o que aqui esta diferente
+# do repo?" -- pergunta que exige iterar a lista, nao so percorre-la uma vez.
+[[ -f "$SCRIPT_DIR/data/config_map.sh" ]] && source "$SCRIPT_DIR/data/config_map.sh"
+[[ -f "$SCRIPT_DIR/lib/doctor.sh" ]] && source "$SCRIPT_DIR/lib/doctor.sh"
+# lib/diff.sh reaproveita doctor_comparar: e a mesma comparacao, mudando so o
+# quanto se mostra dela. Por isso carrega depois.
+[[ -f "$SCRIPT_DIR/lib/diff.sh" ]] && source "$SCRIPT_DIR/lib/diff.sh"
 
 print_selection_summary() {
   local label="$1"
@@ -884,10 +936,8 @@ print_final_summary() {
   # antes do relatorio existir), o detalhe completo tem que aparecer aqui,
   # que e a unica tela que o usuario vai ver.
   if [[ "${POST_INSTALL_REPORT_SHOWN:-0}" -ne 1 ]] && [[ ${#CRITICAL_ERRORS[@]} -gt 0 || ${#OPTIONAL_ERRORS[@]} -gt 0 ]]; then
-    local term_w
-    term_w=$(tput cols 2>/dev/null || echo 80)
-    local width=$((term_w > 100 ? 94 : term_w - 6))
-    [[ $width -lt 50 ]] && width=50
+    local width
+    width=$(ui_width "$UI_WIDTH_MAX_FULL")
     local lp=2
     local fs_divider="${UI_OVERLAY1:-$UI_BORDER}"
     local fs_section="${UI_MAUVE:-$UI_ACCENT}"
@@ -1953,6 +2003,18 @@ main() {
     INSTALL_LOG="$HOME/.dotfiles-install-$(date +%Y%m%d-%H%M%S).log"
   fi
 
+  # doctor sai aqui, antes do INSTALL_LOG: diagnostico e read-only e nao deve
+  # deixar arquivo para tras so por ter sido consultado.
+  if [[ "$MODE" == "doctor" ]]; then
+    run_doctor
+    exit $?
+  fi
+
+  if [[ "$MODE" == "diff" ]]; then
+    run_diff
+    exit $?
+  fi
+
   if [[ "$MODE" == "export" ]]; then
     export_configs
     exit 0
@@ -1999,7 +2061,20 @@ main() {
   # ══════════════════════════════════════════════════════════════
   # ETAPA 1: Seleções Essenciais (pular se resumindo)
   # ══════════════════════════════════════════════════════════════
-  if [[ "$RESUME_MODE" -ne 1 ]]; then
+  if [[ -n "$PERFIL_PEDIDO" ]]; then
+    # Caminho do perfil: sem nenhum ask_*. As globais ja vieram do arquivo,
+    # so os pre-requisitos e a derivacao de configs continuam necessarios --
+    # o primeiro instala o que o resto pressupoe, o segundo liga os COPY_*
+    # a partir do que foi escolhido.
+    perfil_aplicar "$PERFIL_PEDIDO" || exit 1
+    msg ""
+    msg "  ${UI_SKY}${UI_BOLD}Perfil${UI_RESET}${UI_OVERLAY1} — ${PERFIL_NOME} (${PERFIL_ARQUIVO})${UI_RESET}"
+    install_prerequisites
+    UI_MODE=""
+    detect_ui_mode
+    _auto_enable_configs
+    checkpoint_save "install"
+  elif [[ "$RESUME_MODE" -ne 1 ]]; then
     ask_base_dependencies
     pause_before_next_section
     install_prerequisites
@@ -2038,67 +2113,103 @@ main() {
 
   clear_screen
   exec > >(tee -a "$INSTALL_LOG") 2>&1
-  step_init 13
+  step_init "$(etapas_ativas_total)"
 
-  local _shell_desc=""
-  [[ ${INSTALL_ZSH:-0} -eq 1 ]] && _shell_desc+="Zsh "
-  [[ ${INSTALL_FISH:-0} -eq 1 ]] && _shell_desc+="Fish "
-  [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && _shell_desc+="Nushell "
-  step_begin "Shells" "${_shell_desc:+${_shell_desc% }}"
-  install_selected_shells
-  step_end
+  # Instalacao recortada tem que se anunciar como recortada. Sem esta linha a
+  # tela final diria "concluida" depois de rodar 1 de 13 etapas, e o relatorio
+  # pareceria o de uma instalacao inteira que nao instalou quase nada.
+  local _recorte
+  _recorte="$(etapas_resumo_do_recorte)"
+  if [[ -n "$_recorte" ]]; then
+    msg ""
+    msg "  ${UI_YELLOW}${UI_BOLD}Instalação parcial${UI_RESET}${UI_OVERLAY1} — ${_recorte}${UI_RESET}"
+  fi
 
-  step_begin "Ferramentas CLI" "${#SELECTED_CLI_TOOLS[@]} ferramentas selecionadas"
-  install_selected_cli_tools
-  step_end
+  if etapa_ativa shells; then
+    local _shell_desc=""
+    [[ ${INSTALL_ZSH:-0} -eq 1 ]] && _shell_desc+="Zsh "
+    [[ ${INSTALL_FISH:-0} -eq 1 ]] && _shell_desc+="Fish "
+    [[ ${INSTALL_NUSHELL:-0} -eq 1 ]] && _shell_desc+="Nushell "
+    step_begin "Shells" "${_shell_desc:+${_shell_desc% }}"
+    install_selected_shells
+    step_end
+  fi
 
-  step_begin "Apps GUI"
-  install_selected_gui_apps
-  step_end
+  if etapa_ativa cli; then
+    step_begin "Ferramentas CLI" "${#SELECTED_CLI_TOOLS[@]} ferramentas selecionadas"
+    install_selected_cli_tools
+    step_end
+  fi
 
-  step_begin "Ferramentas IA" "${#SELECTED_IA_TOOLS[@]} ferramentas selecionadas"
-  install_selected_ia_tools
-  step_end
+  if etapa_ativa gui; then
+    step_begin "Apps GUI"
+    install_selected_gui_apps
+    step_end
+  fi
 
-  step_begin "Extensões VS Code"
-  install_vscode_extensions
-  step_end
+  if etapa_ativa ia; then
+    step_begin "Ferramentas IA" "${#SELECTED_IA_TOOLS[@]} ferramentas selecionadas"
+    install_selected_ia_tools
+    step_end
+  fi
 
-  step_begin "Configs Compartilhados"
-  apply_shared_configs
-  step_end
+  if etapa_ativa vscode; then
+    step_begin "Extensões VS Code"
+    install_vscode_extensions
+    step_end
+  fi
 
-  step_begin "Git" "${GIT_CONFIGURE:+configuracao interativa}"
-  install_git_configuration
-  step_end
+  if etapa_ativa configs; then
+    step_begin "Configs Compartilhados"
+    apply_shared_configs
+    step_end
+  fi
 
-  step_begin "Configs de Plataforma" "${TARGET_OS}"
-  case "$TARGET_OS" in
-    linux|wsl2) apply_linux_configs ;;
-    macos) apply_macos_configs ;;
-    windows) apply_windows_configs ;;
-  esac
-  step_end
+  if etapa_ativa git; then
+    step_begin "Git" "${GIT_CONFIGURE:+configuracao interativa}"
+    install_git_configuration
+    step_end
+  fi
 
-  step_begin "Runtimes" "${#SELECTED_RUNTIMES[@]} runtimes selecionados"
-  install_selected_runtimes
-  step_end
+  if etapa_ativa plataforma; then
+    step_begin "Configs de Plataforma" "${TARGET_OS}"
+    case "$TARGET_OS" in
+      linux|wsl2) apply_linux_configs ;;
+      macos) apply_macos_configs ;;
+      windows) apply_windows_configs ;;
+    esac
+    step_end
+  fi
 
-  step_begin "Editores"
-  install_selected_editors
-  step_end
+  if etapa_ativa runtimes; then
+    step_begin "Runtimes" "${#SELECTED_RUNTIMES[@]} runtimes selecionados"
+    install_selected_runtimes
+    step_end
+  fi
 
-  step_begin "Fontes Nerd" "${#SELECTED_NERD_FONTS[@]} fontes selecionadas"
-  install_nerd_fonts
-  step_end
+  if etapa_ativa editores; then
+    step_begin "Editores"
+    install_selected_editors
+    step_end
+  fi
 
-  step_begin "Temas"
-  install_selected_themes
-  step_end
+  if etapa_ativa fontes; then
+    step_begin "Fontes Nerd" "${#SELECTED_NERD_FONTS[@]} fontes selecionadas"
+    install_nerd_fonts
+    step_end
+  fi
 
-  step_begin "Padrões do Sistema" "shell e terminal"
-  apply_post_install_defaults
-  step_end
+  if etapa_ativa temas; then
+    step_begin "Temas"
+    install_selected_themes
+    step_end
+  fi
+
+  if etapa_ativa padroes; then
+    step_begin "Padrões do Sistema" "shell e terminal"
+    apply_post_install_defaults
+    step_end
+  fi
 
   clear_screen
 

@@ -66,15 +66,15 @@ print_post_install_report() {
     host_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "N/A")
   fi
 
-  local term_w
-  term_w=$(tput cols 2>/dev/null || echo 80)
-
-  local width=$((term_w > 100 ? 94 : term_w - 6))
-  [[ $width -lt 50 ]] && width=50
+  local width
+  width=$(ui_width "$UI_WIDTH_MAX_FULL")
   local left_pad=2
   local use_two_cols=0
   [[ $width -ge 74 ]] && use_two_cols=1
-  local col_w=$(( (width - 6) / 2 ))
+  # Duas colunas de col_w com uma calha de 2 no meio, fechando exatamente em
+  # `width`. Antes o corpo, o cabecalho simples e o cabecalho duplo tinham
+  # cada um a sua contagem de caracteres fixos e sairam com 94, 96 e 98.
+  local col_w=$(( (width - 2) / 2 ))
   local kv_label_w=13
   local rpt_divider_color="${UI_OVERLAY1:-$UI_BORDER}"
   local rpt_section_color="${UI_MAUVE:-$UI_ACCENT}"
@@ -96,7 +96,9 @@ print_post_install_report() {
     local left="$1" right="$2"
     local lv rv lf rf lfill rfill
     lv=$(_visible_len "$left"); rv=$(_visible_len "$right")
-    lf=$(( col_w - lv - 1 )); rf=$(( col_w - rv - 1 ))
+    # Cada metade e um divisor de col_w colunas: "── " + titulo + " " + traco.
+    # Os 4 descontados sao esses tres caracteres do prefixo mais o espaco.
+    lf=$(( col_w - lv - 4 )); rf=$(( col_w - rv - 4 ))
     [[ $lf -lt 0 ]] && lf=0; [[ $rf -lt 0 ]] && rf=0
     printf -v lfill '%*s' "$lf" ''; printf -v rfill '%*s' "$rf" ''
     printf "%*s%b\n" "$left_pad" "" "${rpt_divider_color}── ${rpt_section_color}${UI_BOLD}${left}${UI_RESET}${rpt_divider_color} ${lfill// /─}  ── ${rpt_section_color}${UI_BOLD}${right}${UI_RESET}${rpt_divider_color} ${rfill// /─}${UI_RESET}"
@@ -192,7 +194,7 @@ print_post_install_report() {
     _rpt_dual_div "$left_title" "$right_title"
     local i
     for (( i=0; i<max_rows; i++ )); do
-      printf "%*s  " "$left_pad" ""
+      printf "%*s" "$left_pad" ""
       if [[ -n "${left_items[i]:-}" ]]; then
         _rpt_cell "$left_color" "${left_items[i]}" "$col_w"
       else

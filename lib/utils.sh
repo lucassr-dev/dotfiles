@@ -11,43 +11,44 @@ _strip_ansi() {
   sed -E 's/\x1b\[[0-9;]*m//g; s/\\(033|e)\[[0-9;]*m//g'
 }
 
-# Emoji/simbolos usados no codebase onde `wc -L` REALMENTE subconta 1 coluna
-# (verificado individualmente, um por um, contra `wc -L` -- nao assumido).
-# Achado real: nem todo emoji e subcontado -- de 69 usados no repo, so 39
-# vieram errado (ex: 🔧/▶/🤖 ja contam certo aqui; ←/📁/⭐ nao). Uma lista
-# "todo emoji soma +1" chutada teria SOBRE-compensado quase a metade dos
-# casos -- pior que o bug original. Revalidar se `wc -L` mudar de versao/OS.
+# Os caracteres de largura 2 usados no codebase. Ao acrescentar um, meca com
+# `printf %s CHAR | wc -L` antes -- nem todo emoji ocupa duas colunas.
 #
-# Alternation (a|b|c), NAO bracket class [abc]: bracket class quebra pra
-# caracteres multi-byte neste grep (cada BYTE do UTF-8 vira um match
-# separado -- um unico 🔧 contava como 4). Alternation trata cada emoji como
-# unidade atomica, testado ao vivo. `-E` (nao `-P`) de proposito: grep do
-# macOS (BSD) nao tem suporte a -P.
-_WIDE_CHARS_REGEX='(←|↑|→|↓|↔|⚙|✅|✏|✓|✗|❌|❓|⭐|🌍|🌐|🍎|🎭|🐚|🐟|📁|📂|📄|📊|📋|📌|📍|📖|📚|📝|🔄|🔌|🔎|🔐|🔑|🔒|🔗|🗂|🗄|🗑)'
+# Alternation, NAO bracket class: em [abc] o grep casa cada BYTE do UTF-8
+# separadamente e um 🔧 conta 4. `-E` e nao `-P` porque o grep do macOS nao
+# tem -P.
+_WIDE_CHARS_REGEX='(⏩|⚡|✅|✨|❌|❓|⭐|🌍|🌐|🍎|🍺|🎨|🎭|🎯|🎵|🏠|🐚|🐟|🐧|👤|👻|💡|💬|💻|💼|💾|📁|📂|📄|📊|📋|📌|📍|📖|📚|📝|📤|📥|📦|🔄|🔌|🔎|🔐|🔑|🔒|🔗|🔤|🔧|🤖|🦀|🧰)'
+
+# O GNU coreutils subconta emoji no `wc -L`; o uutils conta certo. Compensar
+# as cegas dobra a conta em metade das maquinas, entao pergunta uma vez.
+_WC_SUBCONTA_WIDE=""
+_wc_subconta_wide() {
+  if [[ -z "$_WC_SUBCONTA_WIDE" ]]; then
+    local medido
+    medido=$(printf '%s' '📌' | wc -L 2>/dev/null) || medido=""
+    if [[ "$medido" == "2" ]]; then
+      _WC_SUBCONTA_WIDE=0
+    else
+      _WC_SUBCONTA_WIDE=1
+    fi
+  fi
+  [[ "$_WC_SUBCONTA_WIDE" == "1" ]]
+}
+
+_conta_wide() {
+  printf '%s' "$1" | grep -oE "$_WIDE_CHARS_REGEX" 2>/dev/null | wc -l
+}
 
 _visible_len() {
   local text="$1"
 
-  # Caminho rapido: ASCII puro e sem escape ANSI -> 1 byte = 1 coluna, e o
-  # comprimento da string ja e a resposta exata.
+  # Caminho rapido para ASCII: o lento abre tres subprocessos por chamada, e
+  # _wrap_text chama isto uma vez por palavra (no Git Bash isso custou 3-5s
+  # POR LINHA e estourou o CI).
   #
-  # Importa muito: o caminho lento abre TRES subprocessos por chamada
-  # (_strip_ansi, grep|wc, wc -L), e _wrap_text chama isto uma vez por palavra.
-  # No Git Bash do Windows, onde criar processo custa ~1s, o seletor de apps
-  # passou a gastar 3-5 segundos POR LINHA e estourou o limite de 5 minutos do
-  # CI em Set/2026. A maioria esmagadora das chamadas e nome de pacote e
-  # descricao em ASCII.
-  # A exclusao da barra invertida NAO e excesso de zelo: as cores deste
-  # codebase sao guardadas como TEXTO literal ("\033[38;2;...m", nao $'...'),
-  # e so viram escape no printf %b, na hora de imprimir. Ou seja, uma string
-  # colorida e composta apenas de caracteres ASCII imprimiveis e passaria por
-  # este teste, fazendo o caminho rapido contar os ~20 caracteres de cada
-  # codigo de cor como se fossem visiveis.
-  #
-  # Foi exatamente o que aconteceu quando este atalho foi introduzido: o texto
-  # de introducao do resumo media 163 colunas em vez de 76 e quebrava em tres
-  # linhas curtas num terminal de 88. Toda string com cor tem barra invertida;
-  # texto comum quase nunca tem.
+  # A exclusao da barra invertida NAO e zelo: as cores aqui sao texto literal
+  # ("\033[...m"), entao uma string colorida e toda ASCII imprimivel e o
+  # caminho rapido contaria cada codigo de cor como ~20 colunas visiveis.
   if [[ "$text" != *$'\033'* && "$text" != *'\'* && "$text" != *[!$'\x20'-$'\x7e']* ]]; then
     echo "${#text}"
     return 0
@@ -55,17 +56,19 @@ _visible_len() {
   local clean
   clean=$(printf '%s' "$text" | _strip_ansi)
 
-  local wide_count=0
-  wide_count=$(printf '%s' "$clean" | grep -oE "$_WIDE_CHARS_REGEX" 2>/dev/null | wc -l) || wide_count=0
-
   local display_w
-  if display_w=$(printf '%s' "$clean" | wc -L 2>/dev/null); then
-    # wc -L conta a maioria dos wide chars certo, mas subconta emoji comuns em
-    # 1 coluna cada -- compensa com a lista acima (achado de auditoria).
-    echo $((display_w + wide_count))
+  if display_w=$(printf '%s' "$clean" | wc -L 2>/dev/null) && [[ "$display_w" =~ ^[0-9]+$ ]]; then
+    # Onde o wc -L ja conhece a largura dos emoji, nao ha nada a compensar --
+    # e ainda economiza os dois subprocessos de _conta_wide por chamada, que
+    # e o custo que fez o seletor de apps travar no Git Bash.
+    if _wc_subconta_wide; then
+      display_w=$(( display_w + $(_conta_wide "$clean") ))
+    fi
+    echo "$display_w"
   else
-    # Fallback se wc -L nao existir/falhar: comprimento em bytes + compensacao.
-    echo $((${#clean} + wide_count))
+    # Sem wc -L: ${#clean} conta CARACTERES, entao todo caractere de largura 2
+    # precisa do +1, independente de qual wc a maquina tem.
+    echo $(( ${#clean} + $(_conta_wide "$clean") ))
   fi
 }
 

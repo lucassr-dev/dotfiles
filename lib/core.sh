@@ -1,28 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034,SC2329,SC1091
 #
-# Primitivas usadas por install.sh e por ate 18 modulos de lib/: mensagem,
-# checagem de comando, flag booleana, registro de falha, execucao com/sem
-# sudo e o diretorio de backup sob demanda. Antes viviam soltas no topo do
-# install.sh; qualquer lib/*.sh que quisesse rodar sozinho (teste incluido)
-# tinha que redefinir todas a mao. Este arquivo e a fonte unica delas — deve
-# ser o primeiro "source" em install.sh, antes de qualquer outro e antes de
-# qualquer chamada a estas funcoes.
+# Primitivas compartilhadas. Precisa ser o primeiro source do install.sh.
 #
-# Dependencias que NAO viajaram para ca por serem estado amplo do install.sh
-# (usado por muito mais coisa que so as funcoes abaixo), nao especificas de
-# uma unica funcao:
-#   - record_failure() le/grava CRITICAL_ERRORS, OPTIONAL_ERRORS e FAIL_FAST,
-#     e chama print_final_summary() quando level=critical e FAIL_FAST=1.
-#     Todos os quatro sao declarados/definidos em install.sh. Quem sourcing
-#     este arquivo sozinho (ex.: teste) e exercita o caminho critico precisa
-#     fornecer esses globals/funcao ou substituir record_failure por um stub.
+# record_failure depende de CRITICAL_ERRORS, OPTIONAL_ERRORS, FAIL_FAST e
+# print_final_summary, todos definidos em install.sh: quem carregar este
+# arquivo sozinho precisa fornece-los ou dar um stub.
 
-# BACKUP_DIR e criado sob demanda: nenhuma execucao deve deixar um diretorio
-# vazio em $HOME quando nada precisa ser copiado (ex.: DRY_RUN=1).
-# _ensure_backup_dir NAO imprime nada de proposito: chamar em $(...) rodaria
-# num subshell e a atribuicao a BACKUP_DIR se perderia ao sair dele. Use a
-# variavel global diretamente depois de chamar a funcao.
+# Nao imprime nada de proposito: chamar em $(...) rodaria num subshell e a
+# atribuicao a BACKUP_DIR se perderia. Leia a global depois de chamar.
 BACKUP_DIR=""
 _ensure_backup_dir() {
   [[ -n "$BACKUP_DIR" ]] && return 0
@@ -40,31 +26,58 @@ warn() {
   msg "  ⚠️ $1"
 }
 
-# err era definida so em scripts/set_theme.sh, mas lib/theme_assets.sh a chama.
-# Enquanto aquele script for o unico a carregar esse modulo, funciona; qualquer
-# outro consumidor estouraria "err: command not found" no caminho de erro — que
-# e justamente onde um "command not found" passa despercebido. Mora aqui agora,
-# pelo mesmo motivo que msg e warn moram.
 err() {
   printf '%b\n' "  ❌ $1" >&2
 }
 
-# Como msg, mas quebra o texto na largura do terminal em vez de deixar vazar
-# para a linha seguinte. Usa _wrap_text de lib/utils.sh quando ele ja estiver
-# carregado; senao imprime sem quebrar, que e o comportamento antigo — este
-# modulo carrega antes do utils.sh e nao pode depender dele.
-#
-# A largura vem de `tput cols`, e a medicao de _wrap_text e em COLUNAS de
-# exibicao (_visible_len), nao em bytes. Isso importa: uma frase com acento e
-# emoji tem bem mais bytes do que colunas, e medir errado faz o texto quebrar
-# cedo demais.
+# IS_TTY vem de lib/ui.sh, que carrega depois: o default 0 e o que evita
+# mexer na tela quando este modulo roda sozinho.
+clear_screen() {
+  if [[ "${IS_TTY:-0}" -eq 1 ]]; then
+    printf '\033[2J\033[H\033[3J' > /dev/tty 2>/dev/null || true
+  fi
+}
+
+# Grade de largura: fonte unica para tudo que e desenhado. Dois tetos porque
+# caixa compacta nao deve esticar numa tela larga e tela cheia deve.
+UI_WIDTH_MAX_BOX=70
+UI_WIDTH_MAX_FULL=94
+UI_WIDTH_MARGIN=4
+UI_WIDTH_MIN=24
+
+# O teste de numero nao e excesso de zelo: tput pode sair 0 e imprimir lixo,
+# que iria direto para a aritmetica.
+ui_term_cols() {
+  local cols
+  cols=$(tput cols 2>/dev/null) || cols=""
+  [[ "$cols" =~ ^[0-9]+$ ]] || cols=80
+  (( cols < 1 )) && cols=80
+  echo "$cols"
+}
+
+# O piso nunca vence a largura real: piso que estoura a tela nao e piso, e
+# overflow — a moldura quebra a linha e o desenho se perde.
+ui_width() {
+  local teto="${1:-$UI_WIDTH_MAX_BOX}" cols largura
+  cols=$(ui_term_cols)
+  largura=$(( cols - UI_WIDTH_MARGIN ))
+  (( largura > teto )) && largura=$teto
+  if (( largura < UI_WIDTH_MIN )); then
+    largura=$UI_WIDTH_MIN
+    (( largura > cols )) && largura=$cols
+  fi
+  echo "$largura"
+}
+
+# Cai para msg sem quebrar quando utils.sh ainda nao carregou: este modulo
+# vem antes dele e nao pode depender de _wrap_text.
 msg_wrap() {
   local texto="$1" margem="${2:-0}" largura
   if ! declare -F _wrap_text >/dev/null 2>&1; then
     msg "$texto"
     return 0
   fi
-  largura=$(tput cols 2>/dev/null || echo 80)
+  largura=$(ui_term_cols)
   largura=$(( largura - margem ))
   (( largura < 20 )) && largura=20
   local -a partes=()
@@ -126,15 +139,9 @@ run_with_sudo() {
     return 1
   fi
 
-  # Distingue "o sudo nao autenticou" de "o comando falhou". Sem isso, um
-  # prompt de senha que expira vira uma mensagem enganosa: numa instalacao real
-  # de 17/set o sudo deu "timed out" e o relatorio final acusou "Falha ao
-  # instalar (apt) kitty" — sendo que o kitty ja estava instalado e o apt nunca
-  # chegou a rodar. Quem le o relatorio vai investigar o pacote errado.
-  #
-  # -n falha na hora se a credencial nao estiver em cache, sem abrir prompt;
-  # usamos isso so para DETECTAR, e em seguida rodamos normalmente para que o
-  # prompt apareca de verdade quando for o caso.
+  # Distingue "sudo nao autenticou" (126) de "o comando falhou". Sem isso um
+  # prompt expirado vira "falha ao instalar X", e se investiga o pacote errado.
+  # O -n so DETECTA credencial em cache; o sudo real vem depois, com prompt.
   if ! sudo -n true 2>/dev/null; then
     if ! sudo -v 2>/dev/null; then
       warn "sudo nao autenticou (senha errada, expirada ou cancelada) — '$*' nao foi executado"
@@ -145,15 +152,10 @@ run_with_sudo() {
   sudo "$@"
 }
 
-# Ponto de estrangulamento para comando externo que altera a maquina do
-# usuario sem precisar de sudo (git clone, cargo install, fisher install,
-# instalador via curl | sh chamado direto). Mesmo espirito do run_with_sudo:
-# em DRY_RUN, imprime o que faria e devolve sucesso simulado sem tocar em
-# nada; fora de DRY_RUN, executa o comando normalmente.
+# Gate de DRY_RUN para comando que altera a maquina sem sudo.
 #
-# Nao serve para comando cuja saida e capturada via `>` ou `$(...)` no
-# proprio call site: a redirecao encostaria na mensagem de dry-run tambem,
-# porque ela sai por stdout dentro desta funcao. Esses casos usam gate local.
+# NAO serve quando a saida e capturada por `>` ou `$(...)` no call site: a
+# mensagem de dry-run sai por stdout daqui e seria capturada junto.
 run_mutating() {
   local desc="$1"
   shift
