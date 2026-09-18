@@ -37,7 +37,18 @@ _visible_len() {
   # passou a gastar 3-5 segundos POR LINHA e estourou o limite de 5 minutos do
   # CI em Set/2026. A maioria esmagadora das chamadas e nome de pacote e
   # descricao em ASCII.
-  if [[ "$text" != *$'\033'* && "$text" != *[!$'\x20'-$'\x7e']* ]]; then
+  # A exclusao da barra invertida NAO e excesso de zelo: as cores deste
+  # codebase sao guardadas como TEXTO literal ("\033[38;2;...m", nao $'...'),
+  # e so viram escape no printf %b, na hora de imprimir. Ou seja, uma string
+  # colorida e composta apenas de caracteres ASCII imprimiveis e passaria por
+  # este teste, fazendo o caminho rapido contar os ~20 caracteres de cada
+  # codigo de cor como se fossem visiveis.
+  #
+  # Foi exatamente o que aconteceu quando este atalho foi introduzido: o texto
+  # de introducao do resumo media 163 colunas em vez de 76 e quebrava em tres
+  # linhas curtas num terminal de 88. Toda string com cor tem barra invertida;
+  # texto comum quase nunca tem.
+  if [[ "$text" != *$'\033'* && "$text" != *'\'* && "$text" != *[!$'\x20'-$'\x7e']* ]]; then
     echo "${#text}"
     return 0
   fi
