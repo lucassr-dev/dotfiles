@@ -337,6 +337,50 @@ doctor_checar_path() {
   (( mortas == 0 )) && doctor_registrar ok "$secao" "entradas mortas" "nenhuma"
 }
 
+# ─── Backup acumulado ──────────────────────────────────────────────────────
+
+# O instalador e o set_theme.sh criam um diretorio de backup por execucao e
+# nunca limpam. Cada um sozinho e barato; vinte deles sao lixo que ninguem
+# olha, e que some no meio dos arquivos do home.
+#
+# Nao apaga nada: diz quanto ha, de quando, e o comando. Backup e rede de
+# seguranca -- quem decide quando ela pode cair e o dono.
+DOCTOR_BACKUPS_LIMITE="${DOCTOR_BACKUPS_LIMITE:-5}"
+DOCTOR_BACKUPS_DIAS="${DOCTOR_BACKUPS_DIAS:-30}"
+
+doctor_checar_backups() {
+  local secao="Backups" padrao quantos
+  local -a achados=()
+
+  for padrao in "$HOME"/.bkp-* ; do
+    [[ -d "$padrao" ]] && achados+=("$padrao")
+  done
+
+  quantos=${#achados[@]}
+  if (( quantos == 0 )); then
+    doctor_registrar ok "$secao" "acumulados" "nenhum"
+    return 0
+  fi
+
+  local tamanho antigos=0 dir
+  tamanho=$(du -ch "${achados[@]}" 2>/dev/null | tail -1 | cut -f1)
+
+  for dir in "${achados[@]}"; do
+    if [[ -n "$(find "$dir" -maxdepth 0 -mtime "+${DOCTOR_BACKUPS_DIAS}" 2>/dev/null)" ]]; then
+      antigos=$(( antigos + 1 ))
+    fi
+  done
+
+  if (( quantos > DOCTOR_BACKUPS_LIMITE )) || (( antigos > 0 )); then
+    local detalhe="${quantos} diretório(s), ${tamanho}"
+    (( antigos > 0 )) && detalhe+=", ${antigos} com mais de ${DOCTOR_BACKUPS_DIAS} dias"
+    doctor_registrar aviso "$secao" "acumulados" "$detalhe" \
+      "revise e apague o que nao precisa mais: ls -dt ~/.bkp-*"
+  else
+    doctor_registrar ok "$secao" "acumulados" "${quantos} diretório(s), ${tamanho}"
+  fi
+}
+
 # ─── Divergencia entre repositorio e sistema ───────────────────────────────
 
 # igual | diferente | so_sistema | so_repo | ausente
@@ -480,6 +524,7 @@ run_doctor() {
   doctor_checar_permissoes
   doctor_checar_path
   doctor_checar_runtimes
+  doctor_checar_backups
   doctor_checar_divergencia
   doctor_checar_neovim
 

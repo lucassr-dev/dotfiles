@@ -389,3 +389,61 @@ print(len(pos))
   '
   [[ "$output" != *"mise/shims"* ]] || { echo "$output" >&2; return 1; }
 }
+
+# ─── Backup acumulado ──────────────────────────────────────────────────────
+#
+# O instalador e o set_theme.sh criam um diretorio de backup por execucao e
+# nunca limpam. Aqui se acumularam 21 antes de alguem reparar.
+#
+# A checagem NAO apaga nada: backup e rede de seguranca e quem decide quando
+# ela pode cair e o dono. Ela so diz quanto ha, de quando, e o comando.
+
+@test "sem backup nenhum, diz nenhum" {
+  run _doutor 'doctor_reiniciar; doctor_checar_backups
+    for e in "${DOCTOR_RESULTADOS[@]}"; do echo "$e"; done'
+  [[ "$output" == *"acumulados|nenhum"* ]] || { echo "$output" >&2; return 1; }
+  [[ "$output" == ok\|* ]]
+}
+
+@test "poucos backups recentes nao viram aviso" {
+  mkdir -p "$TEST_HOME"/.bkp-a "$TEST_HOME"/.bkp-b
+  run _doutor 'doctor_reiniciar; doctor_checar_backups; echo "A=$DOCTOR_AVISOS"'
+  [[ "$output" == *"A=0"* ]] || { echo "$output" >&2; return 1; }
+}
+
+@test "acima do limite vira aviso com a contagem" {
+  local i
+  for i in 1 2 3 4 5 6 7; do mkdir -p "$TEST_HOME/.bkp-$i"; done
+  run _doutor 'doctor_reiniciar; doctor_checar_backups
+    echo "A=$DOCTOR_AVISOS"
+    for e in "${DOCTOR_RESULTADOS[@]}"; do echo "$e"; done'
+  [[ "$output" == *"A=1"* ]] || { echo "$output" >&2; return 1; }
+  [[ "$output" == *"7 diretório(s)"* ]] || { echo "$output" >&2; return 1; }
+}
+
+@test "backup antigo vira aviso mesmo sendo poucos" {
+  mkdir -p "$TEST_HOME/.bkp-velho"
+  touch -d "60 days ago" "$TEST_HOME/.bkp-velho"
+  run _doutor 'doctor_reiniciar; doctor_checar_backups
+    echo "A=$DOCTOR_AVISOS"
+    for e in "${DOCTOR_RESULTADOS[@]}"; do echo "$e"; done'
+  [[ "$output" == *"A=1"* ]] || { echo "$output" >&2; return 1; }
+  [[ "$output" == *"mais de 30 dias"* ]] || { echo "$output" >&2; return 1; }
+}
+
+@test "o limite e configuravel" {
+  local i
+  for i in 1 2 3; do mkdir -p "$TEST_HOME/.bkp-$i"; done
+  run _doutor 'doctor_reiniciar; DOCTOR_BACKUPS_LIMITE=2; doctor_checar_backups; echo "A=$DOCTOR_AVISOS"'
+  [[ "$output" == *"A=1"* ]] || { echo "$output" >&2; return 1; }
+}
+
+@test "a checagem de backup nao apaga nada" {
+  mkdir -p "$TEST_HOME"/.bkp-um "$TEST_HOME"/.bkp-dois
+  echo "conteudo" > "$TEST_HOME/.bkp-um/arquivo"
+  local antes
+  antes=$(find "$TEST_HOME" -name '.bkp-*' -o -path '*/.bkp-*' | sort | md5sum)
+  _doutor 'doctor_reiniciar; doctor_checar_backups' >/dev/null 2>&1
+  [ "$(find "$TEST_HOME" -name '.bkp-*' -o -path '*/.bkp-*' | sort | md5sum)" = "$antes" ]
+  [ -f "$TEST_HOME/.bkp-um/arquivo" ]
+}
