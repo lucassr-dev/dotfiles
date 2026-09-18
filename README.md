@@ -5,6 +5,21 @@
 ![macOS](https://img.shields.io/badge/macOS-Homebrew-000000?logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-winget%20%7C%20scoop-0078D4?logo=windows&logoColor=white)
 ![Shell](https://img.shields.io/badge/bash-4.0%2B-4EAA25?logo=gnubash&logoColor=white)
+```
+██╗     ██╗   ██╗ ██████╗ █████╗ ███████╗███████╗██████╗       ██████╗ ███████╗██╗   ██╗
+██║     ██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝██╔══██╗      ██╔══██╗██╔════╝██║   ██║
+██║     ██║   ██║██║     ███████║███████╗███████╗██████╔╝█████╗██║  ██║█████╗  ██║   ██║
+██║     ██║   ██║██║     ██╔══██║╚════██║╚════██║██╔══██╗╚════╝██║  ██║██╔══╝  ╚██╗ ██╔╝
+███████╗╚██████╔╝╚██████╗██║  ██║███████║███████║██║  ██║      ██████╔╝███████╗ ╚████╔╝
+╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝      ╚═════╝ ╚══════╝  ╚═══╝
+           🌐 https://lucassr.dev  │  📦 https://github.com/lucassr-dev/.config
+                          Bem-vindo ao Instalador de Dotfiles
+                               O que este instalador faz:
+               ✓ Shells + temas │ CLI tools + runtimes │ Git multi-conta
+                     ✓ Apps GUI por categoria │ backups automáticos
+                     → Selecione o que instalar e confirme ao final
+```
+
 
 Um instalador que monta uma máquina de desenvolvimento inteira — shells, editores,
 runtimes, ferramentas de linha de comando e apps — a partir de um comando, nos três
@@ -29,6 +44,7 @@ cd ~/.config && bash install.sh
 - [Comandos](#-comandos)
 - [Temas](#-temas)
 - [Neovim](#-neovim)
+- [Como é na prática](#-como-é-na-prática)
 - [O que Instala](#-o-que-instala)
 - [Configurações Incluídas](#-configurações-incluídas)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
@@ -124,6 +140,90 @@ exemplo). O script instala o que falta e avisa quando não consegue, em vez de g
 nome de tema que a ferramenta vai ignorar em silêncio.
 
 </details>
+
+---
+
+## 🖥️ Como é na prática
+
+Tudo abaixo é **saída real** do instalador, colada aqui sem edição — não é mockup.
+Por isso envelhece junto com o código: se a tela mudar e a captura não, o diff denuncia.
+
+### A tela de revisão
+
+Antes de instalar qualquer coisa, o instalador mostra o plano inteiro e deixa você
+ajustar qualquer grupo pelo número. Nada é escrito no disco até você confirmar.
+
+```
+──────────────────────────────────────────────────────────────────────────────────
+  📋 RESUMO FINAL
+  Revise o plano abaixo. Use 0-8 para ajustar qualquer grupo antes de iniciar.
+──────────────────────────────────────────────────────────────────────────────────
+  37 pacotes   3 configs   🐧 Linux
+  Ações extras:  Starship
+  Backup:        (criado sob demanda, se necessário)
+── 🏠 AMBIENTE (11) ──────────────────────────────────────────────────────────────
+  Shells:    zsh, fish
+  Terminais: ghostty, kitty
+  Temas:     OMZ+P10k, Starship
+  Fontes:    FiraCode, JetBrainsMono, Hack, Meslo, CascadiaCode
+── 🔧 FERRAMENTAS (26) ───────────────────────────────────────────────────────────
+  CLI:       zoxide, eza, bat, ripgrep, fd, delta, lazygit, gh, jq, direnv, btop,
+               tmux, yazi, procs, mise
+  IA:        claude-code, codex, opencode, gemini-cli
+  Runtimes:  node, python, php, rust, deno, bun, go
+── 📋 COPIAR CONFIGURAÇÕES (3) ──────────────────────────────────────────────────
+  Shells:      ✓ Zsh  ✓ Fish  · Starship
+  Terminais:   · ghostty  · kitty
+  Runtimes:    · Mise
+  Ferramentas: ✓ tmux  · lazygit  · yazi  · btop  ✓ bat  · direnv  · SSH Keys
+── ✏️ AJUSTAR SELEÇÕES ───────────────────────────────────────────────────────────
+  Digite o número da seção que deseja revisar:
+  [0] Configs (3)            [1] Shells (2)             [2] Fontes (5)
+  [3] Terminais (2)          [4] CLI (15)               [5] IA (4)
+  [6] Apps GUI (0)           [7] Runtimes (7)           [8] Git
+  ⏎ Enter iniciar instalação    S sair
+──────────────────────────────────────────────────────────────────────────────────
+  →
+```
+
+O `✓` é o que foi escolhido, o `·` o que ficou de fora. São símbolos diferentes de
+propósito: quem lê sem cor — em pipe, em CI, num terminal monocromático — continua
+distinguindo os dois.
+
+### Enquanto instala
+
+Cada etapa mostra o progresso e o que está fazendo:
+
+```
+╭─ [2/13] Ferramentas CLI ──────────────────────────────────────── 15% ─╮
+│  17 ferramentas selecionadas
+▶ Instalando Ferramentas CLI selecionadas
+  ✓ zoxide já instalado
+  ✓ eza já instalado
+  📦 Instalando bottom via cargo (bottom)...
+╰─ ✓ Concluido ──────────────────────────────────────────────── 1s ─╯
+```
+
+### Ao terminar
+
+```
+  ✓ INSTALAÇÃO CONCLUÍDA
+
+  ── 📌 STATUS GERAL ───────────────────────────────────────────────
+    Status:      Concluída
+    Instalados:  25
+    Configs:     10
+    Tempo total: 29m 45s
+    Log:         ~/.dotfiles-install-20260917-150819.log
+
+  ── 🔧 FERRAMENTAS ──────────  ── ⚡ RUNTIMES ────────────────────
+    • Git 2.53.0                  • Node 24.14.1
+    • Neovim v0.12.5              • Python 3.14.7
+    • Starship 1.24.2             • Rust 1.94.1
+```
+
+Quando algo falha, a falha aparece **logo após o status**, não no rodapé: crítica em
+vermelho, opcional em amarelo. Sem falha nenhuma, a seção não existe.
 
 ---
 
