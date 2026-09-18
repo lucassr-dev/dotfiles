@@ -285,22 +285,26 @@ O instalador é **interativo** — você escolhe o que instalar em cada categori
 | `topgrade` | Atualiza tudo (pkgs/rust/mise/brew/...) de uma vez |
 </details>
 
-### 🤖 Ferramentas IA (9)
+### 🤖 Ferramentas IA (13)
 
 <details>
-<summary>As 9 ferramentas</summary>
+<summary>As 13 ferramentas</summary>
 
 | Ferramenta | Descrição |
 |---|---|
 | `claude-code` | CLI oficial do Claude (Anthropic) |
 | `aider` | AI pair programming (25K+ GitHub stars) |
 | `codex` | Codex CLI da OpenAI (assistente no terminal) |
+| `gemini-cli` | CLI oficial do Gemini (Google) |
+| `opencode` | Agente de terminal open-source multi-model |
+| `crush` | Agente de terminal da Charm (multi-model) |
 | `continue` | Open-source AI assistant para IDEs |
 | `goose` | AI agent framework (Block/Square) |
 | `spec-kit` | Spec-driven development (GitHub Spec Kit) |
 | `serena` | Assistente de código com IA (Language Server) |
 | `ollama` | Runtime LLM local (modelos open-source) |
 | `promptfoo` | Framework de eval/testing para LLMs |
+| `llm` | Chamada de modelo via pipe, para scripts (Simon Willison) |
 </details>
 
 ### 🚀 Runtimes (via mise)
@@ -578,30 +582,74 @@ export PATH="$HOME/.fzf/bin:$PATH"
 
 ### 2026-09
 
-- **Temas entre ferramentas** — um comando aplica catppuccin-mocha, tokyo-night ou
-  gruvbox-dark a oito ferramentas de terminal, com catálogo declarativo e marcadores
-  nos arquivos de configuração
-- **Neovim modernizado** — LSP corrigido em `.tsx`, migração para snacks e blink.cmp,
-  63 plugins, 16 critérios de aceite automatizados
-- **`DRY_RUN` de verdade** — passou a valer também para operações de usuário
-  (`cargo install`, `git clone`, escrita no `.zshrc`), não só para as que pedem sudo
-- **Barreira de credencial no export** — material secreto só é copiado para caminhos
-  que o espelho público exclui
-- **btop de pacote nativo** — em vez de snap ou flatpak, que não conseguem ler
-  `~/.config` e faziam a configuração ser ignorada em silêncio
-- `lib/themes.sh` dividido em preview, seleção e instalação
+Revisão longa: segurança do modo export, simulação que de fato simula, e a
+interface refeita.
+
+**Segurança**
+- Barreira de material secreto no `export`: credencial só é copiada para caminho
+  que o espelho público exclui, e as duas listas são travadas por teste
+- `install.sh export` deixou de sobrescrever a lista de extensões do VS Code
+  durante um dry-run — uma simulação apagava 73 das 108
+
+**`DRY_RUN` passou a valer**
+- Cobria só operações com `sudo`. Agora cobre `cargo install`, `git clone`,
+  escrita em `.zshrc`, `mise`, download de fontes e instalação de app GUI no
+  Windows e no macOS
+- Nem log nem checkpoint são escritos em `$HOME` durante simulação
+
+**Temas**
+- Um comando aplica `catppuccin-mocha`, `tokyo-night` ou `gruvbox-dark` a oito
+  ferramentas; o ciclo entre temas é reversível e idempotente
+- `btop` passou a vir de pacote nativo: em snap ou flatpak ele não lê `~/.config`
+  e a configuração era ignorada em silêncio
+
+**Interface**
+- Telas refeitas com hierarquia visual: o número se destaca, o rótulo recua
+- Vocabulário único de estado (`✓` `✗` `·`), legível sem cor
+- Falhas aparecem logo após o status, não no rodapé; crítica e opcional se
+  distinguem
+- Corrigido layout que vazava em terminal estreito — o seletor de CLI estourava
+  em **qualquer** largura, não só nas pequenas
+
+**Neovim**
+- LSP corrigido em `.tsx` (quatro servidores anexam), migração para `snacks` e
+  `blink.cmp`, colisões de atalho resolvidas, 16 critérios de aceite
+  automatizados
+
+**Base**
+- `lib/core.sh` extraído: a camada de biblioteca passou a rodar isolada, o que
+  destravou a suíte de testes (74, de 56)
+- `install.sh` de 3.264 para ~2.100 linhas, com `ssh`, `export` e as telas de
+  seleção em módulos próprios
+- Catálogo auditado contra os registries reais: 7 pacotes não existiam mais
+- CI cobre `scripts/` e `data/`, e roda dry-run nos três sistemas
+
+### 2026-04
+
+- `config.fish` reescrito
+- Cópia de configs virou tabela declarativa, com os casos especiais isolados
+- Catálogo de apps modernizado
+- Backup unificado em `$BACKUP_DIR`, criado sob demanda
+- Cobertura de lacunas em Windows e macOS, e cache de fontes
+
+### 2026-03
+
+- SSH multi-conta completo, com resolução de conflito ao copiar chave
+- Telas do instalador redesenhadas; toggle inline no resumo final
+- Auditoria de segurança, código morto e compatibilidade
+- Defaults dos `.gitconfig` pré-carregados nos prompts
+- Timeouts de `curl` unificados
 
 ### 2026-02
 
-- 🎨 **Catppuccin Mocha** como tema padrão em todas as ferramentas
-- 🐚 Suporte a **Nushell** e **Oh My Posh**
-- 🤖 Seção de **ferramentas IA** (Claude Code, Aider, Codex, Continue, Goose, Serena, Spec Kit)
-- 🔄 Migração **Alacritty YAML → TOML** (formato v0.13+)
-- 🔧 Lazygit config atualizada (propriedades deprecated removidas)
-- 🧹 Configs de package managers simplificadas
-- 🧹 Lista de apps auditada com descrições em todos os itens
+- **Catppuccin Mocha** como tema padrão em todas as ferramentas
+- Suporte a **Nushell** e **Oh My Posh**
+- Seção de **ferramentas de IA**
+- Migração Alacritty YAML → TOML (formato v0.13+)
+- Configs de package managers simplificadas
 
 ### 2026-01
+
 
 - ✨ Sistema de prioridade de instalação
 - ✨ Auto-instalação do Homebrew no macOS
